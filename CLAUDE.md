@@ -121,7 +121,7 @@ User
                          +---- Budget / Expenses
 ```
 
-This is conceptual, **not** the final SQL schema.
+This is conceptual, **not** the final SQL schema. The concrete table design (reviewed 2026-09-28) lives in `docs/data-model.md`.
 
 ## 5. Users, travelers and permissions
 
