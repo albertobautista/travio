@@ -1,0 +1,138 @@
+"use client";
+
+import Link from "next/link";
+import { useActionState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { CURRENCIES, DEFAULT_CURRENCY } from "@/lib/trips/currencies";
+
+import { createTrip } from "./actions";
+
+export function NewTripForm() {
+  const [state, action, pending] = useActionState(createTrip, undefined);
+  const errors = state?.fieldErrors ?? {};
+  const values = state?.values;
+
+  return (
+    <form action={action} className="flex flex-col gap-5" noValidate>
+      <FormField id="name" label="Nombre del viaje" error={errors.name}>
+        <Input
+          id="name"
+          name="name"
+          required
+          maxLength={120}
+          placeholder="Europa 2026"
+          defaultValue={values?.name}
+          aria-invalid={Boolean(errors.name)}
+          aria-describedby={errors.name ? "name-error" : undefined}
+          className="h-11"
+        />
+      </FormField>
+
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium">Fechas</legend>
+        <p className="text-xs text-muted-foreground">Opcional: puedes agregarlas después.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <FormField id="start_date" label="Salida" error={errors.start_date} small>
+            <Input
+              id="start_date"
+              name="start_date"
+              type="date"
+              defaultValue={values?.start_date}
+              aria-invalid={Boolean(errors.start_date)}
+              aria-describedby={errors.start_date ? "start_date-error" : undefined}
+              className="h-11"
+            />
+          </FormField>
+          <FormField id="end_date" label="Regreso" error={errors.end_date} small>
+            <Input
+              id="end_date"
+              name="end_date"
+              type="date"
+              defaultValue={values?.end_date}
+              aria-invalid={Boolean(errors.end_date)}
+              aria-describedby={errors.end_date ? "end_date-error" : undefined}
+              className="h-11"
+            />
+          </FormField>
+        </div>
+      </fieldset>
+
+      <FormField id="currency" label="Moneda del viaje" error={errors.currency}>
+        <select
+          id="currency"
+          name="currency"
+          defaultValue={values?.currency ?? DEFAULT_CURRENCY}
+          aria-invalid={Boolean(errors.currency)}
+          aria-describedby={errors.currency ? "currency-error" : undefined}
+          className="h-11 w-full rounded-lg border border-input bg-card px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
+        >
+          {CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.code} · {c.label}
+            </option>
+          ))}
+        </select>
+      </FormField>
+
+      <FormField id="description" label="Notas" error={errors.description}>
+        <Textarea
+          id="description"
+          name="description"
+          rows={3}
+          maxLength={2000}
+          placeholder="Ideas, motivo del viaje, pendientes…"
+          defaultValue={values?.description}
+          aria-invalid={Boolean(errors.description)}
+          aria-describedby={errors.description ? "description-error" : undefined}
+        />
+      </FormField>
+
+      {state?.error && (
+        <p role="alert" className="text-sm text-destructive">
+          {state.error}
+        </p>
+      )}
+
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <Button variant="outline" size="lg" asChild>
+          <Link href="/viajes">Cancelar</Link>
+        </Button>
+        <Button type="submit" size="lg" disabled={pending}>
+          {pending ? "Creando…" : "Crear viaje"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function FormField({
+  id,
+  label,
+  error,
+  small,
+  children,
+}: {
+  id: string;
+  label: string;
+  error?: string;
+  small?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id} className={small ? "text-xs text-muted-foreground" : undefined}>
+        {label}
+      </Label>
+      {children}
+      {error && (
+        <p id={`${id}-error`} className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
