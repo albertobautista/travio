@@ -4,6 +4,8 @@
 > Source: Alberto's "Context" Google Doc (last updated September 25, 2026), plus decisions and designs shared later in the project.
 > Language: Alberto often writes in Spanish; reply in Spanish unless asked otherwise.
 
+@AGENTS.md
+
 ## Short AI handoff
 
 You are helping build **Travio**, a mobile-first travel planning web app using Next.js, TypeScript, Tailwind, shadcn/ui and Supabase. Google Maps/Places is the mapping solution. Supabase provides PostgreSQL, Auth and private Storage. Authentication initially supports Google and email/password; Apple is deliberately out of scope.
@@ -94,6 +96,10 @@ Initial stack:
 - Weather API/provider: to be selected
 
 Do not introduce unnecessary infrastructure for the MVP.
+
+**Data access (decided 2026-09-28)**: no ORM. Schema changes are hand-written SQL migrations managed with the Supabase CLI; the app talks to the database through `supabase-js` with the user's session (so RLS always applies), using types generated with `supabase gen types`.
+
+**Repository setup**: Next.js 16 (App Router, `src/` dir, `@/*` alias), Tailwind v4, shadcn/ui (Radix, "nova" style, Lucide icons), npm. Mockup palette lives as CSS variables in `src/app/globals.css` (`primary`, `success*`, `warning*`, `timeline`, …); use those tokens, not raw hex values.
 
 **Authentication**: Supabase Auth with Google and email/password. Sign in with Apple is intentionally excluded from the initial scope (can be reconsidered later).
 
@@ -362,7 +368,7 @@ When assisting with Travio:
 Do not silently decide these. Discuss them with Alberto before implementation when they become relevant:
 
 - [ ] Exact final SQL schema
-- [ ] ORM vs direct Supabase client/database approach
+- [x] ORM vs direct Supabase client/database approach (no ORM, see section 3)
 - [ ] Final weather provider
 - [ ] Hosting/deployment details
 - [ ] Exact Google Maps APIs enabled
