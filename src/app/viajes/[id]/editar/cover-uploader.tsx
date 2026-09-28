@@ -4,8 +4,8 @@ import { useRef, useState, useTransition } from "react";
 import { ImagePlus, Loader2, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
-import { COVER_ACCEPT, COVERS_BUCKET, isCoverType, newCoverPath, validateCoverFile } from "@/lib/trips/covers";
+import { COVER_ACCEPT, isCoverType, validateCoverFile } from "@/lib/trips/covers";
+import { uploadCoverFile } from "@/lib/trips/upload-cover";
 
 import { removeTripCover, setTripCover } from "./cover-actions";
 
@@ -18,8 +18,7 @@ type Props = {
 /**
  * Upload flow:
  * 1. Check type and size here, for instant feedback (the bucket checks again).
- * 2. Upload the file from the browser straight to Supabase Storage. The file
- *    never passes through our Next.js server; Storage RLS decides if it's allowed.
+ * 2. Upload the file from the browser straight to Storage (uploadCoverFile).
  * 3. Call a Server Action to save the path on the trip and delete the old file.
  */
 export function CoverUploader({ tripId, coverUrl }: Props) {
@@ -38,23 +37,16 @@ export function CoverUploader({ tripId, coverUrl }: Props) {
     }
 
     setUploading(true);
-    const path = newCoverPath(tripId, file.type);
-    const supabase = createClient();
-    const { error: uploadError } = await supabase.storage.from(COVERS_BUCKET).upload(path, file, {
-      contentType: file.type,
-      upsert: false, // never overwrite; every cover gets a new name
-      cacheControl: "3600",
-    });
+    const upload = await uploadCoverFile(tripId, file);
     setUploading(false);
 
-    if (uploadError) {
-      console.error("Cover upload failed", uploadError);
-      setError("No pudimos subir la imagen. Revisa tu conexión e inténtalo de nuevo.");
+    if ("error" in upload) {
+      setError(upload.error);
       return;
     }
 
     startSaving(async () => {
-      const result = await setTripCover(tripId, path);
+      const result = await setTripCover(tripId, upload.path);
       if (result.error) setError(result.error);
     });
   }

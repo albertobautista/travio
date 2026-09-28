@@ -16,6 +16,8 @@ export type TripFormState =
       // React resets a form after its action runs; we send the values back so
       // the user doesn't lose what they typed when validation fails.
       values?: TripFormValues;
+      /** Set by createTrip when the browser still has a cover to upload. */
+      createdTripId?: string;
     }
   | undefined;
 

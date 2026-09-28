@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,16 +17,41 @@ type TripFormProps = {
   submitLabel: string;
   pendingLabel: string;
   cancelHref: string;
+  /** Extra controls rendered at the top of the form (e.g. the cover picker). */
+  children?: React.ReactNode;
+  /** Called once when the action reports a created trip instead of redirecting. */
+  onCreated?: (tripId: string) => void;
+  /** Work the parent is doing after the action (e.g. uploading); disables the form. */
+  busyLabel?: string | null;
 };
 
-export function TripForm({ action: serverAction, initialValues, submitLabel, pendingLabel, cancelHref }: TripFormProps) {
+export function TripForm({
+  action: serverAction,
+  initialValues,
+  submitLabel,
+  pendingLabel,
+  cancelHref,
+  children,
+  onCreated,
+  busyLabel,
+}: TripFormProps) {
   const [state, action, pending] = useActionState(serverAction, undefined);
   const errors = state?.fieldErrors ?? {};
   // After a failed submit, show what the user typed; otherwise the saved values.
   const values = state?.values ?? initialValues;
 
+  const reported = useRef<string | null>(null);
+  useEffect(() => {
+    const id = state?.createdTripId;
+    if (id && reported.current !== id && onCreated) {
+      reported.current = id;
+      onCreated(id);
+    }
+  }, [state, onCreated]);
+
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
+      {children}
       <FormField id="name" label="Nombre del viaje" error={errors.name}>
         <Input
           id="name"
@@ -110,8 +135,8 @@ export function TripForm({ action: serverAction, initialValues, submitLabel, pen
         <Button variant="outline" size="lg" asChild>
           <Link href={cancelHref}>Cancelar</Link>
         </Button>
-        <Button type="submit" size="lg" disabled={pending}>
-          {pending ? pendingLabel : submitLabel}
+        <Button type="submit" size="lg" disabled={pending || Boolean(busyLabel)}>
+          {busyLabel ?? (pending ? pendingLabel : submitLabel)}
         </Button>
       </div>
     </form>

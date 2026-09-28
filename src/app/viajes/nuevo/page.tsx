@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
-import { TripForm } from "@/components/trips/trip-form";
-
-import { createTrip } from "./actions";
+import { NewTripForm } from "./new-trip-form";
 
 export const metadata: Metadata = {
   title: "Nuevo viaje · Travio",
@@ -27,7 +25,7 @@ export default function NewTripPage() {
         </p>
       </header>
       <div className="rounded-2xl border bg-card p-5">
-        <TripForm action={createTrip} submitLabel="Crear viaje" pendingLabel="Creando…" cancelHref="/viajes" />
+        <NewTripForm />
       </div>
     </main>
   );

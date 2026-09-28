@@ -16,8 +16,10 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/edita
   return { title: trip ? `Editar ${trip.name} · Travio` : "Editar viaje · Travio" };
 }
 
-export default async function EditTripPage({ params }: PageProps<"/viajes/[id]/editar">) {
+export default async function EditTripPage({ params, searchParams }: PageProps<"/viajes/[id]/editar">) {
   const { id } = await params;
+  // Set by "Nuevo viaje" when the trip was created but its cover upload failed.
+  const coverFailed = (await searchParams).portada === "error";
   const [trip, role] = await Promise.all([getTrip(id), getMyTripRole(id)]);
 
   if (!trip) notFound();
@@ -45,6 +47,11 @@ export default async function EditTripPage({ params }: PageProps<"/viajes/[id]/e
         <h2 id="cover-heading" className="font-semibold">
           Foto de portada
         </h2>
+        {coverFailed && !coverUrl && (
+          <p role="alert" className="rounded-lg bg-warning-soft p-3 text-sm text-warning-foreground">
+            El viaje se creó, pero no pudimos subir la foto. Inténtalo de nuevo aquí.
+          </p>
+        )}
         <CoverUploader tripId={trip.id} coverUrl={coverUrl} />
       </section>
 
