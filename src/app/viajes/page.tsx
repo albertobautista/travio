@@ -7,6 +7,7 @@ import { TripCard, type TripCardData } from "@/components/trips/trip-card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { initials } from "@/lib/initials";
+import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { getTripStatus, todayIn, type TripStatus } from "@/lib/trips/dates";
 import { createClient } from "@/lib/supabase/server";
 
@@ -49,12 +50,22 @@ export default async function TripsPage({ searchParams }: PageProps<"/viajes">) 
   // No filter by user needed: RLS only returns trips this user is a member of.
   const [{ data: profile }, { data: rows, error }] = await Promise.all([
     supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
-    supabase.from("trips").select("id, name, start_date, end_date"),
+    supabase.from("trips").select("id, name, start_date, end_date, cover_image_path"),
   ]);
+
+  // One batch request signs every cover on the page.
+  const coverUrls = await getCoverUrls((rows ?? []).map((t) => t.cover_image_path));
 
   const today = todayIn();
   const allTrips: TripCardData[] = (rows ?? [])
-    .map((t) => ({ ...t, status: getTripStatus(t.start_date, t.end_date, today) }))
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      start_date: t.start_date,
+      end_date: t.end_date,
+      status: getTripStatus(t.start_date, t.end_date, today),
+      coverUrl: t.cover_image_path ? (coverUrls.get(t.cover_image_path) ?? null) : null,
+    }))
     .sort(compareTrips);
   const trips = allTrips.filter((t) => filter.matches(t.status));
 

@@ -98,6 +98,9 @@ isOneToOne: false
 "transfer_trip_ownership":
 { Args: { "p_new_owner_id": string,"p_trip_id": string }; Returns: undefined
                            },
+"trip_id_from_storage_path":
+{ Args: { "p_name": string }; Returns: string
+                           },
 "trip_role":
 { Args: { "p_trip_id": string }; Returns: string
                            }

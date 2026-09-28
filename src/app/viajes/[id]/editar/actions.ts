@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { COVERS_BUCKET } from "@/lib/trips/covers";
+import { canDelete, toTripRole } from "@/lib/trips/queries";
 import { parseTripForm, type TripFormState } from "@/lib/trips/trip-form";
 import { isUuid } from "@/lib/uuid";
 
@@ -44,6 +46,24 @@ export async function deleteTrip(tripId: string): Promise<DeleteTripState> {
   }
 
   const supabase = await createClient();
+
+  const { data: trip } = await supabase.from("trips").select("cover_image_path").eq("id", tripId).maybeSingle();
+  if (!trip) return { error: "Este viaje no existe." };
+  // Checked up front so an editor can't delete the cover and then fail to
+  // delete the trip.
+  const { data: role } = await supabase.rpc("trip_role", { p_trip_id: tripId });
+  if (!canDelete(toTripRole(role))) {
+    return { error: "Solo el propietario puede borrar este viaje." };
+  }
+
+  // Files first: `on delete cascade` only reaches database rows, not Storage.
+  // And it must happen before the trip is gone, because the Storage delete
+  // policy checks the user's role in the trip.
+  if (trip.cover_image_path) {
+    const { error: removeError } = await supabase.storage.from(COVERS_BUCKET).remove([trip.cover_image_path]);
+    if (removeError) console.error("Could not delete cover of deleted trip", removeError);
+  }
+
   // Only the owner passes the delete policy. Members, and later stops,
   // activities, etc., go with it through `on delete cascade`.
   const { data, error } = await supabase.from("trips").delete().eq("id", tripId).select("id");

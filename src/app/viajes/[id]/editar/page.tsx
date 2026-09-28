@@ -4,9 +4,11 @@ import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
 import { TripForm } from "@/components/trips/trip-form";
+import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { canDelete, canEdit, getMyTripRole, getTrip } from "@/lib/trips/queries";
 
 import { updateTrip } from "./actions";
+import { CoverUploader } from "./cover-uploader";
 import { DeleteTripButton } from "./delete-trip-button";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/editar">): Promise<Metadata> {
@@ -23,6 +25,9 @@ export default async function EditTripPage({ params }: PageProps<"/viajes/[id]/e
   // blocked by RLS; this just avoids showing a form that can't be saved.)
   if (!canEdit(role)) redirect(`/viajes/${trip.id}`);
 
+  const coverUrls = await getCoverUrls([trip.cover_image_path]);
+  const coverUrl = trip.cover_image_path ? (coverUrls.get(trip.cover_image_path) ?? null) : null;
+
   return (
     <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 py-6">
       <header className="flex flex-col gap-2">
@@ -35,6 +40,13 @@ export default async function EditTripPage({ params }: PageProps<"/viajes/[id]/e
         </Link>
         <h1 className="text-3xl font-bold tracking-tight">Editar viaje</h1>
       </header>
+
+      <section aria-labelledby="cover-heading" className="flex flex-col gap-3 rounded-2xl border bg-card p-5">
+        <h2 id="cover-heading" className="font-semibold">
+          Foto de portada
+        </h2>
+        <CoverUploader tripId={trip.id} coverUrl={coverUrl} />
+      </section>
 
       <div className="rounded-2xl border bg-card p-5">
         <TripForm

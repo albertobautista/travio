@@ -21,7 +21,7 @@ export const getTrip = cache(async (id: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("trips")
-    .select("id, name, description, start_date, end_date, currency")
+    .select("id, name, description, start_date, end_date, currency, cover_image_path")
     .eq("id", id)
     .maybeSingle();
   return data;

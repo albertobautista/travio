@@ -14,6 +14,7 @@ import {
   getTripStatus,
   todayIn,
 } from "@/lib/trips/dates";
+import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { canEdit, getTrip, toTripRole } from "@/lib/trips/queries";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,20 +38,29 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   if (!trip) notFound();
 
   const supabase = await createClient();
-  const [{ data: claimsData }, { data: members }] = await Promise.all([
+  const [{ data: claimsData }, { data: members }, coverUrls] = await Promise.all([
     supabase.auth.getClaims(),
     supabase
       .from("trip_members")
       .select("user_id, role, profiles (display_name, avatar_url)")
       .eq("trip_id", trip.id)
       .order("created_at"),
+    getCoverUrls([trip.cover_image_path]),
   ]);
+  const coverUrl = trip.cover_image_path ? coverUrls.get(trip.cover_image_path) : undefined;
   const myRole = toTripRole(members?.find((m) => m.user_id === claimsData?.claims.sub)?.role);
 
   const today = todayIn();
   const status = getTripStatus(trip.start_date, trip.end_date, today);
   const days = getTripLengthDays(trip.start_date, trip.end_date);
   const dayNumber = getTripDayNumber(trip.start_date, trip.end_date, today);
+  const dateLine = [
+    formatTripDates(trip.start_date, trip.end_date),
+    days ? (days === 1 ? "1 día" : `${days} días`) : null,
+    dayNumber && days ? `día ${dayNumber} de ${days}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-6">
@@ -72,17 +82,29 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
         )}
       </div>
 
-      <header className="flex flex-col gap-2 rounded-2xl bg-secondary p-5">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="text-3xl font-bold tracking-tight">{trip.name}</h1>
-          <TripStatusBadge status={status} className="mt-2" />
-        </div>
-        <p className="text-foreground/80">
-          {formatTripDates(trip.start_date, trip.end_date)}
-          {days ? ` · ${days === 1 ? "1 día" : `${days} días`}` : ""}
-          {dayNumber && days ? ` · día ${dayNumber} de ${days}` : ""}
-        </p>
-      </header>
+      {coverUrl ? (
+        <header className="relative overflow-hidden rounded-[20px]">
+          {/* Plain <img>: signed URLs change on every load, so the Next image optimizer adds nothing. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={coverUrl} alt="" className="aspect-[16/9] w-full object-cover" />
+          {/* Solid dark band rather than text straight on the photo: stays readable on any image. */}
+          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-foreground/75 px-4 py-3 text-white">
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="text-2xl font-bold tracking-tight">{trip.name}</h1>
+              <TripStatusBadge status={status} className="mt-1" />
+            </div>
+            <p className="text-sm text-white/85">{dateLine}</p>
+          </div>
+        </header>
+      ) : (
+        <header className="flex flex-col gap-2 rounded-2xl bg-secondary p-5">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-3xl font-bold tracking-tight">{trip.name}</h1>
+            <TripStatusBadge status={status} className="mt-2" />
+          </div>
+          <p className="text-foreground/80">{dateLine}</p>
+        </header>
+      )}
 
       <dl className="grid grid-cols-3 gap-3">
         <StatTile label="Días" value={days ?? "—"} />
