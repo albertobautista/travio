@@ -226,11 +226,15 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                                   {booking.badge}
                                 </span>
                               )}
-                              {/* Only a subset is shown; no avatars means everyone goes. */}
-                              {a.participantIds.length > 0 && (
+                              {/* No participant rows means everyone goes, so show every traveler. */}
+                              {travelers.length > 0 && (
                                 <span className="ml-auto">
                                   <TravelerStack
-                                    travelers={a.participantIds.flatMap((pid) => travelerById.get(pid) ?? [])}
+                                    travelers={
+                                      a.participantIds.length > 0
+                                        ? a.participantIds.flatMap((pid) => travelerById.get(pid) ?? [])
+                                        : travelers
+                                    }
                                   />
                                 </span>
                               )}
