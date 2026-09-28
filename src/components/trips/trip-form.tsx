@@ -8,13 +8,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CURRENCIES, DEFAULT_CURRENCY } from "@/lib/trips/currencies";
+import type { TripFormState, TripFormValues } from "@/lib/trips/trip-form";
 
-import { createTrip } from "./actions";
+type TripFormProps = {
+  action: (prev: TripFormState, formData: FormData) => Promise<TripFormState>;
+  /** Current values when editing; empty when creating. */
+  initialValues?: TripFormValues;
+  submitLabel: string;
+  pendingLabel: string;
+  cancelHref: string;
+};
 
-export function NewTripForm() {
-  const [state, action, pending] = useActionState(createTrip, undefined);
+export function TripForm({ action: serverAction, initialValues, submitLabel, pendingLabel, cancelHref }: TripFormProps) {
+  const [state, action, pending] = useActionState(serverAction, undefined);
   const errors = state?.fieldErrors ?? {};
-  const values = state?.values;
+  // After a failed submit, show what the user typed; otherwise the saved values.
+  const values = state?.values ?? initialValues;
 
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
@@ -99,10 +108,10 @@ export function NewTripForm() {
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button variant="outline" size="lg" asChild>
-          <Link href="/viajes">Cancelar</Link>
+          <Link href={cancelHref}>Cancelar</Link>
         </Button>
         <Button type="submit" size="lg" disabled={pending}>
-          {pending ? "Creando…" : "Crear viaje"}
+          {pending ? pendingLabel : submitLabel}
         </Button>
       </div>
     </form>
