@@ -316,4 +316,6 @@ Other rules:
 4. **Deleting an entity keeps its files** as trip-level documents (`on delete set null`).
 5. **Default currency `MXN`** for new trips.
 
+Open, found while testing (2026-09-28): **what happens to a trip when its owner deletes their account?** Today the membership rows cascade away and `trips.created_by` becomes null, leaving a trip nobody can see. Options: block account deletion while owning trips with other members, auto-transfer to the oldest editor, or delete trips the user owns alone.
+
 Still open (from `CLAUDE.md`): ORM vs Supabase client, invitation flow, whether editors can invite, file size/type limits, budget/expense schema.

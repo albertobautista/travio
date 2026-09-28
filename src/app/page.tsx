@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Button } from "@/components/ui/button";
 
 export default function Home() {
@@ -7,7 +9,9 @@ export default function Home() {
         <h1 className="text-4xl font-bold tracking-tight">Travio</h1>
         <p className="text-muted-foreground">Tu viaje, todo en un lugar.</p>
       </div>
-      <Button size="lg">Empezar</Button>
+      <Button size="lg" asChild>
+        <Link href="/viajes">Empezar</Link>
+      </Button>
     </main>
   );
 }
