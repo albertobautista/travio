@@ -54,6 +54,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"activity_participants": {
+                  Row: {
+                    "activity_id": string,"created_at": string,"traveler_id": string,"trip_id": string
+                  }
+                  Insert: {
+                    "activity_id": string,"created_at"?: string,"traveler_id": string,"trip_id": string
+                  }
+                  Update: {
+                    "activity_id"?: string,"created_at"?: string,"traveler_id"?: string,"trip_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "activity_participants_trip_id_activity_id_fkey"
+      columns: ["trip_id","activity_id"]
+isOneToOne: false
+      referencedRelation: "activities"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "activity_participants_trip_id_traveler_id_fkey"
+      columns: ["trip_id","traveler_id"]
+isOneToOne: false
+      referencedRelation: "travelers"
+      referencedColumns: ["trip_id","id"]
+    }
+                  ]
                 },"profiles": {
                   Row: {
                     "avatar_url": string | null,"created_at": string,"display_name": string | null,"id": string,"updated_at": string
@@ -66,6 +91,37 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"travelers": {
+                  Row: {
+                    "color": string,"created_at": string,"created_by": string | null,"id": string,"name": string,"trip_id": string,"updated_at": string,"user_id": string | null
+                  }
+                  Insert: {
+                    "color"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"name": string,"trip_id": string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Update: {
+                    "color"?: string,"created_at"?: string,"created_by"?: string | null,"id"?: string,"name"?: string,"trip_id"?: string,"updated_at"?: string,"user_id"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "travelers_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "travelers_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "travelers_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"trip_members": {
                   Row: {
@@ -153,6 +209,9 @@ isOneToOne: false
                            },
 "move_trip_stop":
 { Args: { "p_direction": number,"p_stop_id": string }; Returns: undefined
+                           },
+"set_activity_participants":
+{ Args: { "p_activity_id": string,"p_traveler_ids": (string)[] }; Returns: undefined
                            },
 "shares_trip_with":
 { Args: { "p_user_id": string }; Returns: boolean

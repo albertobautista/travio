@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
+import { TravelerAvatar } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,12 +18,21 @@ import { stopForDate } from "@/lib/trips/stops";
 import { instantToZonedTime, zonedTimeToInstant } from "@/lib/zoned-time";
 
 type Stop = { id: string; name: string; timezone: string; arrives_on: string | null; departs_on: string | null };
-type OtherActivity = { id: string; title: string; starts_at: string; duration_minutes: number; timezone: string };
+type OtherActivity = {
+  id: string;
+  title: string;
+  starts_at: string;
+  duration_minutes: number;
+  timezone: string;
+  activity_participants: { traveler_id: string }[];
+};
+type Traveler = { id: string; name: string; color: string; avatar_url: string | null };
 
 type ActivityFormProps = {
   action: (prev: ActivityFormState, formData: FormData) => Promise<ActivityFormState>;
   initialValues: ActivityFormValues;
   stops: Stop[];
+  travelers: Traveler[];
   timeZones: TimeZoneOption[];
   /** The trip's other activities, for the live overlap check. */
   otherActivities: OtherActivity[];
@@ -42,6 +52,7 @@ export function ActivityForm({
   action: serverAction,
   initialValues,
   stops,
+  travelers,
   timeZones,
   otherActivities,
   minDate,
@@ -63,6 +74,17 @@ export function ActivityForm({
   const [startTime, setStartTime] = useState(initialValues.start_time);
   const [hours, setHours] = useState(initialValues.duration_hours);
   const [minutes, setMinutes] = useState(initialValues.duration_minutes);
+  const [participants, setParticipants] = useState(() => new Set(initialValues.participants));
+  const everyone = travelers.length > 0 && travelers.every((t) => participants.has(t.id));
+
+  function toggleParticipant(id: string) {
+    setParticipants((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function changeDate(next: string) {
     setDate(next);
@@ -82,8 +104,14 @@ export function ActivityForm({
     const nextDay = end.date !== date;
     const conflicts =
       findConflicts([
-        ...otherActivities.map((a) => ({ id: a.id, title: a.title, startsAt: new Date(a.starts_at), durationMinutes: a.duration_minutes })),
-        { id: "__this", title: "", startsAt, durationMinutes },
+        ...otherActivities.map((a) => ({
+          id: a.id,
+          title: a.title,
+          startsAt: new Date(a.starts_at),
+          durationMinutes: a.duration_minutes,
+          participantIds: a.activity_participants.map((p) => p.traveler_id),
+        })),
+        { id: "__this", title: "", startsAt, durationMinutes, participantIds: everyone ? [] : [...participants] },
       ]).get("__this") ?? [];
     return {
       endLabel: `${end.time}${nextDay ? " del día siguiente" : ""}`,
@@ -95,7 +123,7 @@ export function ActivityForm({
         };
       }),
     };
-  }, [activeZone, date, startTime, durationMinutes, otherActivities]);
+  }, [activeZone, date, startTime, durationMinutes, otherActivities, participants, everyone]);
 
   const describedBy = (field: ActivityField, extra?: string) =>
     [errors[field] ? `${field}-error` : null, extra].filter(Boolean).join(" ") || undefined;
@@ -248,6 +276,56 @@ export function ActivityForm({
             </p>
           )}
         </div>
+      )}
+
+      {travelers.length > 0 && (
+        <fieldset className="flex flex-col gap-2" aria-describedby={describedBy("participants", "participants-hint")}>
+          <legend className="mb-2 text-sm font-medium">¿Quién va?</legend>
+          <div className="flex flex-wrap gap-2">
+            {travelers.map((t) => {
+              const checked = participants.has(t.id);
+              return (
+                <label
+                  key={t.id}
+                  className={
+                    "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-sm has-focus-visible:ring-3 has-focus-visible:ring-ring/50 " +
+                    (checked ? "border-primary bg-secondary font-medium text-secondary-foreground" : "bg-card text-foreground/80")
+                  }
+                >
+                  <input
+                    type="checkbox"
+                    name="participants"
+                    value={t.id}
+                    checked={checked}
+                    onChange={() => toggleParticipant(t.id)}
+                    className="sr-only"
+                  />
+                  <TravelerAvatar traveler={t} size="sm" />
+                  {t.name}
+                </label>
+              );
+            })}
+          </div>
+          <div className="flex items-center justify-between gap-3">
+            <p id="participants-hint" className="text-xs text-muted-foreground">
+              {everyone ? "Van todos. Quien agregues después al viaje también irá." : "Solo las personas marcadas."}
+            </p>
+            {!everyone && (
+              <button
+                type="button"
+                onClick={() => setParticipants(new Set(travelers.map((t) => t.id)))}
+                className="min-h-11 shrink-0 px-1 text-sm font-medium text-primary hover:underline"
+              >
+                Marcar a todos
+              </button>
+            )}
+          </div>
+          {errors.participants && (
+            <p id="participants-error" className="text-sm text-destructive">
+              {errors.participants}
+            </p>
+          )}
+        </fieldset>
       )}
 
       <Field id="trip_stop_id" label="Ciudad" error={errors.trip_stop_id}>

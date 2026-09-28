@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import { ActivityForm } from "@/components/activities/activity-form";
 import { getActivities } from "@/lib/activities/queries";
 import { listTimeZones } from "@/lib/time-zones";
+import { getTravelers } from "@/lib/travelers/queries";
 import { isIsoDate } from "@/lib/trips/trip-form";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { stopForDate } from "@/lib/trips/stops";
@@ -19,7 +20,13 @@ export const metadata: Metadata = {
 export default async function NewActivityPage({ params, searchParams }: PageProps<"/viajes/[id]/actividades/nueva">) {
   const { id } = await params;
   const { dia } = await searchParams;
-  const [trip, role, stops, activities] = await Promise.all([getTrip(id), getMyTripRole(id), getStops(id), getActivities(id)]);
+  const [trip, role, stops, activities, travelers] = await Promise.all([
+    getTrip(id),
+    getMyTripRole(id),
+    getStops(id),
+    getActivities(id),
+    getTravelers(id),
+  ]);
 
   if (!trip) notFound();
   if (!canEdit(role)) redirect(`/viajes/${trip.id}`);
@@ -60,8 +67,11 @@ export default async function NewActivityPage({ params, searchParams }: PageProp
             cost_currency: trip.currency,
             external_url: "",
             notes: "",
+            // Everyone by default.
+            participants: travelers.map((t) => t.id),
           }}
           stops={stops}
+          travelers={travelers}
           timeZones={listTimeZones()}
           otherActivities={activities}
           minDate={trip.start_date ?? undefined}

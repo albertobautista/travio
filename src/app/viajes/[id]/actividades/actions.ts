@@ -9,14 +9,34 @@ import { isUuid } from "@/lib/uuid";
 // Ids arrive via .bind() and can be tampered with; RLS decides what the user
 // may change. Blocked writes return zero rows, so every write asks for them.
 
-/** What the form parser needs from the database: trip dates/currency and the stops' time zones. */
+/** What the form parser needs from the database: trip dates/currency, stops' time zones and travelers. */
 async function loadContext(tripId: string) {
   const supabase = await createClient();
-  const [{ data: trip }, { data: stops }] = await Promise.all([
+  const [{ data: trip }, { data: stops }, { data: travelers }] = await Promise.all([
     supabase.from("trips").select("start_date, end_date, currency").eq("id", tripId).maybeSingle(),
     supabase.from("trip_stops").select("id, timezone").eq("trip_id", tripId),
+    supabase.from("travelers").select("id").eq("trip_id", tripId),
   ]);
-  return trip ? { trip, stops: stops ?? [] } : null;
+  return trip ? { trip, stops: stops ?? [], travelerIds: (travelers ?? []).map((t) => t.id) } : null;
+}
+
+/**
+ * Participants are saved with a second call, after the activity row exists.
+ * The database function replaces them in one transaction and stores "every
+ * traveler" as no rows. If it fails, the activity is already saved, so we
+ * don't return to the form (a resubmit would create a duplicate); we open the
+ * activity with a notice instead.
+ */
+async function saveParticipants(tripId: string, activityId: string, participantIds: string[]) {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("set_activity_participants", {
+    p_activity_id: activityId,
+    p_traveler_ids: participantIds,
+  });
+  if (error) {
+    console.error("set_activity_participants failed", error);
+    redirect(`/viajes/${tripId}/actividades/${activityId}?participantes=error`);
+  }
 }
 
 const itineraryUrl = (tripId: string, date: string) => `/viajes/${tripId}/itinerario?dia=${date}`;
@@ -48,6 +68,7 @@ export async function createActivity(
   }
   if (data.length === 0) return { error: "No tienes permiso para editar este viaje.", values: parsed.values };
 
+  await saveParticipants(tripId, data[0].id, parsed.participantIds);
   redirect(itineraryUrl(tripId, parsed.values.date));
 }
 
@@ -77,6 +98,7 @@ export async function updateActivity(
   }
   if (data.length === 0) return { error: "No tienes permiso para editar este viaje.", values: parsed.values };
 
+  await saveParticipants(tripId, activityId, parsed.participantIds);
   redirect(itineraryUrl(tripId, parsed.values.date));
 }
 

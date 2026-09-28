@@ -148,6 +148,8 @@ Ownership is **transferable** through one database function, `transfer_trip_owne
 
 `trip_members` answers "what can this account do?"; `travelers` answers "who is going?". They meet only through the optional `user_id` link.
 
+Implemented rules: the trip's creator is added automatically as its first traveler (linked to their account); a traveler can only be linked to a **member** of the trip (trigger); when a member leaves, their traveler stays but is unlinked.
+
 ### Route
 
 **`trip_stops`**
@@ -234,7 +236,10 @@ Check-in/check-out appear in the itinerary as **derived events** (a query/view),
 
 - A traveler added to the trip later is automatically part of every "everyone" activity.
 - If the user selects every traveler, the app stores **no rows** (normalizes back to "everyone"), so there is one representation per meaning.
-- Filtering "Alberto's itinerary" = activities with no participant rows **or** with a row for Alberto. `transportation_participants` also has a **`seat`** column, because the seat belongs to the person, not to the flight.
+- Filtering "Alberto's itinerary" = activities with no participant rows **or** with a row for Alberto.
+- `set_activity_participants(activity_id, traveler_ids[])` replaces the rows in one transaction and normalizes "empty" and "every traveler" to no rows.
+- Removing a traveler who is the **only** participant of an activity is refused by the app; otherwise that activity would silently become "everyone".
+- Schedule conflicts only count when two overlapping activities share at least one traveler ("everyone" shares with anyone). `transportation_participants` also has a **`seat`** column, because the seat belongs to the person, not to the flight.
 
 ### Saved places
 

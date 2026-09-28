@@ -29,12 +29,15 @@ export type ActivityField =
   | "cost_amount"
   | "cost_currency"
   | "external_url"
-  | "notes";
+  | "notes"
+  | "participants";
 
 /** Raw form values (duration split in hours and minutes). */
-export type ActivityFormValues = Record<Exclude<ActivityField, "duration">, string> & {
+export type ActivityFormValues = Record<Exclude<ActivityField, "duration" | "participants">, string> & {
   duration_hours: string;
   duration_minutes: string;
+  /** Checked traveler ids. All of them checked means "everyone". */
+  participants: string[];
 };
 
 export type ActivityFormState =
@@ -66,6 +69,8 @@ type Context = {
   trip: { start_date: string | null; end_date: string | null; currency: string };
   /** The trip's stops, to resolve the chosen city's time zone. */
   stops: { id: string; timezone: string }[];
+  /** The trip's traveler ids, to validate participants. */
+  travelerIds: string[];
 };
 
 const MAX_DURATION = 7 * 24 * 60;
@@ -84,11 +89,12 @@ function parseHttpUrl(value: string) {
 
 export function parseActivityForm(
   formData: FormData,
-  { trip, stops }: Context,
+  { trip, stops, travelerIds }: Context,
 ):
-  | { ok: true; data: ActivityData; values: ActivityFormValues }
+  | { ok: true; data: ActivityData; participantIds: string[]; values: ActivityFormValues }
   | { ok: false; fieldErrors: Partial<Record<ActivityField, string>>; values: ActivityFormValues } {
   const values: ActivityFormValues = {
+    participants: formData.getAll("participants").map(String),
     title: text(formData, "title"),
     category: text(formData, "category") || "other",
     trip_stop_id: text(formData, "trip_stop_id"),
@@ -169,6 +175,16 @@ export function parseActivityForm(
     else if (url.length > 2000) errors.external_url = "El enlace es demasiado largo.";
   }
 
+  // Every traveler checked is saved as "everyone" (no rows) by the database
+  // function set_activity_participants. None checked is a mistake, not
+  // "everyone", so we ask.
+  const participantIds = [...new Set(values.participants)];
+  if (participantIds.some((id) => !travelerIds.includes(id))) {
+    errors.participants = "Elige personas de este viaje.";
+  } else if (travelerIds.length > 0 && participantIds.length === 0) {
+    errors.participants = "Elige al menos a una persona.";
+  }
+
   if (Object.keys(errors).length > 0 || !timezone) {
     return { ok: false, fieldErrors: errors, values };
   }
@@ -176,6 +192,7 @@ export function parseActivityForm(
   return {
     ok: true,
     values,
+    participantIds,
     data: {
       title: values.title,
       category: values.category as ActivityCategory,

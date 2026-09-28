@@ -10,6 +10,8 @@ export type Schedulable = {
   title: string;
   startsAt: Date;
   durationMinutes: number;
+  /** Traveler ids taking part. Empty or missing means everyone. */
+  participantIds?: string[];
 };
 
 export type Conflict = {
@@ -26,8 +28,17 @@ export function getEnd(startsAt: Date, durationMinutes: number) {
   return new Date(startsAt.getTime() + durationMinutes * MINUTE);
 }
 
+/** Whether two activities have at least one traveler in common ("everyone" shares with anyone). */
+function sharePeople(a: Schedulable, b: Schedulable) {
+  if (!a.participantIds?.length || !b.participantIds?.length) return true;
+  const other = new Set(b.participantIds);
+  return a.participantIds.some((id) => other.has(id));
+}
+
 /**
- * Every pair of activities whose time ranges overlap, reported on both sides.
+ * Every pair of activities whose time ranges overlap and that share at least
+ * one traveler, reported on both sides. Ana at a museum while Leo is on a tour
+ * is fine; nobody can be in two places at once.
  * Back-to-back activities (one ends 12:00, the next starts 12:00) don't count.
  *
  * Sorted by start, each activity only needs to be compared with the ones that
@@ -49,6 +60,7 @@ export function findConflicts(activities: Schedulable[]): Map<string, Conflict[]
       const b = sorted[j];
       const bStart = b.startsAt.getTime();
       if (bStart >= aEnd) break; // later ones start even later
+      if (!sharePeople(a, b)) continue;
       const bEnd = getEnd(b.startsAt, b.durationMinutes).getTime();
       const minutes = Math.round((Math.min(aEnd, bEnd) - bStart) / MINUTE);
       add(a, b, minutes);

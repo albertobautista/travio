@@ -62,3 +62,15 @@ export const getStop = cache(async (tripId: string, stopId: string) => {
     .maybeSingle();
   return data;
 });
+
+/** People with access to the trip (accounts), with their profile. */
+export const getMembers = cache(async (tripId: string) => {
+  if (!isUuid(tripId)) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("trip_members")
+    .select("user_id, role, profiles (display_name, avatar_url)")
+    .eq("trip_id", tripId)
+    .order("created_at");
+  return data ?? [];
+});

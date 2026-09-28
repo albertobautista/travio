@@ -4,11 +4,13 @@ import { notFound } from "next/navigation";
 import { CalendarDays, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
 import { TripRoute } from "@/components/trips/trip-route";
+import { TravelerStack } from "@/components/travelers/traveler-avatar";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getActivities } from "@/lib/activities/queries";
 import { initials } from "@/lib/initials";
+import { getTravelers } from "@/lib/travelers/queries";
 import {
   formatTripDates,
   getTripDayNumber,
@@ -40,7 +42,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   if (!trip) notFound();
 
   const supabase = await createClient();
-  const [{ data: claimsData }, { data: members }, coverUrls, stops, activities] = await Promise.all([
+  const [{ data: claimsData }, { data: members }, coverUrls, stops, activities, travelers] = await Promise.all([
     supabase.auth.getClaims(),
     supabase
       .from("trip_members")
@@ -50,6 +52,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
     getCoverUrls([trip.cover_image_path]),
     getStops(trip.id),
     getActivities(trip.id),
+    getTravelers(trip.id),
   ]);
   const coverUrl = trip.cover_image_path ? coverUrls.get(trip.cover_image_path) : undefined;
   const myRole = toTripRole(members?.find((m) => m.user_id === claimsData?.claims.sub)?.role);
@@ -134,6 +137,20 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
         <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
       </Link>
 
+      <Link
+        href={`/viajes/${trip.id}/viajeros`}
+        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
+      >
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="font-semibold">Viajeros ({travelers.length})</span>
+          <span className="truncate text-sm text-muted-foreground">
+            {travelers.length === 0 ? "Agrega a quienes van al viaje" : travelers.map((t) => t.name).join(", ")}
+          </span>
+        </span>
+        {travelers.length > 0 && <TravelerStack travelers={travelers} />}
+        <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      </Link>
+
       <TripRoute tripId={trip.id} stops={stops} editable={canEdit(myRole)} />
 
       {trip.description && (
@@ -144,7 +161,10 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
       )}
 
       <section className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
-        <h2 className="font-semibold">Personas con acceso ({members?.length ?? 0})</h2>
+        <div>
+          <h2 className="font-semibold">Acceso al viaje ({members?.length ?? 0})</h2>
+          <p className="text-xs text-muted-foreground">Cuentas de Travio que pueden ver o editar este viaje.</p>
+        </div>
         <ul className="flex flex-col gap-3">
           {members?.map((m) => (
             <li key={m.user_id} className="flex items-center gap-3">

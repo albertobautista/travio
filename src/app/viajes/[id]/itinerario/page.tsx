@@ -3,11 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus } from "lucide-react";
 
+import { TravelerAvatar, TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
 import { BOOKING_META, CATEGORY_META, isBookingStatus, isCategory } from "@/lib/activities/categories";
 import { activityDate, buildItineraryDays, pickDay } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
 import { findConflicts, formatDuration, formatTimeRange } from "@/lib/activities/schedule";
+import { getTravelers } from "@/lib/travelers/queries";
 import { todayIn } from "@/lib/trips/dates";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { stopForDate } from "@/lib/trips/stops";
@@ -20,22 +22,55 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itine
 
 export default async function ItineraryPage({ params, searchParams }: PageProps<"/viajes/[id]/itinerario">) {
   const { id } = await params;
-  const { dia } = await searchParams;
-  const [trip, role, stops, activities] = await Promise.all([getTrip(id), getMyTripRole(id), getStops(id), getActivities(id)]);
+  const { dia, persona } = await searchParams;
+  const [trip, role, stops, activities, travelers] = await Promise.all([
+    getTrip(id),
+    getMyTripRole(id),
+    getStops(id),
+    getActivities(id),
+    getTravelers(id),
+  ]);
   if (!trip) notFound();
 
   const editable = canEdit(role);
-  const withDates = activities.map((a) => ({ ...a, date: activityDate(a), startsAt: new Date(a.starts_at) }));
+  const travelerById = new Map(travelers.map((t) => [t.id, t]));
+  // ?persona= shows one traveler's itinerary: activities with nobody listed
+  // (everyone) or with them listed.
+  const person = typeof persona === "string" ? travelerById.get(persona) : undefined;
+
+  const withDates = activities
+    .map((a) => ({
+      ...a,
+      date: activityDate(a),
+      startsAt: new Date(a.starts_at),
+      participantIds: a.activity_participants.map((p) => p.traveler_id),
+    }))
+    .filter((a) => !person || a.participantIds.length === 0 || a.participantIds.includes(person.id));
   const days = buildItineraryDays(trip, withDates.map((a) => a.date));
   const day = pickDay(days, typeof dia === "string" ? dia : undefined, todayIn());
 
-  // Conflicts across the whole trip: an overnight activity can overlap the next day.
+  // Conflicts across the whole trip: an overnight activity can overlap the next
+  // day. Only activities that share a traveler can clash.
   const conflicts = findConflicts(
-    withDates.map((a) => ({ id: a.id, title: a.title, startsAt: a.startsAt, durationMinutes: a.duration_minutes })),
+    withDates.map((a) => ({
+      id: a.id,
+      title: a.title,
+      startsAt: a.startsAt,
+      durationMinutes: a.duration_minutes,
+      participantIds: a.participantIds,
+    })),
   );
   const dayActivities = day ? withDates.filter((a) => a.date === day.date) : [];
   const dayStop = day ? stopForDate(stops, day.date) : undefined;
   const addHref = `/viajes/${trip.id}/actividades/nueva${day ? `?dia=${day.date}` : ""}`;
+  const itineraryHref = (params: { dia?: string; persona?: string | null }) => {
+    const q = new URLSearchParams();
+    const d = params.dia ?? day?.date;
+    const p = params.persona === undefined ? person?.id : params.persona;
+    if (d) q.set("dia", d);
+    if (p) q.set("persona", p);
+    return `/viajes/${trip.id}/itinerario${q.size ? `?${q}` : ""}`;
+  };
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
@@ -58,6 +93,43 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
         )}
       </header>
 
+      {travelers.length > 1 && (
+        <nav aria-label="Ver el itinerario de" className="-mx-4 overflow-x-auto px-4">
+          <ul className="flex w-max gap-2">
+            <li>
+              <Link
+                href={itineraryHref({ persona: null })}
+                aria-current={!person ? "page" : undefined}
+                className={
+                  "flex h-9 items-center rounded-full px-3 text-sm " +
+                  (!person ? "bg-primary font-semibold text-primary-foreground" : "border bg-card text-foreground/80 hover:bg-muted")
+                }
+              >
+                Todos
+              </Link>
+            </li>
+            {travelers.map((t) => {
+              const active = person?.id === t.id;
+              return (
+                <li key={t.id}>
+                  <Link
+                    href={itineraryHref({ persona: t.id })}
+                    aria-current={active ? "page" : undefined}
+                    className={
+                      "flex h-9 items-center gap-1.5 rounded-full py-1 pr-3 pl-1 text-sm " +
+                      (active ? "bg-primary font-semibold text-primary-foreground" : "border bg-card text-foreground/80 hover:bg-muted")
+                    }
+                  >
+                    <TravelerAvatar traveler={t} size="sm" />
+                    {t.name}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+      )}
+
       {days.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed bg-card px-6 py-10 text-center">
           <p className="text-muted-foreground">
@@ -78,7 +150,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                 return (
                   <li key={d.date}>
                     <Link
-                      href={`/viajes/${trip.id}/itinerario?dia=${d.date}`}
+                      href={itineraryHref({ dia: d.date })}
                       aria-current={active ? "date" : undefined}
                       className={
                         "flex h-14 w-20 flex-col items-center justify-center rounded-xl border text-center " +
@@ -145,13 +217,21 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                               {formatTimeRange(a.startsAt, a.duration_minutes, a.timezone)} · {formatDuration(a.duration_minutes)}
                               {a.location_name ? ` · ${a.location_name}` : ""}
                             </span>
-                            <span className="mt-1 flex flex-wrap gap-1">
+                            <span className="mt-1 flex flex-wrap items-center gap-1">
                               <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${category.className}`}>
                                 {category.label}
                               </span>
                               {booking?.badge && (
                                 <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${booking.className}`}>
                                   {booking.badge}
+                                </span>
+                              )}
+                              {/* Only a subset is shown; no avatars means everyone goes. */}
+                              {a.participantIds.length > 0 && (
+                                <span className="ml-auto">
+                                  <TravelerStack
+                                    travelers={a.participantIds.flatMap((pid) => travelerById.get(pid) ?? [])}
+                                  />
                                 </span>
                               )}
                             </span>

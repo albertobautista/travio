@@ -6,6 +6,7 @@ import { ChevronLeft } from "lucide-react";
 import { ActivityForm } from "@/components/activities/activity-form";
 import { getActivities, getActivity } from "@/lib/activities/queries";
 import { listTimeZones } from "@/lib/time-zones";
+import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
@@ -18,14 +19,17 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/activ
   return { title: activity ? `${activity.title} · Travio` : "Actividad · Travio" };
 }
 
-export default async function EditActivityPage({ params }: PageProps<"/viajes/[id]/actividades/[activityId]">) {
+export default async function EditActivityPage({ params, searchParams }: PageProps<"/viajes/[id]/actividades/[activityId]">) {
   const { id, activityId } = await params;
-  const [trip, role, activity, stops, activities] = await Promise.all([
+  // Set when the activity saved but its participants didn't (see saveParticipants).
+  const participantsFailed = (await searchParams).participantes === "error";
+  const [trip, role, activity, stops, activities, travelers] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getActivity(id, activityId),
     getStops(id),
     getActivities(id),
+    getTravelers(id),
   ]);
 
   if (!trip || !activity) notFound();
@@ -48,6 +52,12 @@ export default async function EditActivityPage({ params }: PageProps<"/viajes/[i
         <h1 className="text-3xl font-bold tracking-tight">Editar actividad</h1>
       </header>
 
+      {participantsFailed && (
+        <p role="alert" className="rounded-lg bg-warning-soft p-3 text-sm text-warning-foreground">
+          La actividad se guardó, pero no pudimos guardar quién va. Revísalo y guarda de nuevo.
+        </p>
+      )}
+
       <div className="rounded-2xl border bg-card p-5">
         <ActivityForm
           action={updateActivity.bind(null, trip.id, activity.id)}
@@ -68,8 +78,14 @@ export default async function EditActivityPage({ params }: PageProps<"/viajes/[i
             cost_currency: activity.cost_currency ?? trip.currency,
             external_url: activity.external_url ?? "",
             notes: activity.notes ?? "",
+            // No rows means everyone: show every traveler checked.
+            participants:
+              activity.activity_participants.length > 0
+                ? activity.activity_participants.map((p) => p.traveler_id)
+                : travelers.map((t) => t.id),
           }}
           stops={stops}
+          travelers={travelers}
           timeZones={listTimeZones()}
           // Don't warn about overlapping with itself.
           otherActivities={activities.filter((a) => a.id !== activity.id)}
