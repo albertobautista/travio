@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,7 +23,7 @@ export default async function TripsPage() {
 
   // No filter by user needed: RLS only returns trips this user is a member of.
   const [{ data: profile }, { data: trips, error }] = await Promise.all([
-    supabase.from("profiles").select("display_name").eq("id", userId).single(),
+    supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
     supabase.from("trips").select("id, name, start_date, end_date").order("start_date"),
   ]);
 
@@ -31,9 +32,18 @@ export default async function TripsPage() {
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Mis viajes</h1>
-          <p className="text-muted-foreground">
-            Hola{profile?.display_name ? `, ${profile.display_name}` : ""}.
-          </p>
+          <div className="mt-1 flex items-center gap-2">
+            <Avatar>
+              {profile?.avatar_url && (
+                // Google may refuse to serve profile photos when a Referer header is sent.
+                <AvatarImage src={profile.avatar_url} alt="" referrerPolicy="no-referrer" />
+              )}
+              <AvatarFallback>{initials(profile?.display_name)}</AvatarFallback>
+            </Avatar>
+            <p className="text-muted-foreground">
+              Hola{profile?.display_name ? `, ${profile.display_name}` : ""}.
+            </p>
+          </div>
         </div>
         <form action={signOut}>
           <Button type="submit" variant="ghost">
@@ -61,4 +71,10 @@ export default async function TripsPage() {
       )}
     </main>
   );
+}
+
+/** "Alberto Chávez Bautista" -> "AC"; no name -> "?". */
+function initials(name: string | null | undefined) {
+  const words = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  return words.length === 0 ? "?" : words.slice(0, 2).map((w) => w[0].toUpperCase()).join("");
 }
