@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Pencil } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
 import { TripRoute } from "@/components/trips/trip-route";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { getActivities } from "@/lib/activities/queries";
 import { initials } from "@/lib/initials";
 import {
   formatTripDates,
@@ -39,7 +40,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   if (!trip) notFound();
 
   const supabase = await createClient();
-  const [{ data: claimsData }, { data: members }, coverUrls, stops] = await Promise.all([
+  const [{ data: claimsData }, { data: members }, coverUrls, stops, activities] = await Promise.all([
     supabase.auth.getClaims(),
     supabase
       .from("trip_members")
@@ -48,6 +49,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
       .order("created_at"),
     getCoverUrls([trip.cover_image_path]),
     getStops(trip.id),
+    getActivities(trip.id),
   ]);
   const coverUrl = trip.cover_image_path ? coverUrls.get(trip.cover_image_path) : undefined;
   const myRole = toTripRole(members?.find((m) => m.user_id === claimsData?.claims.sub)?.role);
@@ -111,8 +113,26 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
       <dl className="grid grid-cols-3 gap-3">
         <StatTile label="Días" value={days ?? "—"} />
         <StatTile label="Ciudades" value={stops.length} />
-        <StatTile label="Personas" value={members?.length ?? "—"} />
+        <StatTile label="Actividades" value={activities.length} />
       </dl>
+
+      <Link
+        href={`/viajes/${trip.id}/itinerario`}
+        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
+      >
+        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
+          <CalendarDays className="size-5" aria-hidden="true" />
+        </span>
+        <span className="flex flex-1 flex-col">
+          <span className="font-semibold">Itinerario</span>
+          <span className="text-sm text-muted-foreground">
+            {activities.length === 0
+              ? "Planea las actividades de cada día"
+              : `${activities.length} ${activities.length === 1 ? "actividad" : "actividades"}`}
+          </span>
+        </span>
+        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+      </Link>
 
       <TripRoute tripId={trip.id} stops={stops} editable={canEdit(myRole)} />
 
@@ -124,7 +144,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
       )}
 
       <section className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
-        <h2 className="font-semibold">Personas con acceso</h2>
+        <h2 className="font-semibold">Personas con acceso ({members?.length ?? 0})</h2>
         <ul className="flex flex-col gap-3">
           {members?.map((m) => (
             <li key={m.user_id} className="flex items-center gap-3">

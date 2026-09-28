@@ -171,7 +171,7 @@ Ownership is **transferable** through one database function, `transfer_trip_owne
 | --- | --- | --- |
 | trip_id | uuid → trips (cascade) | |
 | trip_stop_id | uuid | same-trip FK, `set null` |
-| saved_place_id | uuid | same-trip FK, `set null`; set when created from a saved place |
+| saved_place_id | uuid | same-trip FK, `set null`; set when created from a saved place (added with the saved places migration) |
 | title | text not null | |
 | category | text | `sightseeing` \| `tour` \| `food` \| `free_time` \| `nightlife` \| `shopping` \| `other` |
 | starts_at | timestamptz not null | |
@@ -189,6 +189,8 @@ Ownership is **transferable** through one database function, `transfer_trip_owne
 Index: `(trip_id, starts_at)`, which powers the timeline and conflict detection.
 
 Ideas without a time are **saved places**, not activities. That keeps `starts_at` required and the timeline simple.
+
+When a stop's `timezone` changes, the `trip_stops_sync_activity_time_zones` trigger rewrites its activities' `starts_at` so their **local** time stays the same (a 10:30 visit stays at 10:30 in the corrected zone). Deleting a stop keeps its activities (`trip_stop_id` becomes null, their own `timezone` stays).
 
 **`accommodations`**: first-class, not an activity.
 

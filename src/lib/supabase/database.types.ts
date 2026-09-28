@@ -23,7 +23,38 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "profiles": {
+            "activities": {
+                  Row: {
+                    "address": string | null,"booking_status": string,"category": string,"cost_amount": number | null,"cost_currency": string | null,"created_at": string,"created_by": string | null,"duration_minutes": number,"external_url": string | null,"google_place_id": string | null,"id": string,"lat": number | null,"lng": number | null,"location_name": string | null,"notes": string | null,"reservation_ref": string | null,"starts_at": string,"timezone": string,"title": string,"trip_id": string,"trip_stop_id": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "address"?: string | null,"booking_status"?: string,"category"?: string,"cost_amount"?: number | null,"cost_currency"?: string | null,"created_at"?: string,"created_by"?: string | null,"duration_minutes": number,"external_url"?: string | null,"google_place_id"?: string | null,"id"?: string,"lat"?: number | null,"lng"?: number | null,"location_name"?: string | null,"notes"?: string | null,"reservation_ref"?: string | null,"starts_at": string,"timezone": string,"title": string,"trip_id": string,"trip_stop_id"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "address"?: string | null,"booking_status"?: string,"category"?: string,"cost_amount"?: number | null,"cost_currency"?: string | null,"created_at"?: string,"created_by"?: string | null,"duration_minutes"?: number,"external_url"?: string | null,"google_place_id"?: string | null,"id"?: string,"lat"?: number | null,"lng"?: number | null,"location_name"?: string | null,"notes"?: string | null,"reservation_ref"?: string | null,"starts_at"?: string,"timezone"?: string,"title"?: string,"trip_id"?: string,"trip_stop_id"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "activities_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "activities_stop_same_trip"
+      columns: ["trip_id","trip_stop_id"]
+isOneToOne: false
+      referencedRelation: "trip_stops"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "activities_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"profiles": {
                   Row: {
                     "avatar_url": string | null,"created_at": string,"display_name": string | null,"id": string,"updated_at": string
                   }
