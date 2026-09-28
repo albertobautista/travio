@@ -137,3 +137,52 @@ export async function deleteTraveler(tripId: string, travelerId: string): Promis
 
   redirect(`/viajes/${tripId}/viajeros`);
 }
+
+export type LinkAccountState =
+  | { error?: string; fieldErrors?: { email?: string }; values?: { email: string; role: string } }
+  | undefined;
+
+/**
+ * Owner only: give an existing Travio account access to the trip and link it
+ * to this traveler. The lookup by email happens inside the database function
+ * link_traveler_to_account, because the app can't read other users' emails.
+ */
+export async function linkTravelerAccount(
+  tripId: string,
+  travelerId: string,
+  _prev: LinkAccountState,
+  formData: FormData,
+): Promise<LinkAccountState> {
+  const values = {
+    email: String(formData.get("email") ?? "").trim(),
+    role: String(formData.get("role") ?? "viewer"),
+  };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) {
+    return { fieldErrors: { email: "Escribe un correo válido." }, values };
+  }
+  if (values.role !== "viewer" && values.role !== "editor") return { error: "Elige un tipo de acceso.", values };
+  if (!isUuid(tripId) || !isUuid(travelerId)) return { error: "Este viajero no existe.", values };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("link_traveler_to_account", {
+    p_traveler_id: travelerId,
+    p_email: values.email,
+    p_role: values.role,
+  });
+
+  if (error) {
+    switch (error.code) {
+      case "P0002":
+        return { fieldErrors: { email: "No hay ninguna cuenta de Travio con ese correo." }, values };
+      case "23505":
+        return { fieldErrors: { email: "Esa cuenta ya está vinculada a otro viajero de este viaje." }, values };
+      case "42501":
+        return { error: "Solo el propietario del viaje puede vincular cuentas.", values };
+      default:
+        console.error("linkTravelerAccount failed", error);
+        return { error: "No pudimos vincular la cuenta. Inténtalo de nuevo.", values };
+    }
+  }
+
+  redirect(`/viajes/${tripId}/viajeros`);
+}

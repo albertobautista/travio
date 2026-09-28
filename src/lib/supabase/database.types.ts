@@ -207,6 +207,9 @@ isOneToOne: false
 "is_valid_timezone":
 { Args: { "p_timezone": string }; Returns: boolean
                            },
+"link_traveler_to_account":
+{ Args: { "p_email": string,"p_role"?: string,"p_traveler_id": string }; Returns: Json
+                           },
 "move_trip_stop":
 { Args: { "p_direction": number,"p_stop_id": string }; Returns: undefined
                            },
