@@ -158,9 +158,9 @@ Ownership is **transferable** through one database function, `transfer_trip_owne
 | name | text not null | "Londres" |
 | google_place_id | text | nullable |
 | lat, lng | double precision | nullable |
-| timezone | text not null | IANA, e.g. `Europe/London` |
+| timezone | text not null | IANA "Area/Location" or `UTC`, checked by `is_valid_timezone` (rejects `EST`, `UTC+3`) |
 | arrives_on, departs_on | date | the stay, in local dates |
-| position | int | route order; `unique (trip_id, position) deferrable` to allow reordering |
+| position | int | route order; a trigger always appends new stops at the end; reorder with `move_trip_stop(stop_id, ±1)`, which swaps two stops inside one transaction (`unique (trip_id, position) deferrable`) |
 | notes | text | |
 
 ### Itinerary

@@ -31,7 +31,7 @@ export type TripFormData = {
 const MAX_NAME = 120;
 const MAX_DESCRIPTION = 2000;
 
-function isIsoDate(value: string) {
+export function isIsoDate(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const date = new Date(`${value}T00:00:00Z`);
   // Rejects impossible dates like 2026-02-30, which Date would roll over.

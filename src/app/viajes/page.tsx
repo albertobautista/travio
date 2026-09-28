@@ -50,7 +50,10 @@ export default async function TripsPage({ searchParams }: PageProps<"/viajes">) 
   // No filter by user needed: RLS only returns trips this user is a member of.
   const [{ data: profile }, { data: rows, error }] = await Promise.all([
     supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
-    supabase.from("trips").select("id, name, start_date, end_date, cover_image_path"),
+    supabase
+      .from("trips")
+      // Embedded select: PostgREST follows the trip_stops.trip_id foreign key.
+      .select("id, name, start_date, end_date, cover_image_path, trip_stops (name, position)"),
   ]);
 
   // One batch request signs every cover on the page.
@@ -65,6 +68,7 @@ export default async function TripsPage({ searchParams }: PageProps<"/viajes">) 
       end_date: t.end_date,
       status: getTripStatus(t.start_date, t.end_date, today),
       coverUrl: t.cover_image_path ? (coverUrls.get(t.cover_image_path) ?? null) : null,
+      cities: [...t.trip_stops].sort((a, b) => a.position - b.position).map((s) => s.name),
     }))
     .sort(compareTrips);
   const trips = allTrips.filter((t) => filter.matches(t.status));

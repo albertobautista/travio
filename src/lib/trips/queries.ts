@@ -38,3 +38,27 @@ export const getMyTripRole = cache(async (tripId: string): Promise<TripRole | nu
 /** Mirrors the database rules; only for deciding what to show. RLS still decides. */
 export const canEdit = (role: TripRole | null) => role === "owner" || role === "editor";
 export const canDelete = (role: TripRole | null) => role === "owner";
+
+/** The trip's stops in route order. Empty if the user can't see the trip. */
+export const getStops = cache(async (tripId: string) => {
+  if (!isUuid(tripId)) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("trip_stops")
+    .select("id, name, timezone, arrives_on, departs_on, position, notes")
+    .eq("trip_id", tripId)
+    .order("position");
+  return data ?? [];
+});
+
+export const getStop = cache(async (tripId: string, stopId: string) => {
+  if (!isUuid(tripId) || !isUuid(stopId)) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("trip_stops")
+    .select("id, name, timezone, arrives_on, departs_on, notes")
+    .eq("trip_id", tripId)
+    .eq("id", stopId)
+    .maybeSingle();
+  return data;
+});

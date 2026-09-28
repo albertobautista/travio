@@ -61,6 +61,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"trip_stops": {
+                  Row: {
+                    "arrives_on": string | null,"created_at": string,"created_by": string | null,"departs_on": string | null,"google_place_id": string | null,"id": string,"lat": number | null,"lng": number | null,"name": string,"notes": string | null,"position": number,"timezone": string,"trip_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "arrives_on"?: string | null,"created_at"?: string,"created_by"?: string | null,"departs_on"?: string | null,"google_place_id"?: string | null,"id"?: string,"lat"?: number | null,"lng"?: number | null,"name": string,"notes"?: string | null,"position"?: number,"timezone": string,"trip_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "arrives_on"?: string | null,"created_at"?: string,"created_by"?: string | null,"departs_on"?: string | null,"google_place_id"?: string | null,"id"?: string,"lat"?: number | null,"lng"?: number | null,"name"?: string,"notes"?: string | null,"position"?: number,"timezone"?: string,"trip_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "trip_stops_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_stops_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"trips": {
                   Row: {
                     "budget_amount": number | null,"cover_image_path": string | null,"created_at": string,"created_by": string | null,"currency": string,"description": string | null,"end_date": string | null,"id": string,"name": string,"start_date": string | null,"updated_at": string
@@ -91,6 +116,12 @@ isOneToOne: false
                            },
 "is_trip_member":
 { Args: { "p_trip_id": string }; Returns: boolean
+                           },
+"is_valid_timezone":
+{ Args: { "p_timezone": string }; Returns: boolean
+                           },
+"move_trip_stop":
+{ Args: { "p_direction": number,"p_stop_id": string }; Returns: undefined
                            },
 "shares_trip_with":
 { Args: { "p_user_id": string }; Returns: boolean

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Pencil } from "lucide-react";
 
+import { TripRoute } from "@/components/trips/trip-route";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import {
   todayIn,
 } from "@/lib/trips/dates";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
-import { canEdit, getTrip, toTripRole } from "@/lib/trips/queries";
+import { canEdit, getStops, getTrip, toTripRole } from "@/lib/trips/queries";
 import { createClient } from "@/lib/supabase/server";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -38,7 +39,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   if (!trip) notFound();
 
   const supabase = await createClient();
-  const [{ data: claimsData }, { data: members }, coverUrls] = await Promise.all([
+  const [{ data: claimsData }, { data: members }, coverUrls, stops] = await Promise.all([
     supabase.auth.getClaims(),
     supabase
       .from("trip_members")
@@ -46,6 +47,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
       .eq("trip_id", trip.id)
       .order("created_at"),
     getCoverUrls([trip.cover_image_path]),
+    getStops(trip.id),
   ]);
   const coverUrl = trip.cover_image_path ? coverUrls.get(trip.cover_image_path) : undefined;
   const myRole = toTripRole(members?.find((m) => m.user_id === claimsData?.claims.sub)?.role);
@@ -108,9 +110,11 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
 
       <dl className="grid grid-cols-3 gap-3">
         <StatTile label="Días" value={days ?? "—"} />
+        <StatTile label="Ciudades" value={stops.length} />
         <StatTile label="Personas" value={members?.length ?? "—"} />
-        <StatTile label="Moneda" value={trip.currency} />
       </dl>
+
+      <TripRoute tripId={trip.id} stops={stops} editable={canEdit(myRole)} />
 
       {trip.description && (
         <section className="flex flex-col gap-2 rounded-2xl border bg-card p-4">

@@ -13,7 +13,11 @@ export type TripCardData = {
   status: TripStatus;
   /** Signed URL, or null to show the placeholder. */
   coverUrl: string | null;
+  /** City names in route order. */
+  cities: string[];
 };
+
+const MAX_CITY_CHIPS = 3;
 
 export function TripCard({ trip }: { trip: TripCardData }) {
   const days = getTripLengthDays(trip.start_date, trip.end_date);
@@ -42,6 +46,20 @@ export function TripCard({ trip }: { trip: TripCardData }) {
         </span>
         <span className="text-sm text-foreground/80">{formatTripDates(trip.start_date, trip.end_date)}</span>
         {days && <span className="text-xs text-muted-foreground">{days === 1 ? "1 día" : `${days} días`}</span>}
+        {trip.cities.length > 0 && (
+          <span className="flex gap-1 overflow-hidden">
+            {trip.cities.slice(0, MAX_CITY_CHIPS).map((city, i) => (
+              <span key={i} className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs text-foreground/80">
+                {city}
+              </span>
+            ))}
+            {trip.cities.length > MAX_CITY_CHIPS && (
+              <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-xs text-foreground/80">
+                +{trip.cities.length - MAX_CITY_CHIPS}
+              </span>
+            )}
+          </span>
+        )}
       </span>
     </Link>
   );

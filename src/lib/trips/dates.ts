@@ -67,17 +67,29 @@ const clean = (s: string) => s.replace(/\./g, "").replace(/ de /g, " ");
 /**
  * Compact range like the mockups:
  * "6 – 20 abr 2026", "25 nov – 6 dic 2026", "17 feb 2026 – 3 mar 2027".
+ * With `year: false` (stops inside a trip): "6 – 8 abr", "30 abr – 2 may".
  */
-export function formatTripDates(startDate: string | null, endDate: string | null) {
+export function formatTripDates(
+  startDate: string | null,
+  endDate: string | null,
+  { year = true }: { year?: boolean } = {},
+) {
   if (!startDate) return "Sin fechas";
   const start = toUtcDate(startDate);
-  if (!endDate || endDate === startDate) return clean(dayMonthYear.format(start));
+  const withYear = (d: Date) => clean((year ? dayMonthYear : dayMonth).format(d));
+  if (!endDate || endDate === startDate) return withYear(start);
 
   const end = toUtcDate(endDate);
   const sameYear = start.getUTCFullYear() === end.getUTCFullYear();
   const sameMonth = sameYear && start.getUTCMonth() === end.getUTCMonth();
 
-  if (sameMonth) return `${start.getUTCDate()} – ${clean(dayMonthYear.format(end))}`;
-  if (sameYear) return `${clean(dayMonth.format(start))} – ${clean(dayMonthYear.format(end))}`;
-  return `${clean(dayMonthYear.format(start))} – ${clean(dayMonthYear.format(end))}`;
+  if (sameMonth) return `${start.getUTCDate()} – ${withYear(end)}`;
+  if (sameYear || !year) return `${clean(dayMonth.format(start))} – ${withYear(end)}`;
+  return `${withYear(start)} – ${withYear(end)}`;
+}
+
+/** Nights of a stay: arriving the 6th and leaving the 8th is 2 nights. */
+export function getNights(arrivesOn: string | null, departsOn: string | null) {
+  const days = getTripLengthDays(arrivesOn, departsOn);
+  return days === null ? null : days - 1;
 }
