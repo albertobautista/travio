@@ -4,6 +4,7 @@ import type { AuthError } from "@supabase/supabase-js";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
+import { callbackUrl } from "@/lib/auth/callback-url";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,9 +22,6 @@ async function getOrigin() {
   return `${protocol}://${host}`;
 }
 
-function callbackUrl(origin: string, next: string) {
-  return `${origin}/auth/callback?next=${encodeURIComponent(next)}`;
-}
 
 /** Supabase errors are in English and sometimes too revealing; show our own copy. */
 function authErrorMessage(error: AuthError) {
@@ -99,22 +97,6 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
     redirect(next);
   }
   return { message: `Te enviamos un correo a ${email}. Abre el enlace para activar tu cuenta.` };
-}
-
-export async function signInWithGoogle(formData: FormData) {
-  const next = safeRedirectPath(formData.get("next") as string | null);
-  const supabase = await createClient();
-
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: { redirectTo: callbackUrl(await getOrigin(), next) },
-  });
-  if (error || !data.url) {
-    redirect(`/login?error=google&next=${encodeURIComponent(next)}`);
-  }
-
-  // Off to Google; it comes back through /auth/callback.
-  redirect(data.url);
 }
 
 export async function signOut() {

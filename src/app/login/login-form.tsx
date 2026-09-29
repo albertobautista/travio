@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { signIn, signInWithGoogle, signUp, type AuthFormState } from "./actions";
+import { signIn, signUp, type AuthFormState } from "./actions";
 
 type LoginFormProps = {
   next: string;
@@ -22,7 +22,8 @@ export function LoginForm({ next, initialError }: LoginFormProps) {
   return (
     <Card className="w-full max-w-sm">
       <CardContent className="flex flex-col gap-5">
-        <form action={signInWithGoogle}>
+        {/* A plain POST (not a Server Action): see app/auth/google/route.ts. */}
+        <form method="post" action="/auth/google">
           <input type="hidden" name="next" value={next} />
           <Button type="submit" variant="outline" size="lg" className="w-full">
             <GoogleIcon />
