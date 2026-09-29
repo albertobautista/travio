@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,8 @@ export function TripForm({
   const errors = state?.fieldErrors ?? {};
   // After a failed submit, show what the user typed; otherwise the saved values.
   const values = state?.values ?? initialValues;
+  // Controlled so the budget field can show the chosen currency.
+  const [currency, setCurrency] = useState(values?.currency ?? DEFAULT_CURRENCY);
 
   const reported = useRef<string | null>(null);
   useEffect(() => {
@@ -99,7 +101,8 @@ export function TripForm({
         <select
           id="currency"
           name="currency"
-          defaultValue={values?.currency ?? DEFAULT_CURRENCY}
+          value={currency}
+          onChange={(e) => setCurrency(e.target.value)}
           aria-invalid={Boolean(errors.currency)}
           aria-describedby={errors.currency ? "currency-error" : undefined}
           className="h-11 w-full rounded-lg border border-input bg-card px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm"
@@ -110,6 +113,27 @@ export function TripForm({
             </option>
           ))}
         </select>
+      </FormField>
+
+      <FormField id="budget_amount" label="Presupuesto total" error={errors.budget_amount}>
+        <div className="relative">
+          <Input
+            id="budget_amount"
+            name="budget_amount"
+            inputMode="decimal"
+            placeholder="Opcional, por ejemplo 95000"
+            defaultValue={values?.budget_amount}
+            aria-invalid={Boolean(errors.budget_amount)}
+            aria-describedby={[errors.budget_amount ? "budget_amount-error" : null, "budget_amount-hint"].filter(Boolean).join(" ")}
+            className="h-11 pr-14 font-mono"
+          />
+          <span className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 font-mono text-sm text-muted-foreground">
+            {currency}
+          </span>
+        </div>
+        <p id="budget_amount-hint" className="text-xs text-muted-foreground">
+          En la moneda del viaje. Lo comparas con lo planeado y lo gastado en Presupuesto.
+        </p>
       </FormField>
 
       <FormField id="description" label="Notas" error={errors.description}>

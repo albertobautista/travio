@@ -63,6 +63,7 @@ export default async function EditTripPage({ params, searchParams }: PageProps<"
             start_date: trip.start_date ?? "",
             end_date: trip.end_date ?? "",
             currency: trip.currency,
+            budget_amount: trip.budget_amount === null ? "" : String(trip.budget_amount),
             description: trip.description ?? "",
           }}
           submitLabel="Guardar cambios"

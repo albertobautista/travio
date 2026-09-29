@@ -1,3 +1,5 @@
+import { parseAmount } from "@/lib/form-fields";
+
 import { DEFAULT_CURRENCY, isOfferedCurrency } from "./currencies";
 
 /**
@@ -6,7 +8,7 @@ import { DEFAULT_CURRENCY, isOfferedCurrency } from "./currencies";
  * so browser-side checks are only a convenience.
  */
 
-export type TripField = "name" | "start_date" | "end_date" | "currency" | "description";
+export type TripField = "name" | "start_date" | "end_date" | "currency" | "budget_amount" | "description";
 export type TripFormValues = Record<TripField, string>;
 
 export type TripFormState =
@@ -27,6 +29,8 @@ export type TripFormData = {
   start_date: string | null;
   end_date: string | null;
   currency: string;
+  /** Total budget in the trip's currency; null = not set. */
+  budget_amount: number | null;
   description: string | null;
 };
 
@@ -50,6 +54,7 @@ export function parseTripForm(
     start_date: String(formData.get("start_date") ?? ""),
     end_date: String(formData.get("end_date") ?? ""),
     currency: String(formData.get("currency") ?? DEFAULT_CURRENCY),
+    budget_amount: String(formData.get("budget_amount") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
   };
 
@@ -68,6 +73,12 @@ export function parseTripForm(
   }
 
   if (!isOfferedCurrency(values.currency)) fieldErrors.currency = "Elige una moneda de la lista.";
+
+  // Optional. Accepts "95000", "95,000" or "95000.50" (same parser as costs).
+  const budget = values.budget_amount ? parseAmount(values.budget_amount) : null;
+  if (budget !== null && (Number.isNaN(budget) || budget <= 0)) {
+    fieldErrors.budget_amount = "Escribe un monto, por ejemplo 95000.";
+  }
   if (values.description.length > MAX_DESCRIPTION) {
     fieldErrors.description = `Máximo ${MAX_DESCRIPTION} caracteres.`;
   }
@@ -84,6 +95,7 @@ export function parseTripForm(
       start_date: values.start_date || null,
       end_date: values.end_date || null,
       currency: values.currency,
+      budget_amount: budget,
       description: values.description || null,
     },
   };
