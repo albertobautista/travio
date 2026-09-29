@@ -34,6 +34,8 @@ export type MapDay = {
   label: string;
   /** Cities for the day; two on a travel day ("Barcelona", "Madrid"). */
   cities: string[];
+  /** Their ids, to find the saved places nearby. */
+  stopIds: string[];
   tonight: string | null;
   rows: MapRow[];
 };
@@ -51,7 +53,7 @@ export function buildMapDays({
 }: {
   trip: { id: string; start_date: string | null; end_date: string | null };
   editable: boolean;
-  stops: { name: string; arrives_on: string | null; departs_on: string | null; position: number }[];
+  stops: { id: string; name: string; arrives_on: string | null; departs_on: string | null; position: number }[];
   activities: (Located & {
     id: string;
     title: string;
@@ -147,6 +149,7 @@ export function buildMapDays({
       dayNumber: d.dayNumber,
       label: d.label,
       cities: stopsForDate(stops, d.date).map((s) => s.name),
+      stopIds: stopsForDate(stops, d.date).map((s) => s.id),
       tonight: tonight?.name ?? null,
       rows: rows.sort((a, b) => a[0] - b[0]).map(([, row]) => row),
     };

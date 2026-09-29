@@ -9,6 +9,7 @@ import { getAccommodations } from "@/lib/accommodations/queries";
 import { getActivities } from "@/lib/activities/queries";
 import { buildMapCities, buildMapDays } from "@/lib/maps/days";
 import { buildMapPoints } from "@/lib/maps/points";
+import { getSavedPlaces } from "@/lib/saved-places/queries";
 import { getTransportations } from "@/lib/transportations/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
@@ -21,18 +22,20 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/mapa"
 export default async function TripMapPage({ params, searchParams }: PageProps<"/viajes/[id]/mapa">) {
   const { id } = await params;
   const { dia } = await searchParams;
-  const [trip, role, stops, activities, stays, transportations] = await Promise.all([
+  const [trip, role, stops, activities, stays, transportations, savedPlaces] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
     getActivities(id),
     getAccommodations(id),
     getTransportations(id),
+    getSavedPlaces(id),
   ]);
   if (!trip) notFound();
 
   const editable = canEdit(role);
-  const points = buildMapPoints({ tripId: trip.id, editable, activities, stays, stops });
+  const pending = savedPlaces.filter((p) => p.activities.length === 0);
+  const points = buildMapPoints({ tripId: trip.id, editable, activities, stays, stops, saved: pending });
   const days = buildMapDays({ trip, editable, stops, activities, stays, legs: transportations });
   const cities = buildMapCities({ stops, activities, stays, legs: transportations, days });
   // ?dia= when valid; otherwise today if it's a trip day; otherwise the whole trip.
@@ -53,7 +56,7 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
           <p className="truncate text-sm text-muted-foreground">{trip.name}</p>
         </div>
       </header>
-      <TripMap points={points} days={days} cities={cities} initialDay={initialDay} />
+      <TripMap tripId={trip.id} editable={editable} points={points} days={days} cities={cities} initialDay={initialDay} />
     </main>
   );
 }

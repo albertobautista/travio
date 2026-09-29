@@ -8,7 +8,7 @@ import { instantToZonedTime } from "@/lib/zoned-time";
 
 export type MapPoint = {
   id: string;
-  kind: "activity" | "stay" | "stop";
+  kind: "activity" | "stay" | "stop" | "saved";
   title: string;
   lat: number;
   lng: number;
@@ -54,6 +54,7 @@ export function buildMapPoints({
   activities,
   stays,
   stops,
+  saved = [],
 }: {
   tripId: string;
   editable: boolean;
@@ -77,6 +78,8 @@ export function buildMapPoints({
     trip_stop_id: string | null;
   })[];
   stops: (Located & { id: string; name: string; arrives_on: string | null; departs_on: string | null })[];
+  /** Saved places not planned yet (planned ones already show as activities). */
+  saved?: (Located & { id: string; name: string; category: string; address: string | null; trip_stop_id: string | null; estimated_minutes: number | null })[];
 }): MapPoint[] {
   const base = `/viajes/${tripId}`;
   return [
@@ -134,6 +137,23 @@ export function buildMapPoints({
         href: editable ? `${base}/actividades/${a.id}` : `${base}/itinerario?dia=${activityDate(a)}`,
         placeId: a.google_place_id,
         stopId: a.trip_stop_id,
+      }),
+    ),
+    ...saved.filter(hasCoords).map(
+      (p): MapPoint => ({
+        id: p.id,
+        kind: "saved",
+        title: p.name,
+        lat: p.lat,
+        lng: p.lng,
+        category: p.category,
+        time: null,
+        dates: [],
+        checkOut: null,
+        subtitle: p.address,
+        href: `${base}/guardados${editable ? `/${p.id}` : ""}`,
+        placeId: p.google_place_id,
+        stopId: p.trip_stop_id,
       }),
     ),
   ];

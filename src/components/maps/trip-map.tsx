@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowRight, BedDouble, ChevronRight, LogIn, LogOut, MapPin, Navigation, ZoomIn } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ArrowRight, BedDouble, Bookmark, CalendarPlus, ChevronRight, Eye, EyeOff, LogIn, LogOut, MapPin, Navigation, ZoomIn } from "lucide-react";
 
 import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
 import { directionsUrl } from "@/lib/maps/directions";
@@ -11,6 +12,8 @@ import type { MapPoint } from "@/lib/maps/points";
 import { transportMeta } from "@/lib/transportations/types";
 
 type Props = {
+  tripId: string;
+  editable: boolean;
   points: MapPoint[];
   days: MapDay[];
   /** The route of cities, for the whole-trip view. */
@@ -21,6 +24,8 @@ type Props = {
 
 const BED_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 20v-8a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v8"/><path d="M4 10V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M12 4v6"/><path d="M2 18h20"/></svg>';
+const BOOKMARK_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>';
 const LEAVE_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>';
 
@@ -30,7 +35,12 @@ const CITY_ZOOM = 11;
 
 function markerElement(point: MapPoint, label: string | null, leaving: boolean) {
   const el = document.createElement("div");
-  if (point.kind === "stay" && leaving) {
+  if (point.kind === "saved") {
+    // Saved for later: hollow, so it reads as "option", not "plan".
+    el.className =
+      "flex size-7 items-center justify-center rounded-full border-2 border-primary bg-card text-primary shadow";
+    el.innerHTML = BOOKMARK_SVG;
+  } else if (point.kind === "stay" && leaving) {
     // The stay checked out of today: shown, but not where the day happens.
     el.className =
       "flex size-7 items-center justify-center rounded-full border-2 border-white bg-muted-foreground text-white opacity-80 shadow";
@@ -67,7 +77,7 @@ function rowLook(row: MapRow) {
   return { icon: meta.icon, className: meta.className };
 }
 
-export function TripMap({ points, days, cities, initialDay }: Props) {
+export function TripMap({ tripId, editable, points, days, cities, initialDay }: Props) {
   const [day, setDay] = useState<string | null>(initialDay);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +105,12 @@ export function TripMap({ points, days, cities, initialDay }: Props) {
   const leaving = useMemo(
     () => (day ? points.filter((p) => p.kind === "stay" && p.checkOut?.date === day && !p.dates.includes(day)) : []),
     [points, day],
+  );
+  // Saved places not planned yet in the day's city (or cities): ideas for free time.
+  const [showSaved, setShowSaved] = useState(true);
+  const nearbySaved = useMemo(
+    () => (dayInfo ? points.filter((p) => p.kind === "saved" && p.stopId !== null && dayInfo.stopIds.includes(p.stopId)) : []),
+    [points, dayInfo],
   );
   const dayActivities = day ? visible.filter((p) => p.kind === "activity") : [];
   const numberOf = new Map(dayActivities.map((p, i) => [p.id, String(i + 1)]));
@@ -213,17 +229,19 @@ export function TripMap({ points, days, cities, initialDay }: Props) {
       // Frame the day's plans; the stay being left only counts if nothing else has a place.
       const framed = visible.length > 0 ? visible : leaving;
       const bounds = new google.maps.LatLngBounds();
-      overlays.current.markers = [...leaving, ...visible].map((p) => {
+      const savedShown = showSaved ? nearbySaved : [];
+      overlays.current.markers = [...savedShown, ...leaving, ...visible].map((p) => {
         const isLeaving = leaving.includes(p);
         const marker = new AdvancedMarkerElement({
           map: m,
           position: { lat: p.lat, lng: p.lng },
           title: isLeaving ? `Check-out · ${p.title}` : p.title,
           content: markerElement(p, numberOf.get(p.id) ?? null, isLeaving),
-          zIndex: p.kind === "stop" ? 3 : p.kind === "stay" ? 2 : 1,
+          zIndex: p.kind === "stop" ? 3 : p.kind === "stay" ? 2 : p.kind === "saved" ? 0 : 1,
           gmpClickable: true,
         });
         marker.addListener("click", () => setSelected(p.id));
+        // Saved places are ideas nearby: they don't pull the frame away from the day's plans.
         if (framed.includes(p)) bounds.extend(marker.position!);
         return marker;
       });
@@ -252,7 +270,7 @@ export function TripMap({ points, days, cities, initialDay }: Props) {
     };
     // numberOf/dayActivities derive from `visible`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, leaving, day, mapReady]);
+  }, [visible, leaving, day, nearbySaved, showSaved, mapReady]);
 
   function chooseDay(next: string | null) {
     setDay(next);
@@ -280,7 +298,8 @@ export function TripMap({ points, days, cities, initialDay }: Props) {
     const city = cities.find((c) => c.id === cityId);
     if (!m || !city) return;
     setSelected(null);
-    const inside = points.filter((p) => p.kind !== "stop" && p.stopId === cityId);
+    // Frame the plans (hotel and activities); saved places far out of town would widen it.
+    const inside = points.filter((p) => (p.kind === "activity" || p.kind === "stay") && p.stopId === cityId);
     if (inside.length > 1) {
       const bounds = new google.maps.LatLngBounds();
       inside.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }));
@@ -364,7 +383,7 @@ export function TripMap({ points, days, cities, initialDay }: Props) {
           <div className="absolute inset-x-3 bottom-3 flex items-center gap-3 rounded-xl border bg-card p-3 shadow-lg">
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-semibold">
-                {currentIsLeaving ? `Check-out ${current.checkOut?.time} · ` : current.time ? `${current.time} · ` : ""}
+                {current.kind === "saved" ? "Guardado · " : currentIsLeaving ? `Check-out ${current.checkOut?.time} · ` : current.time ? `${current.time} · ` : ""}
                 {current.title}
               </span>
               {current.subtitle && <span className="truncate text-xs text-muted-foreground">{current.subtitle}</span>}
@@ -517,6 +536,60 @@ export function TripMap({ points, days, cities, initialDay }: Props) {
             );
           })}
         </ol>
+      )}
+
+      {dayInfo && nearbySaved.length > 0 && (
+        <section aria-labelledby="nearby-saved" className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-3">
+            <h2 id="nearby-saved" className="flex items-center gap-1.5 font-semibold">
+              <Bookmark className="size-4 text-primary" aria-hidden="true" />
+              Guardados en {dayInfo.cities.join(" y ")} ({nearbySaved.length})
+            </h2>
+            <button
+              type="button"
+              onClick={() => setShowSaved((v) => !v)}
+              aria-pressed={showSaved}
+              className="flex h-9 items-center gap-1.5 rounded-full border bg-card px-3 text-xs text-foreground/80 hover:bg-muted"
+            >
+              {showSaved ? <Eye className="size-3.5" aria-hidden="true" /> : <EyeOff className="size-3.5" aria-hidden="true" />}
+              {showSaved ? "En el mapa" : "Ocultos"}
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">Ideas para un rato libre: aún no están en el itinerario.</p>
+          <ul className="flex flex-col gap-1.5">
+            {nearbySaved.map((p) => (
+              <li key={p.id} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSaved(true);
+                    focus(p.id);
+                  }}
+                  aria-current={p.id === selected ? "true" : undefined}
+                  className={
+                    "flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-xl border border-dashed px-3 py-2 text-left hover:border-primary/40 " +
+                    (p.id === selected ? "border-primary/40 bg-secondary" : "bg-card")
+                  }
+                >
+                  <Bookmark className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-medium">{p.title}</span>
+                    {p.subtitle && <span className="truncate text-xs text-muted-foreground">{p.subtitle}</span>}
+                  </span>
+                </button>
+                {editable && (
+                  <Link
+                    href={`/viajes/${tripId}/actividades/nueva?guardado=${p.id}&dia=${dayInfo.date}`}
+                    aria-label={`Agregar ${p.title} a este día`}
+                    className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover"
+                  >
+                    <CalendarPlus className="size-5" aria-hidden="true" />
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );
