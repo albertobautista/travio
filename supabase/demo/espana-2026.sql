@@ -38,7 +38,7 @@ with t as (
   values (
     'España 2026',
     'Barcelona, Madrid, Sevilla y Málaga en 15 días. Trenes AVE entre ciudades, excursiones a Montserrat, Toledo, Ronda y Nerja.',
-    '2026-09-27', '2026-10-11', 'MXN', 95000
+    '2026-09-27', '2026-10-11', 'MXN', 160000
   )
   returning id
 )
@@ -410,6 +410,37 @@ from public.saved_places sp
 where a.trip_id = (select id from ids where key = 'trip') and sp.trip_id = a.trip_id
   and (a.title, sp.name) in (('Cena en Casa Lucio', 'Casa Lucio'), ('Cena en El Pimpi', 'El Pimpi'));
 
+-- ---------------------------------------------------------------------------
+-- Budget: the trip's EUR rate and the first days' expenses
+-- ---------------------------------------------------------------------------
+insert into public.trip_exchange_rates (trip_id, currency, rate)
+select id, 'EUR', 20.32 from ids where key = 'trip';
+
+insert into public.expenses (trip_id, category, description, amount, currency, spent_on, paid_by, notes)
+select trip.id, e.category, e.description, e.amount, e.currency, e.spent_on::date,
+  (select id from ids where key = e.payer), e.notes
+from (values
+  ('flights', 'Vuelos AM 23 (ida, 2 personas)', 38400.00, 'MXN', '2026-08-15', 'alberto', 'Pagado con meses sin intereses.'),
+  ('food', 'Cena en el aeropuerto MEX', 780.00, 'MXN', '2026-09-27', 'alberto', null),
+  ('transportation', 'Aerobús al centro', 14.80, 'EUR', '2026-09-28', 'alberto', '2 boletos sencillos.'),
+  ('transportation', 'Taxi Plaça Catalunya → hotel', 11.50, 'EUR', '2026-09-28', 'ximena', null),
+  ('food', 'Vermut en Bar del Pla', 12.00, 'EUR', '2026-09-28', 'ximena', null),
+  ('food', 'Tapas en El Xampanyet', 46.30, 'EUR', '2026-09-28', 'alberto', null),
+  ('other', 'SIM de datos (Orange, 20 GB)', 15.00, 'EUR', '2026-09-28', 'alberto', null),
+  ('food', 'Desayuno en Brunch & Cake', 27.40, 'EUR', '2026-09-29', 'ximena', null),
+  ('transportation', 'T-casual (10 viajes de metro)', 12.55, 'EUR', '2026-09-29', 'alberto', null),
+  ('activities', 'Sagrada Família con torres', 72.00, 'EUR', '2026-09-29', 'alberto', 'Pagado al reservar.'),
+  ('food', 'Comida en La Boqueria', 38.90, 'EUR', '2026-09-29', 'ximena', null),
+  ('activities', 'Park Güell', 36.00, 'EUR', '2026-09-29', 'ximena', null),
+  ('food', 'Cena en Cervecería Catalana', 64.20, 'EUR', '2026-09-29', 'alberto', null),
+  ('other', 'Souvenir: azulejo de Gaudí', 18.00, 'EUR', '2026-09-29', 'ximena', null),
+  ('accommodation', 'Casa Bonay (4 noches)', 612.00, 'EUR', '2026-07-02', 'alberto', 'Pagado al reservar en Booking.'),
+  ('transportation', 'AVE Barcelona–Madrid y Madrid–Sevilla', 261.00, 'EUR', '2026-07-20', 'alberto', null),
+  ('food', 'Café y croissant', 7.80, 'EUR', '2026-09-30', 'ximena', null),
+  ('activities', 'Casa Batlló', 70.00, 'EUR', '2026-09-30', 'alberto', null)
+) as e(category, description, amount, currency, spent_on, payer, notes)
+join ids trip on trip.key = 'trip';
+
 -- Summary
 select
   (select name from public.trips where id = (select id from ids where key = 'trip')) as trip,
@@ -419,7 +450,8 @@ select
   (select count(*) from public.accommodations where trip_id = (select id from ids where key = 'trip')) as stays,
   (select count(*) from public.transportations where trip_id = (select id from ids where key = 'trip')) as legs,
   (select count(*) from public.activities where trip_id = (select id from ids where key = 'trip')) as activities,
-  (select count(*) from public.saved_places where trip_id = (select id from ids where key = 'trip')) as saved;
+  (select count(*) from public.saved_places where trip_id = (select id from ids where key = 'trip')) as saved,
+  (select count(*) from public.expenses where trip_id = (select id from ids where key = 'trip')) as expenses;
 
 
 commit;

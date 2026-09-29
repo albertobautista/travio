@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BedDouble, Bookmark, CalendarDays, ChevronLeft, ChevronRight, FolderLock, Map as MapIcon, Pencil, Plane, Sun } from "lucide-react";
+import { BedDouble, Bookmark, CalendarDays, PiggyBank, ChevronLeft, ChevronRight, FolderLock, Map as MapIcon, Pencil, Plane, Sun } from "lucide-react";
 
 import { TripRoute } from "@/components/trips/trip-route";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { getActivities } from "@/lib/activities/queries";
+import { formatMoney, toCents } from "@/lib/budget/money";
 import { getTripFiles } from "@/lib/files/queries";
 import { getSavedPlaces } from "@/lib/saved-places/queries";
 import { getTransportations } from "@/lib/transportations/queries";
@@ -224,6 +225,24 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
           <span className="font-semibold">Transporte</span>
           <span className="text-sm text-muted-foreground">
             {legs.length === 0 ? "Vuelos, trenes y autos" : `${legs.length} ${legs.length === 1 ? "trayecto" : "trayectos"}`}
+          </span>
+        </span>
+        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+      </Link>
+
+      <Link
+        href={`/viajes/${trip.id}/presupuesto`}
+        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
+      >
+        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
+          <PiggyBank className="size-5" aria-hidden="true" />
+        </span>
+        <span className="flex flex-1 flex-col">
+          <span className="font-semibold">Presupuesto</span>
+          <span className="text-sm text-muted-foreground">
+            {trip.budget_amount === null
+              ? "Estimado, gastos y tipos de cambio"
+              : `${formatMoney(toCents(Number(trip.budget_amount)), trip.currency)} · ver lo gastado`}
           </span>
         </span>
         <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />

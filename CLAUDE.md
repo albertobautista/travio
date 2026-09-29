@@ -376,7 +376,7 @@ Do not silently decide these. Discuss them with Alberto before implementation wh
 - [ ] Image optimization strategy
 - [ ] Invitation flow
 - [ ] Whether editors can invite other members
-- [ ] Exact budget/expense schema
+- [x] Exact budget/expense schema (estimated from entity costs + `expenses` for actual spending; per-trip exchange rates in `trip_exchange_rates`, suggested from ECB via Frankfurter but confirmed by the user. Decided 2026-09-30; splitting costs between travelers deferred.)
 - [ ] Offline/PWA capabilities
 - [ ] Localization/i18n
 - [ ] Testing stack

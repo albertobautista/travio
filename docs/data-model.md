@@ -318,7 +318,7 @@ Other rules:
 
 ## 5. Deferred (no tables yet)
 
-- **Expenses / budget detail**: `expenses` table later; v1 only has costs on entities and `trips.budget_amount`.
+- ~~Expenses / budget detail~~ **Implemented (2026-09-30)**: `expenses` (category, description, amount, currency, `spent_on`, optional `paid_by` traveler, notes) and `trip_exchange_rates` (`1 currency = rate × trip currency`, one row per foreign currency). "Estimated" is summed from `cost_amount` on stays, legs and activities, mapped to the six budget categories in `src/lib/budget/categories.ts`; amounts without a rate are shown apart, never guessed. Splitting costs between travelers is deferred.
 - **Invitations**: depends on the invitation flow (open decision).
 - **Weather**: fetched live, not stored.
 - **Travel-time validation**: domain logic + Google APIs, no schema needed.
@@ -333,4 +333,4 @@ Other rules:
 
 Open, found while testing (2026-09-28): **what happens to a trip when its owner deletes their account?** Today the membership rows cascade away and `trips.created_by` becomes null, leaving a trip nobody can see. Options: block account deletion while owning trips with other members, auto-transfer to the oldest editor, or delete trips the user owns alone.
 
-Still open (from `CLAUDE.md`): invitation flow, whether editors can invite, budget/expense schema.
+Still open (from `CLAUDE.md`): invitation flow, whether editors can invite.
