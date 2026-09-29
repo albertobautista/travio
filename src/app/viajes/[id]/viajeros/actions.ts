@@ -97,29 +97,58 @@ export async function updateTraveler(
 
 export type DeleteTravelerState = { error?: string } | undefined;
 
+/**
+ * Of the parents this traveler takes part in, the titles of those where they
+ * are the only participant. `participantsOf` returns one parent id per
+ * participant row of the given parents.
+ */
+async function soleIn(theirs: { id: string; title: string }[], participantsOf: (ids: string[]) => Promise<string[]>) {
+  if (theirs.length === 0) return [];
+  const counts = new Map<string, number>();
+  for (const id of await participantsOf(theirs.map((p) => p.id))) counts.set(id, (counts.get(id) ?? 0) + 1);
+  return theirs.filter((p) => counts.get(p.id) === 1).map((p) => p.title);
+}
+
 export async function deleteTraveler(tripId: string, travelerId: string): Promise<DeleteTravelerState> {
   if (!isUuid(tripId) || !isUuid(travelerId)) return { error: "Este viajero no existe." };
   const supabase = await createClient();
 
   // No participant rows means "everyone". If this traveler is the only
-  // participant of an activity, deleting them would silently turn that
-  // activity into "everyone", so we ask the user to decide first.
-  const { data: theirs } = await supabase
-    .from("activity_participants")
-    .select("activity_id, activities (title)")
-    .eq("trip_id", tripId)
-    .eq("traveler_id", travelerId);
-  const activityIds = (theirs ?? []).map((p) => p.activity_id);
-  if (activityIds.length > 0) {
-    const { data: all } = await supabase.from("activity_participants").select("activity_id").in("activity_id", activityIds);
-    const counts = new Map<string, number>();
-    for (const p of all ?? []) counts.set(p.activity_id, (counts.get(p.activity_id) ?? 0) + 1);
-    const soleIn = (theirs ?? []).filter((p) => counts.get(p.activity_id) === 1).map((p) => p.activities?.title ?? "");
-    if (soleIn.length > 0) {
-      return {
-        error: `Es la única persona en: ${soleIn.join(", ")}. Cambia quién va a ${soleIn.length === 1 ? "esa actividad" : "esas actividades"} antes de quitarla.`,
-      };
-    }
+  // participant of an activity or a stay, deleting them would silently turn it
+  // into "everyone", so we ask the user to decide first.
+  const [{ data: activities }, { data: stays }] = await Promise.all([
+    supabase
+      .from("activity_participants")
+      .select("activity_id, activities (title)")
+      .eq("trip_id", tripId)
+      .eq("traveler_id", travelerId),
+    supabase
+      .from("accommodation_participants")
+      .select("accommodation_id, accommodations (name)")
+      .eq("trip_id", tripId)
+      .eq("traveler_id", travelerId),
+  ]);
+  const [soleActivities, soleStays] = await Promise.all([
+    soleIn(
+      (activities ?? []).map((p) => ({ id: p.activity_id, title: p.activities?.title ?? "" })),
+      async (ids) =>
+        ((await supabase.from("activity_participants").select("activity_id").in("activity_id", ids)).data ?? []).map(
+          (p) => p.activity_id,
+        ),
+    ),
+    soleIn(
+      (stays ?? []).map((p) => ({ id: p.accommodation_id, title: p.accommodations?.name ?? "" })),
+      async (ids) =>
+        ((await supabase.from("accommodation_participants").select("accommodation_id").in("accommodation_id", ids)).data ?? []).map(
+          (p) => p.accommodation_id,
+        ),
+    ),
+  ]);
+  if (soleActivities.length > 0 || soleStays.length > 0) {
+    const titles = [...soleActivities, ...soleStays];
+    return {
+      error: `Es la única persona en: ${titles.join(", ")}. Cambia quién va antes de quitarla.`,
+    };
   }
 
   const { data, error } = await supabase

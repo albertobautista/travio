@@ -210,6 +210,8 @@ When a stop's `timezone` changes, the `trip_stops_sync_activity_time_zones` trig
 
 Check-in/check-out appear in the itinerary as **derived events** (a query/view), not as duplicated activity rows.
 
+**Implemented (2026-09-29)**: also `accommodation_participants` (same "no rows = everyone" rule, `set_accommodation_participants`), a 90-night limit, and the stop time-zone sync trigger (`sync_accommodation_time_zones`) so check-in/out keep their local times. Check-in/out events are computed in `src/lib/accommodations/stays.ts`. Removing a traveler who is the only guest of a stay is refused, like activities. Files gained `accommodation_id` and `files_single_parent` (`num_nonnulls(activity_id, accommodation_id) <= 1`); `transportation_id` joins that check with its table.
+
 **`transportations`**
 
 | column | type | notes |

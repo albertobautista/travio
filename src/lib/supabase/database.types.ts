@@ -23,7 +23,63 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "activities": {
+            "accommodation_participants": {
+                  Row: {
+                    "accommodation_id": string,"created_at": string,"traveler_id": string,"trip_id": string
+                  }
+                  Insert: {
+                    "accommodation_id": string,"created_at"?: string,"traveler_id": string,"trip_id": string
+                  }
+                  Update: {
+                    "accommodation_id"?: string,"created_at"?: string,"traveler_id"?: string,"trip_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "accommodation_participants_trip_id_accommodation_id_fkey"
+      columns: ["trip_id","accommodation_id"]
+isOneToOne: false
+      referencedRelation: "accommodations"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "accommodation_participants_trip_id_traveler_id_fkey"
+      columns: ["trip_id","traveler_id"]
+isOneToOne: false
+      referencedRelation: "travelers"
+      referencedColumns: ["trip_id","id"]
+    }
+                  ]
+                },"accommodations": {
+                  Row: {
+                    "address": string | null,"booking_ref": string | null,"booking_status": string,"booking_url": string | null,"check_in_at": string,"check_out_at": string,"cost_amount": number | null,"cost_currency": string | null,"created_at": string,"created_by": string | null,"google_place_id": string | null,"id": string,"lat": number | null,"lng": number | null,"name": string,"notes": string | null,"timezone": string,"trip_id": string,"trip_stop_id": string | null,"updated_at": string
+                  }
+                  Insert: {
+                    "address"?: string | null,"booking_ref"?: string | null,"booking_status"?: string,"booking_url"?: string | null,"check_in_at": string,"check_out_at": string,"cost_amount"?: number | null,"cost_currency"?: string | null,"created_at"?: string,"created_by"?: string | null,"google_place_id"?: string | null,"id"?: string,"lat"?: number | null,"lng"?: number | null,"name": string,"notes"?: string | null,"timezone": string,"trip_id": string,"trip_stop_id"?: string | null,"updated_at"?: string
+                  }
+                  Update: {
+                    "address"?: string | null,"booking_ref"?: string | null,"booking_status"?: string,"booking_url"?: string | null,"check_in_at"?: string,"check_out_at"?: string,"cost_amount"?: number | null,"cost_currency"?: string | null,"created_at"?: string,"created_by"?: string | null,"google_place_id"?: string | null,"id"?: string,"lat"?: number | null,"lng"?: number | null,"name"?: string,"notes"?: string | null,"timezone"?: string,"trip_id"?: string,"trip_stop_id"?: string | null,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "accommodations_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "accommodations_stop_same_trip"
+      columns: ["trip_id","trip_stop_id"]
+isOneToOne: false
+      referencedRelation: "trip_stops"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "accommodations_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"activities": {
                   Row: {
                     "address": string | null,"booking_status": string,"category": string,"cost_amount": number | null,"cost_currency": string | null,"created_at": string,"created_by": string | null,"duration_minutes": number,"external_url": string | null,"google_place_id": string | null,"id": string,"lat": number | null,"lng": number | null,"location_name": string | null,"notes": string | null,"reservation_ref": string | null,"starts_at": string,"timezone": string,"title": string,"trip_id": string,"trip_stop_id": string | null,"updated_at": string
                   }
@@ -81,16 +137,22 @@ isOneToOne: false
                   ]
                 },"files": {
                   Row: {
-                    "activity_id": string | null,"created_at": string,"document_type": string,"id": string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"trip_id": string,"updated_at": string,"uploaded_by": string | null
+                    "accommodation_id": string | null,"activity_id": string | null,"created_at": string,"document_type": string,"id": string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"trip_id": string,"updated_at": string,"uploaded_by": string | null
                   }
                   Insert: {
-                    "activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"trip_id": string,"updated_at"?: string,"uploaded_by"?: string | null
+                    "accommodation_id"?: string | null,"activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"trip_id": string,"updated_at"?: string,"uploaded_by"?: string | null
                   }
                   Update: {
-                    "activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type"?: string,"original_name"?: string,"size_bytes"?: number,"storage_path"?: string,"trip_id"?: string,"updated_at"?: string,"uploaded_by"?: string | null
+                    "accommodation_id"?: string | null,"activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type"?: string,"original_name"?: string,"size_bytes"?: number,"storage_path"?: string,"trip_id"?: string,"updated_at"?: string,"uploaded_by"?: string | null
                   }
                   Relationships: [
                     {
+      foreignKeyName: "files_accommodation_same_trip"
+      columns: ["trip_id","accommodation_id"]
+isOneToOne: false
+      referencedRelation: "accommodations"
+      referencedColumns: ["trip_id","id"]
+    },{
       foreignKeyName: "files_activity_same_trip"
       columns: ["trip_id","activity_id"]
 isOneToOne: false
@@ -243,6 +305,9 @@ isOneToOne: false
                            },
 "move_trip_stop":
 { Args: { "p_direction": number,"p_stop_id": string }; Returns: undefined
+                           },
+"set_accommodation_participants":
+{ Args: { "p_accommodation_id": string,"p_traveler_ids": (string)[] }; Returns: undefined
                            },
 "set_activity_participants":
 { Args: { "p_activity_id": string,"p_traveler_ids": (string)[] }; Returns: undefined
