@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AlertTriangle, BedDouble, CalendarDays, Check, ChevronLeft, ExternalLink, FolderLock, MapPin, Navigation, Paperclip, Plus, Ticket } from "lucide-react";
 
 import { StayCard } from "@/components/accommodations/stay-card";
+import { TransportCard } from "@/components/transportations/transport-card";
 import { StartsIn } from "@/components/activities/starts-in";
 import { FileRow, fileHref } from "@/components/files/file-row";
 import { TripClock } from "@/components/trips/trip-clock";
@@ -15,6 +16,8 @@ import { activityDate } from "@/lib/activities/itinerary";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { stayForToday, stayPhase } from "@/lib/accommodations/stays";
 import { getActivities } from "@/lib/activities/queries";
+import { legsForToday, legTimes } from "@/lib/transportations/legs";
+import { getTransportations } from "@/lib/transportations/queries";
 import { getTripFiles } from "@/lib/files/queries";
 import { formatDuration, formatTimeRange } from "@/lib/activities/schedule";
 import { createClient } from "@/lib/supabase/server";
@@ -61,7 +64,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
   const { id } = await params;
   const { todos } = await searchParams;
   const supabase = await createClient();
-  const [trip, role, stops, activities, travelers, files, stays, { data: claims }] = await Promise.all([
+  const [trip, role, stops, activities, travelers, files, stays, legs, { data: claims }] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
@@ -69,6 +72,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
     getTravelers(id),
     getTripFiles(id),
     getAccommodations(id),
+    getTransportations(id),
     supabase.auth.getClaims(),
   ]);
   if (!trip) notFound();
@@ -118,10 +122,47 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
     return checkOut.date === today ? `Sales hoy · check-out a las ${checkOut.time}` : "Esta noche duermes en";
   })();
 
+  // Flights, trains… departing today or under way, for the people shown.
+  const todaysLegs = legsForToday(
+    legs.filter((l) => {
+      const ids = l.transportation_participants.map((p) => p.traveler_id);
+      return showAll || ids.length === 0 || ids.includes(me!.id);
+    }),
+    now,
+    today,
+  );
+
   const plan = buildDayPlan(todays, now);
   const peopleOf = (a: (typeof prepared)[number]) =>
     a.participantIds.length > 0 ? a.participantIds.flatMap((pid) => travelerById.get(pid) ?? []) : travelers;
   const base = `/viajes/${trip.id}`;
+  // A leg that leaves before the next plan (or is under way) goes above it.
+  const firstPlanStart = plan.focus[0]?.startsAt.getTime() ?? Infinity;
+  const legsFirst = todaysLegs.filter((l) => Date.parse(l.departs_at) <= firstPlanStart);
+  const legsAfter = todaysLegs.filter((l) => Date.parse(l.departs_at) > firstPlanStart);
+  const legCard = (leg: (typeof todaysLegs)[number]) => {
+    const underway = Date.parse(leg.departs_at) <= now.getTime();
+    const { arrives } = legTimes(leg);
+    return (
+      <TransportCard
+        key={leg.id}
+        tripId={trip.id}
+        leg={leg}
+        travelers={travelers}
+        files={files.filter((f) => f.transportation_id === leg.id)}
+        editable={false}
+        eyebrow={
+          underway ? (
+            `En camino · llegas a las ${arrives.time}`
+          ) : (
+            <>
+              Sale <StartsIn startsAt={leg.departs_at} initial={formatStartsIn(new Date(leg.departs_at), now)} />
+            </>
+          )
+        }
+      />
+    );
+  };
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
@@ -162,37 +203,42 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
         </nav>
       )}
 
+      {legsFirst.map(legCard)}
+
       {todays.length === 0 ? (
-        <section className="flex flex-col items-center gap-3 rounded-2xl border border-dashed bg-card px-6 py-8 text-center">
-          <CalendarDays className="size-8 text-primary" aria-hidden="true" />
-          <p className="font-semibold">
-            {status === "upcoming" && trip.start_date
-              ? `Tu viaje empieza el ${formatTripDates(trip.start_date, null)}`
-              : status === "past"
-                ? "Este viaje ya terminó"
-                : status === "undated"
-                  ? "Este viaje aún no tiene fechas"
-                  : "Hoy no hay nada planeado"}
-          </p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            {status === "active"
-              ? "Día libre. Si surge un plan, agrégalo para tenerlo a la mano."
-              : "Aquí verás el plan de cada día mientras viajas: qué sigue, cómo llegar y tus reservas."}
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {editable && status === "active" && (
-              <Button asChild>
-                <Link href={`${base}/actividades/nueva?dia=${today}`}>
-                  <Plus aria-hidden="true" />
-                  Agregar actividad
-                </Link>
+        // A travel day with only a flight isn't "nothing planned": the leg card says it all.
+        todaysLegs.length > 0 ? null : (
+          <section className="flex flex-col items-center gap-3 rounded-2xl border border-dashed bg-card px-6 py-8 text-center">
+            <CalendarDays className="size-8 text-primary" aria-hidden="true" />
+            <p className="font-semibold">
+              {status === "upcoming" && trip.start_date
+                ? `Tu viaje empieza el ${formatTripDates(trip.start_date, null)}`
+                : status === "past"
+                  ? "Este viaje ya terminó"
+                  : status === "undated"
+                    ? "Este viaje aún no tiene fechas"
+                    : "Hoy no hay nada planeado"}
+            </p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              {status === "active"
+                ? "Día libre. Si surge un plan, agrégalo para tenerlo a la mano."
+                : "Aquí verás el plan de cada día mientras viajas: qué sigue, cómo llegar y tus reservas."}
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {editable && status === "active" && (
+                <Button asChild>
+                  <Link href={`${base}/actividades/nueva?dia=${today}`}>
+                    <Plus aria-hidden="true" />
+                    Agregar actividad
+                  </Link>
+                </Button>
+              )}
+              <Button asChild variant="outline">
+                <Link href={`${base}/itinerario`}>Ver itinerario</Link>
               </Button>
-            )}
-            <Button asChild variant="outline">
-              <Link href={`${base}/itinerario`}>Ver itinerario</Link>
-            </Button>
-          </div>
-        </section>
+            </div>
+          </section>
+        )
       ) : plan.focus.length > 0 ? (
         plan.focus.map((focus) => {
           const category = isCategory(focus.category) ? CATEGORY_META[focus.category] : CATEGORY_META.other;
@@ -314,6 +360,8 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
           </p>
         </section>
       )}
+
+      {legsAfter.map(legCard)}
 
       {!stay && editable && status === "active" && (
         <Link

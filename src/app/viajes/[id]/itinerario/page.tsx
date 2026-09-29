@@ -7,6 +7,9 @@ import { TravelerAvatar, TravelerStack } from "@/components/travelers/traveler-a
 import { Button } from "@/components/ui/button";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { stayEvents } from "@/lib/accommodations/stays";
+import { formatLegTimes, legMinutes, legTimes } from "@/lib/transportations/legs";
+import { getTransportations } from "@/lib/transportations/queries";
+import { transportMeta } from "@/lib/transportations/types";
 import { BOOKING_META, CATEGORY_META, isBookingStatus, isCategory } from "@/lib/activities/categories";
 import { activityDate, buildItineraryDays, pickDay } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
@@ -25,13 +28,14 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itine
 export default async function ItineraryPage({ params, searchParams }: PageProps<"/viajes/[id]/itinerario">) {
   const { id } = await params;
   const { dia, persona } = await searchParams;
-  const [trip, role, stops, activities, travelers, stays] = await Promise.all([
+  const [trip, role, stops, activities, travelers, stays, legs] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
     getActivities(id),
     getTravelers(id),
     getAccommodations(id),
+    getTransportations(id),
   ]);
   if (!trip) notFound();
 
@@ -55,15 +59,27 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
 
   // Conflicts across the whole trip: an overnight activity can overlap the next
   // day. Only activities that share a traveler can clash.
-  const conflicts = findConflicts(
-    withDates.map((a) => ({
+  // Transportation counts too: nobody can be at a museum during their flight.
+  const personLegs = legs.filter((l) => {
+    const ids = l.transportation_participants.map((p) => p.traveler_id);
+    return !person || ids.length === 0 || ids.includes(person.id);
+  });
+  const conflicts = findConflicts([
+    ...withDates.map((a) => ({
       id: a.id,
       title: a.title,
       startsAt: a.startsAt,
       durationMinutes: a.duration_minutes,
       participantIds: a.participantIds,
     })),
-  );
+    ...personLegs.map((l) => ({
+      id: l.id,
+      title: `${transportMeta(l.type).label} ${l.origin_name} → ${l.destination_name}`,
+      startsAt: new Date(l.departs_at),
+      durationMinutes: legMinutes(l),
+      participantIds: l.transportation_participants.map((p) => p.traveler_id),
+    })),
+  ]);
   const dayActivities = day ? withDates.filter((a) => a.date === day.date) : [];
 
   // Stays: check-in/check-out are derived events in the timeline (not stored
@@ -82,12 +98,26 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
           day.date < instantToZonedTime(s.check_out_at, s.timezone).date,
       )
     : undefined;
+  // Legs show at departure; an arrival on a later local date gets its own row that day.
+  const dayLegs = day
+    ? personLegs.flatMap((l) => {
+        const { departs, arrives } = legTimes(l);
+        const out: { leg: typeof l; end: "departs" | "arrives"; at: Date; time: string }[] = [];
+        if (departs.date === day.date) out.push({ leg: l, end: "departs", at: new Date(l.departs_at), time: departs.time });
+        if (arrives.date === day.date && arrives.date !== departs.date) {
+          out.push({ leg: l, end: "arrives", at: new Date(l.arrives_at), time: arrives.time });
+        }
+        return out;
+      })
+    : [];
   type Row =
     | { kind: "activity"; at: Date; activity: (typeof dayActivities)[number] }
-    | { kind: "stay"; at: Date; event: (typeof dayEvents)[number] };
+    | { kind: "stay"; at: Date; event: (typeof dayEvents)[number] }
+    | { kind: "leg"; at: Date; item: (typeof dayLegs)[number] };
   const dayRows: Row[] = [
     ...dayActivities.map((a): Row => ({ kind: "activity", at: a.startsAt, activity: a })),
     ...dayEvents.map((e): Row => ({ kind: "stay", at: e.at, event: e })),
+    ...dayLegs.map((item): Row => ({ kind: "leg", at: item.at, item })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
   const dayStop = day ? stopForDate(stops, day.date) : undefined;
   const addHref = `/viajes/${trip.id}/actividades/nueva${day ? `?dia=${day.date}` : ""}`;
@@ -237,6 +267,64 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                 <ol className="relative flex flex-col gap-2.5">
                   <span aria-hidden="true" className="absolute top-5 bottom-5 left-[5px] w-0.5 bg-timeline" />
                   {dayRows.map((row) => {
+                    if (row.kind === "leg") {
+                      const { leg, end, at, time } = row.item;
+                      const meta = transportMeta(leg.type);
+                      const Icon = meta.icon;
+                      const booking = isBookingStatus(leg.booking_status) ? BOOKING_META[leg.booking_status] : null;
+                      const overlaps = conflicts.get(leg.id) ?? [];
+                      const service = [leg.carrier, leg.service_number].filter(Boolean).join(" ");
+                      return (
+                        <li key={`${leg.id}-${end}`} className="flex items-center gap-2.5">
+                          <span
+                            aria-hidden="true"
+                            className={"relative size-3 shrink-0 rounded-full border-2 border-card " + (overlaps.length > 0 ? "bg-warning" : "bg-primary")}
+                          />
+                          <time dateTime={at.toISOString()} className="w-11 shrink-0 font-mono text-xs font-semibold">
+                            {time}
+                          </time>
+                          <Link
+                            href={`/viajes/${trip.id}/transporte${editable ? `/${leg.id}` : ""}`}
+                            className={
+                              "flex min-w-0 flex-1 flex-col gap-2 rounded-[14px] border px-2.5 py-2 hover:border-primary/40 " +
+                              (overlaps.length > 0 ? "border-warning-border bg-warning-soft" : "bg-card")
+                            }
+                          >
+                            <span className="flex items-center gap-2.5">
+                              <span className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-secondary text-primary">
+                                <Icon className="size-5" aria-hidden="true" />
+                              </span>
+                              <span className="flex min-w-0 flex-1 flex-col">
+                                <span className="truncate font-semibold">
+                                  {end === "arrives" ? `Llegada a ${leg.destination_name}` : `${leg.origin_name} → ${leg.destination_name}`}
+                                </span>
+                                <span className="truncate text-xs text-muted-foreground">
+                                  {formatLegTimes(leg)}
+                                  {service ? ` · ${service}` : ""}
+                                  {end === "departs" && leg.departure_detail ? ` · ${leg.departure_detail}` : ""}
+                                </span>
+                                <span className="mt-1 flex flex-wrap items-center gap-1">
+                                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
+                                    {meta.label}
+                                  </span>
+                                  {booking?.badge && (
+                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${booking.className}`}>
+                                      {booking.badge}
+                                    </span>
+                                  )}
+                                </span>
+                              </span>
+                            </span>
+                            {overlaps.length > 0 && (
+                              <span className="flex items-start gap-2 text-xs text-warning-foreground">
+                                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                                {overlaps.map((o) => `Se solapa ${formatDuration(o.overlapMinutes)} con ${o.title}`).join(". ")}
+                              </span>
+                            )}
+                          </Link>
+                        </li>
+                      );
+                    }
                     if (row.kind === "stay") {
                       const { event } = row;
                       const Icon = event.kind === "check_in" ? LogIn : LogOut;
