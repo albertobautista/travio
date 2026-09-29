@@ -267,7 +267,9 @@ Check-in/check-out appear in the itinerary as **derived events** (a query/view),
 
 **Why the path starts with `trip_id`:** Storage RLS policies can read the first folder of the path and check trip membership without touching the `files` table.
 
-**Deleting**: deleting an activity keeps its files as trip documents (`set null`). Deleting a `files` row does **not** delete the Storage object; that goes through a server action that removes both (to be designed in the storage slice).
+**Deleting**: deleting an activity keeps its files as trip documents (`set null`). Deleting a `files` row does **not** delete the Storage object; the `deleteFile` server action removes the row first, then the object (a failed second step leaves an unreachable object rather than a row pointing at nothing).
+
+**Implemented (2026-09-29)**: bucket limits 10 MB, PDF + JPG/PNG/WebP/HEIC/HEIF. Only `activity_id` exists so far; `accommodation_id` / `transportation_id` (and the `num_nonnulls` check) arrive with those tables. Uploads go browser → Storage, then `registerFile` records the size/type Storage reports. Files open through `/viajes/[id]/documentos/[fileId]`, which redirects to a 60-second signed URL.
 
 ## 4. Authorization (RLS strategy)
 
@@ -325,4 +327,4 @@ Other rules:
 
 Open, found while testing (2026-09-28): **what happens to a trip when its owner deletes their account?** Today the membership rows cascade away and `trips.created_by` becomes null, leaving a trip nobody can see. Options: block account deletion while owning trips with other members, auto-transfer to the oldest editor, or delete trips the user owns alone.
 
-Still open (from `CLAUDE.md`): ORM vs Supabase client, invitation flow, whether editors can invite, file size/type limits, budget/expense schema.
+Still open (from `CLAUDE.md`): invitation flow, whether editors can invite, budget/expense schema.

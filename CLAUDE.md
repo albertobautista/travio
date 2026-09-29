@@ -372,7 +372,7 @@ Do not silently decide these. Discuss them with Alberto before implementation wh
 - [ ] Final weather provider
 - [ ] Hosting/deployment details
 - [ ] Exact Google Maps APIs enabled
-- [ ] File size/type limits
+- [x] File size/type limits (10 MB; PDF, JPG, PNG, WebP, HEIC/HEIF; decided 2026-09-29, enforced by the `trip-files` bucket)
 - [ ] Image optimization strategy
 - [ ] Invitation flow
 - [ ] Whether editors can invite other members
