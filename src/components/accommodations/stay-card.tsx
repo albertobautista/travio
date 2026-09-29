@@ -4,7 +4,8 @@ import { BedDouble, ExternalLink, MapPin, Navigation, Pencil } from "lucide-reac
 import { FileRow } from "@/components/files/file-row";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
-import { countNights, directionsUrl } from "@/lib/accommodations/stays";
+import { countNights } from "@/lib/accommodations/stays";
+import { directionsUrl } from "@/lib/maps/directions";
 import { BOOKING_META, isBookingStatus } from "@/lib/activities/categories";
 import { formatLocalMoment } from "@/lib/zoned-time";
 
@@ -16,6 +17,9 @@ type Props = {
     id: string;
     name: string;
     address: string | null;
+    lat: number | null;
+    lng: number | null;
+    google_place_id: string | null;
     check_in_at: string;
     check_out_at: string;
     timezone: string;
@@ -39,7 +43,8 @@ export function StayCard({ tripId, stay, travelers, files, editable, eyebrow }: 
   const booking = isBookingStatus(stay.booking_status) ? BOOKING_META[stay.booking_status] : null;
   const ids = stay.accommodation_participants.map((p) => p.traveler_id);
   const people = ids.length > 0 ? travelers.filter((t) => ids.includes(t.id)) : travelers;
-  const directions = directionsUrl(stay.address ? `${stay.name}, ${stay.address}` : null);
+  // Only with an address or exact location: the hotel name alone could match anywhere.
+  const directions = stay.address || stay.lat != null ? directionsUrl(stay) : null;
   const titleId = `stay-${stay.id}`;
 
   return (

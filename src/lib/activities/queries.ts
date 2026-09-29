@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/uuid";
 
 const ACTIVITY_COLUMNS =
-  "id, title, category, trip_stop_id, starts_at, duration_minutes, timezone, location_name, address, booking_status, reservation_ref, cost_amount, cost_currency, external_url, notes, activity_participants (traveler_id)";
+  "id, title, category, trip_stop_id, starts_at, duration_minutes, timezone, location_name, address, google_place_id, lat, lng, booking_status, reservation_ref, cost_amount, cost_currency, external_url, notes, activity_participants (traveler_id)";
 
 /** All of a trip's activities by start time. Empty if the user can't see the trip. */
 export const getActivities = cache(async (tripId: string) => {

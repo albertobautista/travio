@@ -55,8 +55,3 @@ export function stayEvents<S extends Stay>(stays: S[]): StayEvent<S>[] {
     }),
   );
 }
-
-/** Google Maps directions to an address (app on phones). No API key needed. */
-export function directionsUrl(destination: string | null | undefined) {
-  return destination ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}` : null;
-}

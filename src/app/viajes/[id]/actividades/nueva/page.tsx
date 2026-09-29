@@ -67,6 +67,9 @@ export default async function NewActivityPage({ params, searchParams }: PageProp
             cost_currency: trip.currency,
             external_url: "",
             notes: "",
+            google_place_id: "",
+            lat: "",
+            lng: "",
             // Everyone by default.
             participants: travelers.map((t) => t.id),
           }}

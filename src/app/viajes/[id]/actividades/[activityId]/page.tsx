@@ -85,6 +85,9 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
             cost_currency: activity.cost_currency ?? trip.currency,
             external_url: activity.external_url ?? "",
             notes: activity.notes ?? "",
+            google_place_id: activity.google_place_id ?? "",
+            lat: activity.lat === null ? "" : String(activity.lat),
+            lng: activity.lng === null ? "" : String(activity.lng),
             // No rows means everyone: show every traveler checked.
             participants:
               activity.activity_participants.length > 0

@@ -26,6 +26,7 @@ import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus } f
 import { clockParts, zoneCity } from "@/lib/trips/clock";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
+import { directionsUrl } from "@/lib/maps/directions";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/hoy">): Promise<Metadata> {
@@ -49,15 +50,6 @@ function addDays(date: string, days: number) {
   const d = new Date(`${date}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
-}
-
-/**
- * Opens Google Maps directions (app on phones) to the activity. No API key needed.
- * Only the activity's own place counts: directions to just the city aren't useful.
- */
-function directionsUrl(parts: (string | null | undefined)[]) {
-  const destination = parts.filter(Boolean).join(", ");
-  return destination ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}` : null;
 }
 
 export default async function TodayPage({ params, searchParams }: PageProps<"/viajes/[id]/hoy">) {
@@ -245,7 +237,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
           const Icon = category.icon;
           const happening = plan.current.includes(focus);
           const people = peopleOf(focus);
-          const directions = directionsUrl([focus.location_name, focus.address]);
+          const directions = directionsUrl({ ...focus, name: focus.location_name });
           const overlaps = plan.items.find((i) => i.kind === "activity" && i.activity.id === focus.id);
           const titleId = `focus-${focus.id}`;
           const tickets = filesByActivity.get(focus.id) ?? [];

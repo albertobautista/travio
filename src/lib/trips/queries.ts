@@ -45,7 +45,7 @@ export const getStops = cache(async (tripId: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("trip_stops")
-    .select("id, name, timezone, arrives_on, departs_on, position, notes")
+    .select("id, name, timezone, arrives_on, departs_on, position, notes, google_place_id, lat, lng")
     .eq("trip_id", tripId)
     .order("position");
   return data ?? [];

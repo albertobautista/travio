@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BedDouble, CalendarDays, ChevronLeft, ChevronRight, FolderLock, Pencil, Plane, Sun } from "lucide-react";
+import { BedDouble, CalendarDays, ChevronLeft, ChevronRight, FolderLock, Map as MapIcon, Pencil, Plane, Sun } from "lucide-react";
 
 import { TripRoute } from "@/components/trips/trip-route";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -156,6 +156,20 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
               ? "Planea las actividades de cada día"
               : `${activities.length} ${activities.length === 1 ? "actividad" : "actividades"}`}
           </span>
+        </span>
+        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+      </Link>
+
+      <Link
+        href={`/viajes/${trip.id}/mapa`}
+        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
+      >
+        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
+          <MapIcon className="size-5" aria-hidden="true" />
+        </span>
+        <span className="flex flex-1 flex-col">
+          <span className="font-semibold">Mapa</span>
+          <span className="text-sm text-muted-foreground">Lugares y ruta de cada día</span>
         </span>
         <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
       </Link>

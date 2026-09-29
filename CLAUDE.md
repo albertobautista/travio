@@ -371,7 +371,7 @@ Do not silently decide these. Discuss them with Alberto before implementation wh
 - [x] ORM vs direct Supabase client/database approach (no ORM, see section 3)
 - [ ] Final weather provider
 - [ ] Hosting/deployment details
-- [ ] Exact Google Maps APIs enabled
+- [x] Exact Google Maps APIs enabled (Maps JavaScript API + Places API (New), browser key restricted by referrer and API; decided 2026-09-29. Routes API for travel times comes later.)
 - [x] File size/type limits (10 MB; PDF, JPG, PNG, WebP, HEIC/HEIF; decided 2026-09-29, enforced by the `trip-files` bucket)
 - [ ] Image optimization strategy
 - [ ] Invitation flow

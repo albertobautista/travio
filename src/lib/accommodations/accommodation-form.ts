@@ -1,5 +1,5 @@
 import { isBookingStatus, type BookingStatus } from "@/lib/activities/categories";
-import { isTime, parseAmount, parseHttpUrl, text } from "@/lib/form-fields";
+import { isTime, parseAmount, parseHttpUrl, parseLocation, text } from "@/lib/form-fields";
 import { isKnownTimeZone } from "@/lib/time-zones";
 import { isOfferedCurrency } from "@/lib/trips/currencies";
 import { formatTripDates } from "@/lib/trips/dates";
@@ -32,6 +32,10 @@ export type AccommodationField =
   | "participants";
 
 export type AccommodationFormValues = Record<Exclude<AccommodationField, "participants">, string> & {
+  /** Hidden fields filled by the place search. */
+  google_place_id: string;
+  lat: string;
+  lng: string;
   /** Checked traveler ids. All of them checked means "everyone". */
   participants: string[];
 };
@@ -57,6 +61,9 @@ export type AccommodationData = {
   cost_amount: number | null;
   cost_currency: string | null;
   notes: string | null;
+  google_place_id: string | null;
+  lat: number | null;
+  lng: number | null;
 };
 
 type Context = {
@@ -93,6 +100,9 @@ export function parseAccommodationForm(
     cost_amount: text(formData, "cost_amount"),
     cost_currency: text(formData, "cost_currency") || trip.currency,
     notes: text(formData, "notes"),
+    google_place_id: text(formData, "google_place_id"),
+    lat: text(formData, "lat"),
+    lng: text(formData, "lng"),
   };
 
   const errors: Partial<Record<AccommodationField, string>> = {};
@@ -141,6 +151,8 @@ export function parseAccommodationForm(
   }
 
   if (values.address.length > 300) errors.address = "Máximo 300 caracteres.";
+  const location = parseLocation(formData);
+  if (!location) errors.address = "La ubicación elegida no es válida. Búscala de nuevo.";
   if (values.booking_ref.length > 120) errors.booking_ref = "Máximo 120 caracteres.";
   if (values.notes.length > 2000) errors.notes = "Máximo 2000 caracteres.";
 
@@ -188,6 +200,7 @@ export function parseAccommodationForm(
       cost_amount: cost,
       cost_currency: cost !== null ? values.cost_currency : null,
       notes: values.notes || null,
+      ...location!,
     },
   };
 }

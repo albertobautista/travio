@@ -57,6 +57,9 @@ export default async function NewAccommodationPage({ params, searchParams }: Pag
             cost_amount: "",
             cost_currency: trip.currency,
             notes: "",
+            google_place_id: "",
+            lat: "",
+            lng: "",
             // Everyone by default.
             participants: travelers.map((t) => t.id),
           }}

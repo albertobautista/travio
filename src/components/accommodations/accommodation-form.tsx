@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { Moon } from "lucide-react";
 
 import { Field, selectClass } from "@/components/form-field";
+import { PlaceFields } from "@/components/maps/place-fields";
 import { ParticipantsField } from "@/components/travelers/participants-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,15 @@ import { BOOKING_META, BOOKING_STATUSES } from "@/lib/activities/categories";
 import type { TimeZoneOption } from "@/lib/time-zones";
 import { CURRENCIES } from "@/lib/trips/currencies";
 
-type Stop = { id: string; name: string; timezone: string; arrives_on: string | null; departs_on: string | null };
+type Stop = {
+  id: string;
+  name: string;
+  timezone: string;
+  arrives_on: string | null;
+  departs_on: string | null;
+  lat?: number | null;
+  lng?: number | null;
+};
 type Traveler = { id: string; name: string; color: string; avatar_url: string | null };
 
 type Props = {
@@ -68,25 +77,14 @@ export function AccommodationForm({
     if (stop?.departs_on && !checkOutDate) setCheckOutDate(stop.departs_on);
   }
 
+  // Place search looks near the chosen city first.
+  const chosenStop = stops.find((s) => s.id === stopId);
   const nights = nightsBetween(checkInDate, checkOutDate);
   const describedBy = (field: AccommodationField, extra?: string) =>
     [errors[field] ? `${field}-error` : null, extra].filter(Boolean).join(" ") || undefined;
 
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
-      <Field id="name" label="Nombre" error={errors.name}>
-        <Input
-          id="name"
-          name="name"
-          maxLength={160}
-          placeholder="Hotel Indigo London"
-          defaultValue={values.name}
-          aria-invalid={Boolean(errors.name)}
-          aria-describedby={describedBy("name")}
-          className="h-11"
-        />
-      </Field>
-
       <Field id="trip_stop_id" label="Ciudad" error={errors.trip_stop_id}>
         <select
           id="trip_stop_id"
@@ -133,6 +131,17 @@ export function AccommodationForm({
           </datalist>
         </Field>
       )}
+
+      <PlaceFields
+        nameField="name"
+        nameLabel="Hotel o alojamiento"
+        namePlaceholder="Hotel Indigo London"
+        maxNameLength={160}
+        initial={{ name: values.name, address: values.address, placeId: values.google_place_id, lat: values.lat, lng: values.lng }}
+        errors={{ name: errors.name, address: errors.address }}
+        nearLat={chosenStop?.lat ?? null}
+        nearLng={chosenStop?.lng ?? null}
+      />
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-2 text-sm font-medium">Llegada (check-in)</legend>
@@ -209,21 +218,6 @@ export function AccommodationForm({
         onChange={setParticipants}
         error={errors.participants}
       />
-
-      <Field id="address" label="Dirección" error={errors.address}>
-        <Input
-          id="address"
-          name="address"
-          maxLength={300}
-          placeholder="1 Leman St, London E1 8EN"
-          defaultValue={values.address}
-          aria-describedby={describedBy("address", "address-hint")}
-          className="h-11"
-        />
-        <p id="address-hint" className="text-xs text-muted-foreground">
-          Con la dirección, Hoy te puede llevar ahí.
-        </p>
-      </Field>
 
       <div className="grid grid-cols-2 gap-3">
         <Field id="booking_status" label="Reserva" error={errors.booking_status}>

@@ -117,6 +117,9 @@ export default async function EditAccommodationPage({
             cost_amount: stay.cost_amount === null ? "" : String(stay.cost_amount),
             cost_currency: stay.cost_currency ?? trip.currency,
             notes: stay.notes ?? "",
+            google_place_id: stay.google_place_id ?? "",
+            lat: stay.lat === null ? "" : String(stay.lat),
+            lng: stay.lng === null ? "" : String(stay.lng),
             // No rows means everyone: show every traveler checked.
             participants:
               stay.accommodation_participants.length > 0

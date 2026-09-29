@@ -1,4 +1,4 @@
-import { isTime, parseAmount, parseHttpUrl, text } from "@/lib/form-fields";
+import { isTime, parseAmount, parseHttpUrl, parseLocation, text } from "@/lib/form-fields";
 import { isKnownTimeZone } from "@/lib/time-zones";
 import { isOfferedCurrency } from "@/lib/trips/currencies";
 import { formatTripDates } from "@/lib/trips/dates";
@@ -35,6 +35,10 @@ export type ActivityField =
 
 /** Raw form values (duration split in hours and minutes). */
 export type ActivityFormValues = Record<Exclude<ActivityField, "duration" | "participants">, string> & {
+  /** Hidden fields filled by the place search. */
+  google_place_id: string;
+  lat: string;
+  lng: string;
   duration_hours: string;
   duration_minutes: string;
   /** Checked traveler ids. All of them checked means "everyone". */
@@ -64,6 +68,9 @@ export type ActivityData = {
   cost_currency: string | null;
   external_url: string | null;
   notes: string | null;
+  google_place_id: string | null;
+  lat: number | null;
+  lng: number | null;
 };
 
 type Context = {
@@ -100,6 +107,9 @@ export function parseActivityForm(
     cost_currency: text(formData, "cost_currency") || trip.currency,
     external_url: text(formData, "external_url"),
     notes: text(formData, "notes"),
+    google_place_id: text(formData, "google_place_id"),
+    lat: text(formData, "lat"),
+    lng: text(formData, "lng"),
   };
 
   const errors: Partial<Record<ActivityField, string>> = {};
@@ -144,6 +154,8 @@ export function parseActivityForm(
   }
 
   if (values.location_name.length > 200) errors.location_name = "Máximo 200 caracteres.";
+  const location = parseLocation(formData);
+  if (!location) errors.location_name = "La ubicación elegida no es válida. Búscala de nuevo.";
   if (values.address.length > 300) errors.address = "Máximo 300 caracteres.";
   if (values.reservation_ref.length > 120) errors.reservation_ref = "Máximo 120 caracteres.";
   if (values.notes.length > 2000) errors.notes = "Máximo 2000 caracteres.";
@@ -196,6 +208,7 @@ export function parseActivityForm(
       cost_currency: cost !== null ? values.cost_currency : null,
       external_url: url,
       notes: values.notes || null,
+      ...location!,
     },
   };
 }

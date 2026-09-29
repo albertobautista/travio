@@ -5,6 +5,7 @@ import { useActionState, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 import { Field, selectClass } from "@/components/form-field";
+import { PlaceFields } from "@/components/maps/place-fields";
 import { ParticipantsField } from "@/components/travelers/participants-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +19,15 @@ import { CURRENCIES } from "@/lib/trips/currencies";
 import { stopForDate } from "@/lib/trips/stops";
 import { instantToZonedTime, zonedTimeToInstant } from "@/lib/zoned-time";
 
-type Stop = { id: string; name: string; timezone: string; arrives_on: string | null; departs_on: string | null };
+type Stop = {
+  id: string;
+  name: string;
+  timezone: string;
+  arrives_on: string | null;
+  departs_on: string | null;
+  lat?: number | null;
+  lng?: number | null;
+};
 type OtherActivity = {
   id: string;
   title: string;
@@ -81,6 +90,8 @@ export function ActivityForm({
     if (!stopTouched) setStopId(stopForDate(stops, next)?.id ?? stopId);
   }
 
+  // Place search looks near the chosen city first.
+  const chosenStop = stops.find((s) => s.id === stopId);
   const durationMinutes = (Number(hours) || 0) * 60 + (Number(minutes) || 0);
   const activeZone = stopId ? stops.find((s) => s.id === stopId)?.timezone : timeZones.find((z) => z.id === timezone)?.id;
 
@@ -325,21 +336,21 @@ export function ActivityForm({
         </Field>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field id="location_name" label="Lugar" error={errors.location_name}>
-          <Input
-            id="location_name"
-            name="location_name"
-            maxLength={200}
-            placeholder="Borough Market"
-            defaultValue={values.location_name}
-            className="h-11"
-          />
-        </Field>
-        <Field id="address" label="Dirección" error={errors.address}>
-          <Input id="address" name="address" maxLength={300} placeholder="Tower Bridge Rd" defaultValue={values.address} className="h-11" />
-        </Field>
-      </div>
+      <PlaceFields
+        nameField="location_name"
+        nameLabel="Lugar"
+        namePlaceholder="Borough Market"
+        initial={{
+          name: values.location_name,
+          address: values.address,
+          placeId: values.google_place_id,
+          lat: values.lat,
+          lng: values.lng,
+        }}
+        errors={{ name: errors.location_name, address: errors.address }}
+        nearLat={chosenStop?.lat ?? null}
+        nearLng={chosenStop?.lng ?? null}
+      />
 
       <div className="grid grid-cols-2 gap-3">
         <Field id="booking_status" label="Reserva" error={errors.booking_status}>
