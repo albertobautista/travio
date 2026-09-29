@@ -1,25 +1,36 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, BedDouble, MapPin, Navigation } from "lucide-react";
+import { AlertTriangle, BedDouble, LogOut, MapPin, Navigation } from "lucide-react";
 
 import { directionsUrl } from "@/lib/maps/directions";
 import { importMapsLibrary, MAPS_MAP_ID, mapsConfigured } from "@/lib/maps/load";
 import type { MapPoint } from "@/lib/maps/points";
+import { transportMeta } from "@/lib/transportations/types";
 
 type Day = { date: string; label: string; dayNumber: number | null };
+
+/** A trip leg departing on a day, shown above the map ("10:00 · Barcelona → Madrid"). */
+export type MapLeg = { id: string; date: string; time: string; type: string; label: string; detail: string | null };
 
 type Props = {
   points: MapPoint[];
   days: Day[];
+  legs: MapLeg[];
   /** Pre-selected day ("YYYY-MM-DD"), e.g. today during the trip. */
   initialDay: string | null;
 };
 
 /** Marker content: plain DOM styled with the app's Tailwind tokens. */
-function markerElement(point: MapPoint, label: string | null) {
+function markerElement(point: MapPoint, label: string | null, leaving = false) {
   const el = document.createElement("div");
-  if (point.kind === "stop") {
+  if (point.kind === "stay" && leaving) {
+    // The stay checked out of today: shown, but not where the day happens.
+    el.className =
+      "flex size-7 items-center justify-center rounded-full border-2 border-white bg-muted-foreground text-white opacity-80 shadow";
+    el.innerHTML =
+      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>';
+  } else if (point.kind === "stop") {
     el.className =
       "rounded-full border-2 border-white bg-foreground px-2.5 py-1 text-xs font-semibold text-background shadow-md";
     el.textContent = point.title;
@@ -39,7 +50,7 @@ function markerElement(point: MapPoint, label: string | null) {
   return el;
 }
 
-export function TripMap({ points, days, initialDay }: Props) {
+export function TripMap({ points, days, legs, initialDay }: Props) {
   const [day, setDay] = useState<string | null>(initialDay);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -60,6 +71,13 @@ export function TripMap({ points, days, initialDay }: Props) {
       .filter((p) => p.kind !== "stop" && p.dates.includes(day))
       .sort((a, b) => (a.kind === "stay" ? -1 : b.kind === "stay" ? 1 : (a.time ?? "").localeCompare(b.time ?? "")));
   }, [points, day]);
+  // On a travel day, the stay being left: listed and pinned, but the map frames
+  // tonight's city (where the day's plans are), not both cities.
+  const leaving = useMemo(
+    () => (day ? points.filter((p) => p.kind === "stay" && p.checkOut?.date === day && !p.dates.includes(day)) : []),
+    [points, day],
+  );
+  const dayLegs = day ? legs.filter((l) => l.date === day) : [];
   const dayActivities = day ? visible.filter((p) => p.kind === "activity") : [];
   const numberOf = new Map(dayActivities.map((p, i) => [p.id, String(i + 1)]));
 
@@ -104,18 +122,21 @@ export function TripMap({ points, days, initialDay }: Props) {
       overlays.current.markers.forEach((mk) => (mk.map = null));
       overlays.current.line?.setMap(null);
 
+      // Frame the day's plans; the stay being left only counts if nothing else has a place.
+      const framed = visible.length > 0 ? visible : leaving;
       const bounds = new google.maps.LatLngBounds();
-      overlays.current.markers = visible.map((p) => {
+      overlays.current.markers = [...leaving, ...visible].map((p) => {
+        const isLeaving = leaving.includes(p);
         const marker = new AdvancedMarkerElement({
           map: m,
           position: { lat: p.lat, lng: p.lng },
-          title: p.title,
-          content: markerElement(p, numberOf.get(p.id) ?? null),
+          title: isLeaving ? `Check-out · ${p.title}` : p.title,
+          content: markerElement(p, numberOf.get(p.id) ?? null, isLeaving),
           zIndex: p.kind === "stop" ? 3 : p.kind === "stay" ? 2 : 1,
           gmpClickable: true,
         });
         marker.addListener("click", () => setSelected(p.id));
-        bounds.extend(marker.position!);
+        if (framed.includes(p)) bounds.extend(marker.position!);
         return marker;
       });
 
@@ -132,10 +153,10 @@ export function TripMap({ points, days, initialDay }: Props) {
         overlays.current.line = null;
       }
 
-      if (visible.length === 1) {
+      if (framed.length === 1) {
         m.setCenter(bounds.getCenter());
         m.setZoom(15);
-      } else if (visible.length > 1) {
+      } else if (framed.length > 1) {
         m.fitBounds(bounds, 48);
       }
     })();
@@ -144,7 +165,7 @@ export function TripMap({ points, days, initialDay }: Props) {
     };
     // numberOf/dayActivities derive from `visible`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, mapReady]);
+  }, [visible, leaving, mapReady]);
 
   function chooseDay(next: string | null) {
     setDay(next);
@@ -163,7 +184,7 @@ export function TripMap({ points, days, initialDay }: Props) {
   }
 
   const current = points.find((p) => p.id === selected);
-  const listed = day ? visible : points.filter((p) => p.kind !== "activity");
+  const listed = day ? [...leaving, ...visible] : points.filter((p) => p.kind !== "activity");
 
   return (
     <div className="flex flex-col gap-3">
@@ -191,6 +212,23 @@ export function TripMap({ points, days, initialDay }: Props) {
         </ul>
       </nav>
 
+      {dayLegs.length > 0 && (
+        <ul aria-label="Trayectos del día" className="flex flex-col gap-1.5">
+          {dayLegs.map((l) => {
+            const Icon = transportMeta(l.type).icon;
+            return (
+              <li key={l.id} className="flex items-center gap-2.5 rounded-xl bg-secondary px-3 py-2 text-sm text-secondary-foreground">
+                <Icon className="size-4 shrink-0" aria-hidden="true" />
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-mono font-semibold">{l.time}</span> · {l.label}
+                  {l.detail ? <span className="text-muted-foreground"> · {l.detail}</span> : null}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
       <div className="relative overflow-hidden rounded-2xl border bg-muted">
         {configured && !error ? (
           <div ref={container} className="h-[55vh] min-h-72 w-full" role="application" aria-label="Mapa del viaje" />
@@ -210,7 +248,7 @@ export function TripMap({ points, days, initialDay }: Props) {
           <div className="absolute inset-x-3 bottom-3 flex items-center gap-3 rounded-xl border bg-card p-3 shadow-lg">
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-semibold">
-                {current.time ? `${current.time} · ` : ""}
+                {leaving.includes(current) ? `Check-out ${current.checkOut?.time} · ` : current.time ? `${current.time} · ` : ""}
                 {current.title}
               </span>
               {current.subtitle && <span className="truncate text-xs text-muted-foreground">{current.subtitle}</span>}
@@ -256,7 +294,9 @@ export function TripMap({ points, days, initialDay }: Props) {
                 }
               >
                 <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary font-mono text-xs font-bold text-primary">
-                  {p.kind === "stay" ? (
+                  {leaving.includes(p) ? (
+                    <LogOut className="size-4" aria-label="Check-out" />
+                  ) : p.kind === "stay" ? (
                     <BedDouble className="size-4" aria-label="Hospedaje" />
                   ) : p.kind === "stop" ? (
                     <MapPin className="size-4" aria-label="Ciudad" />
@@ -267,7 +307,11 @@ export function TripMap({ points, days, initialDay }: Props) {
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-medium">{p.title}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {[p.time, p.subtitle].filter(Boolean).join(" · ") || (p.kind === "stop" ? "Ciudad" : "")}
+                    {leaving.includes(p)
+                      ? `Check-out · ${p.checkOut?.time}`
+                      : p.kind === "stay" && day
+                        ? `Esta noche · ${p.subtitle ?? ""}`
+                        : [p.time, p.subtitle].filter(Boolean).join(" · ") || (p.kind === "stop" ? "Ciudad" : "")}
                   </span>
                 </span>
               </button>

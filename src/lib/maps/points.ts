@@ -16,8 +16,10 @@ export type MapPoint = {
   category: string | null;
   /** "HH:MM" local time for activities; null otherwise. */
   time: string | null;
-  /** Local dates the point belongs to (an activity: 1; a stay: every night + check-out day). */
+  /** Local dates the point belongs to (an activity: its day; a stay: each night slept there). */
   dates: string[];
+  /** Stays only: the check-out date and time, so a travel day can show "Check-out · 09:00". */
+  checkOut: { date: string; time: string } | null;
   subtitle: string | null;
   href: string | null;
   /** Place id when known, for precise "Cómo llegar" links. */
@@ -36,6 +38,12 @@ function datesBetween(from: string, to: string) {
     if (out.length > 120) break;
   }
   return out;
+}
+
+/** Dates from check-in to the night before check-out (a same-day stay counts once). */
+function nights(checkIn: string, checkOut: string) {
+  const all = datesBetween(checkIn, checkOut);
+  return all.length > 1 ? all.slice(0, -1) : all;
 }
 
 export function buildMapPoints({
@@ -63,6 +71,7 @@ export function buildMapPoints({
         category: null,
         time: null,
         dates: s.arrives_on ? datesBetween(s.arrives_on, s.departs_on ?? s.arrives_on) : [],
+        checkOut: null,
         subtitle: null,
         href: editable ? `${base}/ciudades/${s.id}` : null,
         placeId: s.google_place_id,
@@ -77,10 +86,13 @@ export function buildMapPoints({
         lng: s.lng,
         category: null,
         time: null,
-        dates: datesBetween(
+        // The nights: check-in date up to the day before check-out. On the
+        // check-out day the traveler sleeps elsewhere (or flies home).
+        dates: nights(
           instantToZonedTime(s.check_in_at, s.timezone).date,
           instantToZonedTime(s.check_out_at, s.timezone).date,
         ),
+        checkOut: instantToZonedTime(s.check_out_at, s.timezone),
         subtitle: s.address,
         href: `${base}/hospedajes${editable ? `/${s.id}` : ""}`,
         placeId: s.google_place_id,
@@ -96,6 +108,7 @@ export function buildMapPoints({
         category: a.category,
         time: instantToZonedTime(a.starts_at, a.timezone).time,
         dates: [activityDate(a)],
+        checkOut: null,
         subtitle: a.location_name ?? a.address,
         href: editable ? `${base}/actividades/${a.id}` : `${base}/itinerario?dia=${activityDate(a)}`,
         placeId: a.google_place_id,
