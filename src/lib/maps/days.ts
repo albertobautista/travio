@@ -1,5 +1,5 @@
 import { stayEvents } from "@/lib/accommodations/stays";
-import { activityDate, buildItineraryDays } from "@/lib/activities/itinerary";
+import { activityDate, buildItineraryDays, formatDayLabel } from "@/lib/activities/itinerary";
 import { formatDuration, formatTimeRange } from "@/lib/activities/schedule";
 import { legEndTitle, transportMeta } from "@/lib/transportations/types";
 import { legTimes } from "@/lib/transportations/legs";
@@ -151,4 +151,82 @@ export function buildMapDays({
       rows: rows.sort((a, b) => a[0] - b[0]).map(([, row]) => row),
     };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Whole-trip view: the route of cities
+// ---------------------------------------------------------------------------
+
+export type MapLegSummary = { type: string; text: string };
+
+export type MapCity = {
+  id: string;
+  /** 1-based position in the route. */
+  order: number;
+  name: string;
+  lat: number | null;
+  lng: number | null;
+  /** "lun 28 sep – vie 2 oct" */
+  dates: string | null;
+  nights: number | null;
+  stays: string[];
+  activityCount: number;
+  /** How you get there and how you leave (the legs landing / departing on the stay's first and last day). */
+  arriveBy: MapLegSummary | null;
+  leaveBy: MapLegSummary | null;
+  /** The trip days spent there, for the "Día 2 · Día 3…" shortcuts. */
+  days: { date: string; dayNumber: number | null }[];
+};
+
+export function buildMapCities({
+  stops,
+  activities,
+  stays,
+  legs,
+  days,
+}: {
+  stops: (Located & { id: string; name: string; arrives_on: string | null; departs_on: string | null; position: number })[];
+  activities: { trip_stop_id: string | null; category: string }[];
+  stays: { name: string; trip_stop_id: string | null }[];
+  legs: Parameters<typeof buildMapDays>[0]["legs"];
+  days: MapDay[];
+}): MapCity[] {
+  // Car rentals don't take you between cities in this sense.
+  const moves = legs.filter((l) => l.type !== "car_rental").map((l) => ({ leg: l, ...legTimes(l) }));
+  const summary = (l: (typeof moves)[number], direction: "in" | "out"): MapLegSummary => {
+    const service = [l.leg.carrier, l.leg.service_number].filter(Boolean).join(" ");
+    const what = [transportMeta(l.leg.type).label, service].filter(Boolean).join(" · ");
+    return direction === "in"
+      ? { type: l.leg.type, text: `${what} desde ${l.leg.origin_name}` }
+      : { type: l.leg.type, text: `${what} · ${l.departs.time} a ${l.leg.destination_name}` };
+  };
+
+  return [...stops]
+    .sort((a, b) => a.position - b.position)
+    .map((s, i) => {
+      const arriving = s.arrives_on ? moves.filter((m) => m.arrives.date === s.arrives_on) : [];
+      const leaving = s.departs_on ? moves.filter((m) => m.departs.date === s.departs_on) : [];
+      const inbound = arriving.sort((a, b) => b.arrives.time.localeCompare(a.arrives.time))[0];
+      const outbound = leaving.sort((a, b) => a.departs.time.localeCompare(b.departs.time))[0];
+      const nights =
+        s.arrives_on && s.departs_on
+          ? Math.round((Date.parse(`${s.departs_on}T00:00:00Z`) - Date.parse(`${s.arrives_on}T00:00:00Z`)) / 86_400_000)
+          : null;
+      return {
+        id: s.id,
+        order: i + 1,
+        name: s.name,
+        lat: s.lat,
+        lng: s.lng,
+        dates: s.arrives_on ? `${formatDayLabel(s.arrives_on)} – ${formatDayLabel(s.departs_on ?? s.arrives_on)}` : null,
+        nights,
+        stays: stays.filter((st) => st.trip_stop_id === s.id).map((st) => st.name),
+        activityCount: activities.filter((a) => a.trip_stop_id === s.id && a.category !== "transfer").length,
+        arriveBy: inbound ? summary(inbound, "in") : null,
+        leaveBy: outbound ? summary(outbound, "out") : null,
+        days: days
+          .filter((d) => s.arrives_on && s.arrives_on <= d.date && d.date <= (s.departs_on ?? s.arrives_on))
+          .map((d) => ({ date: d.date, dayNumber: d.dayNumber })),
+      };
+    });
 }

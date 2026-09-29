@@ -24,6 +24,8 @@ export type MapPoint = {
   href: string | null;
   /** Place id when known, for precise "Cómo llegar" links. */
   placeId: string | null;
+  /** The city (trip stop) it belongs to, for zooming into a city. */
+  stopId: string | null;
 };
 
 type Located = { lat: number | null; lng: number | null; google_place_id: string | null };
@@ -55,8 +57,25 @@ export function buildMapPoints({
 }: {
   tripId: string;
   editable: boolean;
-  activities: (Located & { id: string; title: string; category: string; starts_at: string; timezone: string; location_name: string | null; address: string | null })[];
-  stays: (Located & { id: string; name: string; address: string | null; check_in_at: string; check_out_at: string; timezone: string })[];
+  activities: (Located & {
+    id: string;
+    title: string;
+    category: string;
+    starts_at: string;
+    timezone: string;
+    location_name: string | null;
+    address: string | null;
+    trip_stop_id: string | null;
+  })[];
+  stays: (Located & {
+    id: string;
+    name: string;
+    address: string | null;
+    check_in_at: string;
+    check_out_at: string;
+    timezone: string;
+    trip_stop_id: string | null;
+  })[];
   stops: (Located & { id: string; name: string; arrives_on: string | null; departs_on: string | null })[];
 }): MapPoint[] {
   const base = `/viajes/${tripId}`;
@@ -75,6 +94,7 @@ export function buildMapPoints({
         subtitle: null,
         href: editable ? `${base}/ciudades/${s.id}` : null,
         placeId: s.google_place_id,
+        stopId: s.id,
       }),
     ),
     ...stays.filter(hasCoords).map(
@@ -96,6 +116,7 @@ export function buildMapPoints({
         subtitle: s.address,
         href: `${base}/hospedajes${editable ? `/${s.id}` : ""}`,
         placeId: s.google_place_id,
+        stopId: s.trip_stop_id,
       }),
     ),
     ...activities.filter(hasCoords).map(
@@ -112,6 +133,7 @@ export function buildMapPoints({
         subtitle: a.location_name ?? a.address,
         href: editable ? `${base}/actividades/${a.id}` : `${base}/itinerario?dia=${activityDate(a)}`,
         placeId: a.google_place_id,
+        stopId: a.trip_stop_id,
       }),
     ),
   ];

@@ -7,7 +7,7 @@ import { TripMap } from "@/components/maps/trip-map";
 import { Button } from "@/components/ui/button";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { getActivities } from "@/lib/activities/queries";
-import { buildMapDays } from "@/lib/maps/days";
+import { buildMapCities, buildMapDays } from "@/lib/maps/days";
 import { buildMapPoints } from "@/lib/maps/points";
 import { getTransportations } from "@/lib/transportations/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
@@ -34,6 +34,7 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
   const editable = canEdit(role);
   const points = buildMapPoints({ tripId: trip.id, editable, activities, stays, stops });
   const days = buildMapDays({ trip, editable, stops, activities, stays, legs: transportations });
+  const cities = buildMapCities({ stops, activities, stays, legs: transportations, days });
   // ?dia= when valid; otherwise today if it's a trip day; otherwise the whole trip.
   const today = resolveTripNow(stops).today;
   const initialDay =
@@ -52,7 +53,7 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
           <p className="truncate text-sm text-muted-foreground">{trip.name}</p>
         </div>
       </header>
-      <TripMap points={points} days={days} initialDay={initialDay} />
+      <TripMap points={points} days={days} cities={cities} initialDay={initialDay} />
     </main>
   );
 }

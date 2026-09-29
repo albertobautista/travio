@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, BedDouble, ChevronRight, LogIn, LogOut, MapPin, Navigation } from "lucide-react";
+import { AlertTriangle, ArrowRight, BedDouble, ChevronRight, LogIn, LogOut, MapPin, Navigation, ZoomIn } from "lucide-react";
 
 import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
 import { directionsUrl } from "@/lib/maps/directions";
-import type { MapDay, MapRow } from "@/lib/maps/days";
+import type { MapCity, MapDay, MapRow } from "@/lib/maps/days";
 import { importMapsLibrary, MAPS_MAP_ID, mapsConfigured } from "@/lib/maps/load";
 import type { MapPoint } from "@/lib/maps/points";
 import { transportMeta } from "@/lib/transportations/types";
@@ -13,6 +13,8 @@ import { transportMeta } from "@/lib/transportations/types";
 type Props = {
   points: MapPoint[];
   days: MapDay[];
+  /** The route of cities, for the whole-trip view. */
+  cities: MapCity[];
   /** Pre-selected day ("YYYY-MM-DD"), e.g. today during the trip. */
   initialDay: string | null;
 };
@@ -23,6 +25,9 @@ const LEAVE_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>';
 
 /** Marker content: plain DOM styled with the app's Tailwind tokens. */
+/** Zoom at which a city's hotels and activities appear in the whole-trip view. */
+const CITY_ZOOM = 11;
+
 function markerElement(point: MapPoint, label: string | null, leaving: boolean) {
   const el = document.createElement("div");
   if (point.kind === "stay" && leaving) {
@@ -31,8 +36,13 @@ function markerElement(point: MapPoint, label: string | null, leaving: boolean) 
       "flex size-7 items-center justify-center rounded-full border-2 border-white bg-muted-foreground text-white opacity-80 shadow";
     el.innerHTML = LEAVE_SVG;
   } else if (point.kind === "stop") {
-    el.className = "rounded-full border-2 border-white bg-foreground px-2.5 py-1 text-xs font-semibold text-background shadow-md";
-    el.textContent = point.title;
+    // "① Barcelona": the city's place in the route.
+    el.className =
+      "flex items-center gap-1.5 rounded-full border-2 border-white bg-foreground py-1 pr-2.5 pl-1 text-xs font-semibold text-background shadow-md";
+    const n = document.createElement("span");
+    n.className = "flex size-5 items-center justify-center rounded-full bg-primary font-mono text-[11px] text-primary-foreground";
+    n.textContent = label ?? "";
+    el.append(n, document.createTextNode(point.title));
   } else if (point.kind === "stay") {
     el.className =
       "flex size-8 items-center justify-center rounded-full border-2 border-white bg-primary-hover text-primary-foreground shadow-md";
@@ -57,16 +67,17 @@ function rowLook(row: MapRow) {
   return { icon: meta.icon, className: meta.className };
 }
 
-export function TripMap({ points, days, initialDay }: Props) {
+export function TripMap({ points, days, cities, initialDay }: Props) {
   const [day, setDay] = useState<string | null>(initialDay);
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<google.maps.Map | null>(null);
-  const overlays = useRef<{ markers: google.maps.marker.AdvancedMarkerElement[]; line: google.maps.Polyline | null }>({
-    markers: [],
-    line: null,
-  });
+  const overlays = useRef<{
+    markers: google.maps.marker.AdvancedMarkerElement[];
+    lines: google.maps.Polyline[];
+    zoomListener: google.maps.MapsEventListener | null;
+  }>({ markers: [], lines: [], zoomListener: null });
   const configured = mapsConfigured();
   // Bumped when the map finishes loading, so the drawing effect runs then.
   const [mapReady, setMapReady] = useState(0);
@@ -87,6 +98,7 @@ export function TripMap({ points, days, initialDay }: Props) {
   );
   const dayActivities = day ? visible.filter((p) => p.kind === "activity") : [];
   const numberOf = new Map(dayActivities.map((p, i) => [p.id, String(i + 1)]));
+  const cityOrder = new Map(cities.map((c) => [c.id, String(c.order)]));
 
   // Keep the selected day's chip visible in the horizontal selector.
   const selector = useRef<HTMLUListElement>(null);
@@ -134,7 +146,69 @@ export function TripMap({ points, days, initialDay }: Props) {
       if (cancelled) return;
 
       overlays.current.markers.forEach((mk) => (mk.map = null));
-      overlays.current.line?.setMap(null);
+      overlays.current.lines.forEach((l) => l.setMap(null));
+      overlays.current.zoomListener?.remove();
+      overlays.current.lines = [];
+      overlays.current.zoomListener = null;
+      const color = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim();
+
+      if (!day) {
+        // Whole trip: cities numbered in route order, joined by how you travel.
+        // Hotels and activities only appear once you zoom into a city.
+        const bounds = new google.maps.LatLngBounds();
+        const detail: google.maps.marker.AdvancedMarkerElement[] = [];
+        overlays.current.markers = points.map((p) => {
+          const marker = new AdvancedMarkerElement({
+            map: p.kind === "stop" || (m.getZoom() ?? 0) >= CITY_ZOOM ? m : null,
+            position: { lat: p.lat, lng: p.lng },
+            title: p.title,
+            content: markerElement(p, p.kind === "stop" ? (cityOrder.get(p.id) ?? null) : null, false),
+            zIndex: p.kind === "stop" ? 3 : p.kind === "stay" ? 2 : 1,
+            gmpClickable: true,
+          });
+          marker.addListener("click", () => (p.kind === "stop" ? focusCity(p.id) : setSelected(p.id)));
+          if (p.kind === "stop") bounds.extend(marker.position!);
+          else detail.push(marker);
+          return marker;
+        });
+        const cityLabels = overlays.current.markers.filter((mk) => !detail.includes(mk));
+        const applyZoom = () => {
+          const show = (m.getZoom() ?? 0) >= CITY_ZOOM;
+          detail.forEach((mk) => (mk.map = show ? m : null));
+          // Zoomed into a city, its label goes under the places instead of covering them.
+          cityLabels.forEach((mk) => (mk.zIndex = show ? 0 : 3));
+        };
+        overlays.current.zoomListener = m.addListener("zoom_changed", applyZoom);
+
+        const located = cities.filter((c) => c.lat !== null && c.lng !== null);
+        overlays.current.lines = located.slice(1).map((c, i) => {
+          const from = located[i];
+          // Flights: dashed arcs (geodesic). Trains, buses, ferries: solid lines.
+          const flight = (from.leaveBy?.type ?? c.arriveBy?.type) === "flight";
+          return new Polyline({
+            map: m,
+            path: [
+              { lat: from.lat!, lng: from.lng! },
+              { lat: c.lat!, lng: c.lng! },
+            ],
+            geodesic: flight,
+            strokeColor: color,
+            strokeOpacity: flight ? 0 : 0.7,
+            strokeWeight: 3,
+            icons: flight
+              ? [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.8, strokeWeight: 3, scale: 3, strokeColor: color }, offset: "0", repeat: "14px" }]
+              : undefined,
+          });
+        });
+
+        if (located.length === 1) {
+          m.setCenter(bounds.getCenter());
+          m.setZoom(12);
+        } else if (located.length > 1) {
+          m.fitBounds(bounds, 64);
+        }
+        return;
+      }
 
       // Frame the day's plans; the stay being left only counts if nothing else has a place.
       const framed = visible.length > 0 ? visible : leaving;
@@ -156,15 +230,14 @@ export function TripMap({ points, days, initialDay }: Props) {
 
       // The day's route: activities in order (straight lines; real travel times come later).
       if (dayActivities.length > 1) {
-        const color = getComputedStyle(document.documentElement).getPropertyValue("--primary").trim();
-        overlays.current.line = new Polyline({
-          map: m,
-          path: dayActivities.map((p) => ({ lat: p.lat, lng: p.lng })),
-          strokeOpacity: 0,
-          icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.8, strokeWeight: 3, scale: 3, strokeColor: color }, offset: "0", repeat: "14px" }],
-        });
-      } else {
-        overlays.current.line = null;
+        overlays.current.lines = [
+          new Polyline({
+            map: m,
+            path: dayActivities.map((p) => ({ lat: p.lat, lng: p.lng })),
+            strokeOpacity: 0,
+            icons: [{ icon: { path: "M 0,-1 0,1", strokeOpacity: 0.8, strokeWeight: 3, scale: 3, strokeColor: color }, offset: "0", repeat: "14px" }],
+          }),
+        ];
       }
 
       if (framed.length === 1) {
@@ -179,7 +252,7 @@ export function TripMap({ points, days, initialDay }: Props) {
     };
     // numberOf/dayActivities derive from `visible`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, leaving, mapReady]);
+  }, [visible, leaving, day, mapReady]);
 
   function chooseDay(next: string | null) {
     setDay(next);
@@ -198,6 +271,24 @@ export function TripMap({ points, days, initialDay }: Props) {
     map.current?.panTo({ lat: p.lat, lng: p.lng });
     if ((map.current?.getZoom() ?? 0) < 14) map.current?.setZoom(15);
     // On a phone the list is below the map: bring the map back into view.
+    container.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  /** Zoom into a city so its hotels and activities show. */
+  function focusCity(cityId: string) {
+    const m = map.current;
+    const city = cities.find((c) => c.id === cityId);
+    if (!m || !city) return;
+    setSelected(null);
+    const inside = points.filter((p) => p.kind !== "stop" && p.stopId === cityId);
+    if (inside.length > 1) {
+      const bounds = new google.maps.LatLngBounds();
+      inside.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }));
+      m.fitBounds(bounds, 48);
+    } else if (city.lat !== null && city.lng !== null) {
+      m.setCenter({ lat: city.lat, lng: city.lng });
+      m.setZoom(13);
+    }
     container.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
@@ -353,31 +444,78 @@ export function TripMap({ points, days, initialDay }: Props) {
           </ol>
         )
       ) : (
-        // Whole trip: the cities and where you sleep in each.
-        <ol className="flex flex-col gap-1.5">
-          {points
-            .filter((p) => p.kind !== "activity")
-            .map((p) => (
-              <li key={p.id}>
-                <button
-                  type="button"
-                  onClick={() => focus(p.id)}
-                  aria-current={p.id === selected ? "true" : undefined}
-                  className={
-                    "flex min-h-12 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left hover:border-primary/40 " +
-                    (p.id === selected ? "border-primary/40 bg-secondary" : "bg-card")
-                  }
-                >
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
-                    {p.kind === "stay" ? <BedDouble className="size-4" aria-label="Hospedaje" /> : <MapPin className="size-4" aria-label="Ciudad" />}
+        // Whole trip: one card per city, in route order.
+        <ol className="flex flex-col gap-3">
+          {cities.map((c) => {
+            const In = c.arriveBy ? transportMeta(c.arriveBy.type).icon : null;
+            const Out = c.leaveBy ? transportMeta(c.leaveBy.type).icon : null;
+            return (
+              <li key={c.id} className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-sm font-bold text-primary-foreground">
+                    {c.order}
                   </span>
-                  <span className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium">{p.title}</span>
-                    <span className="truncate text-xs text-muted-foreground">{p.kind === "stay" ? p.subtitle : "Ciudad"}</span>
-                  </span>
-                </button>
+                  <div className="flex min-w-0 flex-1 flex-col">
+                    <h3 className="text-lg leading-tight font-bold">{c.name}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {[c.dates, c.nights ? (c.nights === 1 ? "1 noche" : `${c.nights} noches`) : null].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                </div>
+
+                <ul className="flex flex-col gap-1.5 text-sm">
+                  {In && c.arriveBy && (
+                    <li className="flex items-center gap-2 text-muted-foreground">
+                      <In className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                      <span className="sr-only">Llegas: </span>
+                      <span className="truncate">{c.arriveBy.text}</span>
+                    </li>
+                  )}
+                  {c.stays.length > 0 && (
+                    <li className="flex items-center gap-2">
+                      <BedDouble className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                      <span className="truncate font-medium">{c.stays.join(" · ")}</span>
+                    </li>
+                  )}
+                  <li className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                    {c.activityCount === 1 ? "1 actividad" : `${c.activityCount} actividades`}
+                  </li>
+                  {Out && c.leaveBy && (
+                    <li className="flex items-center gap-2 text-muted-foreground">
+                      <Out className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                      <span className="sr-only">Te vas: </span>
+                      <span className="truncate">{c.leaveBy.text}</span>
+                      <ArrowRight className="size-3.5 shrink-0" aria-hidden="true" />
+                    </li>
+                  )}
+                </ul>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {c.lat !== null && (
+                    <button
+                      type="button"
+                      onClick={() => focusCity(c.id)}
+                      className="flex h-9 items-center gap-1.5 rounded-full bg-primary px-3 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
+                    >
+                      <ZoomIn className="size-4" aria-hidden="true" />
+                      Ver en el mapa
+                    </button>
+                  )}
+                  {c.days.map((d) => (
+                    <button
+                      key={d.date}
+                      type="button"
+                      onClick={() => chooseDay(d.date)}
+                      className="flex h-9 items-center rounded-full border bg-card px-3 text-sm text-foreground/80 hover:bg-muted"
+                    >
+                      {d.dayNumber ? `Día ${d.dayNumber}` : d.date}
+                    </button>
+                  ))}
+                </div>
               </li>
-            ))}
+            );
+          })}
         </ol>
       )}
     </div>
