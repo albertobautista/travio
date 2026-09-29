@@ -56,19 +56,6 @@ export function stayEvents<S extends Stay>(stays: S[]): StayEvent<S>[] {
   );
 }
 
-const momentFormatters = new Map<string, Intl.DateTimeFormat>();
-
-/** "lun 29 sep · 15:00", in the stay's own time zone. */
-export function formatStayMoment(iso: string, timeZone: string) {
-  let f = momentFormatters.get(timeZone);
-  if (!f) {
-    f = new Intl.DateTimeFormat("es-MX", { weekday: "short", day: "numeric", month: "short", timeZone });
-    momentFormatters.set(timeZone, f);
-  }
-  const day = f.format(new Date(iso)).replace(/\./g, "").replace(",", "").replace(/ de /g, " ");
-  return `${day} · ${instantToZonedTime(iso, timeZone).time}`;
-}
-
 /** Google Maps directions to an address (app on phones). No API key needed. */
 export function directionsUrl(destination: string | null | undefined) {
   return destination ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}` : null;

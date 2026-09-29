@@ -4,8 +4,9 @@ import { BedDouble, ExternalLink, MapPin, Navigation, Pencil } from "lucide-reac
 import { FileRow } from "@/components/files/file-row";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
-import { countNights, directionsUrl, formatStayMoment } from "@/lib/accommodations/stays";
+import { countNights, directionsUrl } from "@/lib/accommodations/stays";
 import { BOOKING_META, isBookingStatus } from "@/lib/activities/categories";
+import { formatLocalMoment } from "@/lib/zoned-time";
 
 type Traveler = { id: string; name: string; color: string; avatar_url: string | null };
 
@@ -67,11 +68,11 @@ export function StayCard({ tripId, stay, travelers, files, editable, eyebrow }: 
       <dl className="grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-3 text-sm">
         <div>
           <dt className="text-xs text-muted-foreground">Llegada</dt>
-          <dd className="font-medium">{formatStayMoment(stay.check_in_at, stay.timezone)}</dd>
+          <dd className="font-medium">{formatLocalMoment(stay.check_in_at, stay.timezone)}</dd>
         </div>
         <div>
           <dt className="text-xs text-muted-foreground">Salida</dt>
-          <dd className="font-medium">{formatStayMoment(stay.check_out_at, stay.timezone)}</dd>
+          <dd className="font-medium">{formatLocalMoment(stay.check_out_at, stay.timezone)}</dd>
         </div>
         <div className="col-span-2 flex items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground">{nights === 1 ? "1 noche" : `${nights} noches`}</span>

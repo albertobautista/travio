@@ -25,13 +25,20 @@ type Props = {
   activityId?: string;
   /** Or to this accommodation (used on its page). */
   accommodationId?: string;
+  /** Or to this transportation leg (used on its page). */
+  transportationId?: string;
   /** Otherwise, let the user pick an activity to attach to (optional). */
   activities?: { id: string; label: string }[];
   defaultType?: DocumentType;
   title?: string;
 };
 
-export function UploadForm({ tripId, activityId, accommodationId, activities, defaultType = "ticket", title = "Subir documento" }: Props) {
+export function UploadForm({
+  tripId,
+  activityId,
+  accommodationId,
+  transportationId,
+  activities, defaultType = "ticket", title = "Subir documento" }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const ids = useId();
   const [file, setFile] = useState<File | null>(null);
@@ -73,8 +80,10 @@ export function UploadForm({ tripId, activityId, accommodationId, activities, de
       path: upload.path,
       originalName: file.name,
       documentType,
-      activityId: accommodationId ? null : (activityId ?? (attachTo || null)),
+      // A fixed parent (the page's own) wins; otherwise the optional pick.
+      activityId: accommodationId || transportationId ? null : (activityId ?? (attachTo || null)),
       accommodationId: accommodationId ?? null,
+      transportationId: transportationId ?? null,
     });
     setStep("idle");
     if (result.error) {
@@ -151,7 +160,7 @@ export function UploadForm({ tripId, activityId, accommodationId, activities, de
         </select>
       </div>
 
-      {!activityId && !accommodationId && activities && activities.length > 0 && (
+      {!activityId && !accommodationId && !transportationId && activities && activities.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${ids}-activity`} className="text-sm font-medium">
             Adjuntar a una actividad <span className="font-normal text-muted-foreground">(opcional)</span>

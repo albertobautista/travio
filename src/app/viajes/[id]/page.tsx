@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BedDouble, CalendarDays, ChevronLeft, ChevronRight, FolderLock, Pencil, Sun } from "lucide-react";
+import { BedDouble, CalendarDays, ChevronLeft, ChevronRight, FolderLock, Pencil, Plane, Sun } from "lucide-react";
 
 import { TripRoute } from "@/components/trips/trip-route";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { getActivities } from "@/lib/activities/queries";
 import { getTripFiles } from "@/lib/files/queries";
+import { getTransportations } from "@/lib/transportations/queries";
 import { initials } from "@/lib/initials";
 import { getTravelers } from "@/lib/travelers/queries";
 import {
@@ -44,7 +45,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   if (!trip) notFound();
 
   const supabase = await createClient();
-  const [{ data: claimsData }, { data: members }, coverUrls, stops, activities, travelers, files, stays] = await Promise.all([
+  const [{ data: claimsData }, { data: members }, coverUrls, stops, activities, travelers, files, stays, legs] = await Promise.all([
     supabase.auth.getClaims(),
     supabase
       .from("trip_members")
@@ -57,6 +58,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
     getTravelers(trip.id),
     getTripFiles(trip.id),
     getAccommodations(trip.id),
+    getTransportations(trip.id),
   ]);
   const coverUrl = trip.cover_image_path ? coverUrls.get(trip.cover_image_path) : undefined;
   const myRole = toTripRole(members?.find((m) => m.user_id === claimsData?.claims.sub)?.role);
@@ -172,6 +174,22 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
               ? "Dónde duermen en cada ciudad"
               : `${stays.length} ${stays.length === 1 ? "hospedaje" : "hospedajes"}` +
                 (citiesWithoutStay === 0 ? "" : ` · falta en ${citiesWithoutStay === 1 ? "1 ciudad" : `${citiesWithoutStay} ciudades`}`)}
+          </span>
+        </span>
+        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+      </Link>
+
+      <Link
+        href={`/viajes/${trip.id}/transporte`}
+        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
+      >
+        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
+          <Plane className="size-5" aria-hidden="true" />
+        </span>
+        <span className="flex flex-1 flex-col">
+          <span className="font-semibold">Transporte</span>
+          <span className="text-sm text-muted-foreground">
+            {legs.length === 0 ? "Vuelos, trenes y autos" : `${legs.length} ${legs.length === 1 ? "trayecto" : "trayectos"}`}
           </span>
         </span>
         <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />

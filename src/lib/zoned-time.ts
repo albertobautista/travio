@@ -82,3 +82,16 @@ export function instantToZonedTime(instant: Date | string, timeZone: string) {
     time: `${pad(w.hour)}:${pad(w.minute)}`,
   };
 }
+
+const momentFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** "lun 29 sep · 15:00", in the given time zone (a stay's, a departure's…). */
+export function formatLocalMoment(iso: string, timeZone: string) {
+  let f = momentFormatters.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("es-MX", { weekday: "short", day: "numeric", month: "short", timeZone });
+    momentFormatters.set(timeZone, f);
+  }
+  const day = f.format(new Date(iso)).replace(/\./g, "").replace(",", "").replace(/ de /g, " ");
+  return `${day} · ${instantToZonedTime(iso, timeZone).time}`;
+}

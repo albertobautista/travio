@@ -105,6 +105,13 @@ export default async function DocumentsPage({ params }: PageProps<"/viajes/[id]/
                         <Link href={`/viajes/${trip.id}/hospedajes${editable ? `/${file.accommodations.id}` : ""}`} className="underline">
                           {file.accommodations.name}
                         </Link>
+                      ) : file.transportations ? (
+                        <Link
+                          href={`/viajes/${trip.id}/transporte${editable ? `/${file.transportations.id}` : ""}`}
+                          className="underline"
+                        >
+                          {file.transportations.origin_name} → {file.transportations.destination_name}
+                        </Link>
                       ) : null
                     }
                     actions={
