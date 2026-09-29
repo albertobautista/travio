@@ -1,3 +1,4 @@
+import { isTime, parseAmount, parseHttpUrl, text } from "@/lib/form-fields";
 import { isKnownTimeZone } from "@/lib/time-zones";
 import { isOfferedCurrency } from "@/lib/trips/currencies";
 import { formatTripDates } from "@/lib/trips/dates";
@@ -75,18 +76,6 @@ type Context = {
 
 const MAX_DURATION = 7 * 24 * 60;
 
-const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
-
-/** Only http(s) links: "javascript:" or "data:" URLs would run code when clicked. */
-function parseHttpUrl(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
-
 export function parseActivityForm(
   formData: FormData,
   { trip, stops, travelerIds }: Context,
@@ -141,7 +130,7 @@ export function parseActivityForm(
     errors.date = `Debe estar dentro del viaje (${formatTripDates(trip.start_date, trip.end_date)}).`;
   }
 
-  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(values.start_time)) errors.start_time = "Elige la hora de inicio.";
+  if (!isTime(values.start_time)) errors.start_time = "Elige la hora de inicio.";
 
   const hours = values.duration_hours ? Number(values.duration_hours) : 0;
   const minutes = values.duration_minutes ? Number(values.duration_minutes) : 0;
@@ -162,8 +151,7 @@ export function parseActivityForm(
   let cost: number | null = null;
   if (values.cost_amount) {
     // Accept "1,250.50" and "1250,50" style input.
-    const normalized = values.cost_amount.replace(/\s/g, "").replace(/,(?=\d{1,2}$)/, ".").replace(/,/g, "");
-    cost = /^\d{1,10}(\.\d{1,2})?$/.test(normalized) ? Number(normalized) : NaN;
+    cost = parseAmount(values.cost_amount);
     if (Number.isNaN(cost)) errors.cost_amount = "Escribe un monto, por ejemplo 350 o 1250.50.";
   }
   if (cost !== null && !isOfferedCurrency(values.cost_currency)) errors.cost_currency = "Elige una moneda de la lista.";

@@ -13,7 +13,7 @@ export const getTripFiles = cache(async (tripId: string) => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("files")
-    .select("id, original_name, mime_type, size_bytes, document_type, activity_id, created_at, activities (id, title)")
+    .select("id, original_name, mime_type, size_bytes, document_type, activity_id, accommodation_id, created_at, activities (id, title), accommodations (id, name)")
     .eq("trip_id", tripId)
     .order("created_at", { ascending: false });
   if (error) console.error("getTripFiles failed", error);

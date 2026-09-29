@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
-import { TravelerAvatar } from "@/components/travelers/traveler-avatar";
+import { Field, selectClass } from "@/components/form-field";
+import { ParticipantsField } from "@/components/travelers/participants-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,9 +46,6 @@ type ActivityFormProps = {
 
 const DURATION_PRESETS = [30, 60, 90, 120, 180, 240];
 
-const selectClass =
-  "h-11 w-full rounded-lg border border-input bg-card px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 aria-invalid:border-destructive md:text-sm";
-
 export function ActivityForm({
   action: serverAction,
   initialValues,
@@ -76,15 +74,6 @@ export function ActivityForm({
   const [minutes, setMinutes] = useState(initialValues.duration_minutes);
   const [participants, setParticipants] = useState(() => new Set(initialValues.participants));
   const everyone = travelers.length > 0 && travelers.every((t) => participants.has(t.id));
-
-  function toggleParticipant(id: string) {
-    setParticipants((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
 
   function changeDate(next: string) {
     setDate(next);
@@ -278,55 +267,13 @@ export function ActivityForm({
         </div>
       )}
 
-      {travelers.length > 0 && (
-        <fieldset className="flex flex-col gap-2" aria-describedby={describedBy("participants", "participants-hint")}>
-          <legend className="mb-2 text-sm font-medium">¿Quién va?</legend>
-          <div className="flex flex-wrap gap-2">
-            {travelers.map((t) => {
-              const checked = participants.has(t.id);
-              return (
-                <label
-                  key={t.id}
-                  className={
-                    "flex min-h-11 cursor-pointer items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-sm has-focus-visible:ring-3 has-focus-visible:ring-ring/50 " +
-                    (checked ? "border-primary bg-secondary font-medium text-secondary-foreground" : "bg-card text-foreground/80")
-                  }
-                >
-                  <input
-                    type="checkbox"
-                    name="participants"
-                    value={t.id}
-                    checked={checked}
-                    onChange={() => toggleParticipant(t.id)}
-                    className="sr-only"
-                  />
-                  <TravelerAvatar traveler={t} size="sm" />
-                  {t.name}
-                </label>
-              );
-            })}
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <p id="participants-hint" className="text-xs text-muted-foreground">
-              {everyone ? "Van todos. Quien agregues después al viaje también irá." : "Solo las personas marcadas."}
-            </p>
-            {!everyone && (
-              <button
-                type="button"
-                onClick={() => setParticipants(new Set(travelers.map((t) => t.id)))}
-                className="min-h-11 shrink-0 px-1 text-sm font-medium text-primary hover:underline"
-              >
-                Marcar a todos
-              </button>
-            )}
-          </div>
-          {errors.participants && (
-            <p id="participants-error" className="text-sm text-destructive">
-              {errors.participants}
-            </p>
-          )}
-        </fieldset>
-      )}
+      <ParticipantsField
+        legend="¿Quién va?"
+        travelers={travelers}
+        selected={participants}
+        onChange={setParticipants}
+        error={errors.participants}
+      />
 
       <Field id="trip_stop_id" label="Ciudad" error={errors.trip_stop_id}>
         <select
@@ -473,19 +420,5 @@ export function ActivityForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-function Field({ id, label, error, children }: { id: string; label: string; error?: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      {children}
-      {error && (
-        <p id={`${id}-error`} className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

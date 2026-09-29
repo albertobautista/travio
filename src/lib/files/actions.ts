@@ -14,6 +14,7 @@ type RegisterInput = {
   originalName: string;
   documentType: string;
   activityId?: string | null;
+  accommodationId?: string | null;
 };
 
 /**
@@ -33,12 +34,15 @@ type RegisterInput = {
 export async function registerFile(tripId: string, input: RegisterInput): Promise<FileActionResult> {
   const name = input.originalName.trim().slice(0, 255);
   const activityId = input.activityId || null;
+  const accommodationId = input.accommodationId || null;
   if (
     !isUuid(tripId) ||
     !isUuid(input.fileId) ||
     !isFilePathFor(input.path, tripId, input.fileId) ||
     !isDocumentType(input.documentType) ||
     (activityId !== null && !isUuid(activityId)) ||
+    (accommodationId !== null && !isUuid(accommodationId)) ||
+    (activityId !== null && accommodationId !== null) ||
     name.length === 0
   ) {
     return { error: "El archivo no es válido." };
@@ -69,6 +73,7 @@ export async function registerFile(tripId: string, input: RegisterInput): Promis
     size_bytes: info.size,
     document_type: input.documentType,
     activity_id: activityId,
+    accommodation_id: accommodationId,
   });
 
   if (error) {
@@ -80,7 +85,7 @@ export async function registerFile(tripId: string, input: RegisterInput): Promis
         error.code === "42501"
           ? "No tienes permiso para subir archivos a este viaje."
           : error.code === "23503"
-            ? "La actividad elegida no es de este viaje."
+            ? "La actividad o el hospedaje elegido no es de este viaje."
             : "No pudimos guardar el archivo. Inténtalo de nuevo.",
     };
   }

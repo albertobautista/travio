@@ -3,14 +3,12 @@
 import { useId, useRef, useState } from "react";
 import { FileUp, Loader2, X } from "lucide-react";
 
+import { selectClass } from "@/components/form-field";
 import { Button } from "@/components/ui/button";
 import { DOCUMENT_TYPES, FILE_ACCEPT, formatFileSize, validateFile, type DocumentType } from "@/lib/files/rules";
 import { uploadTripFile } from "@/lib/files/upload";
 
 import { registerFile } from "@/lib/files/actions";
-
-const selectClass =
-  "h-11 w-full rounded-lg border border-input bg-card px-2.5 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm";
 
 type Step = "idle" | "uploading" | "saving";
 
@@ -25,13 +23,15 @@ type Props = {
   tripId: string;
   /** Attach every upload to this activity (used on the activity's page). */
   activityId?: string;
+  /** Or to this accommodation (used on its page). */
+  accommodationId?: string;
   /** Otherwise, let the user pick an activity to attach to (optional). */
   activities?: { id: string; label: string }[];
   defaultType?: DocumentType;
   title?: string;
 };
 
-export function UploadForm({ tripId, activityId, activities, defaultType = "ticket", title = "Subir documento" }: Props) {
+export function UploadForm({ tripId, activityId, accommodationId, activities, defaultType = "ticket", title = "Subir documento" }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const ids = useId();
   const [file, setFile] = useState<File | null>(null);
@@ -73,7 +73,8 @@ export function UploadForm({ tripId, activityId, activities, defaultType = "tick
       path: upload.path,
       originalName: file.name,
       documentType,
-      activityId: activityId ?? (attachTo || null),
+      activityId: accommodationId ? null : (activityId ?? (attachTo || null)),
+      accommodationId: accommodationId ?? null,
     });
     setStep("idle");
     if (result.error) {
@@ -150,7 +151,7 @@ export function UploadForm({ tripId, activityId, activities, defaultType = "tick
         </select>
       </div>
 
-      {!activityId && activities && activities.length > 0 && (
+      {!activityId && !accommodationId && activities && activities.length > 0 && (
         <div className="flex flex-col gap-1.5">
           <label htmlFor={`${ids}-activity`} className="text-sm font-medium">
             Adjuntar a una actividad <span className="font-normal text-muted-foreground">(opcional)</span>

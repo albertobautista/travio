@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, ChevronLeft, ChevronRight, FolderLock, Pencil, Sun } from "lucide-react";
+import { BedDouble, CalendarDays, ChevronLeft, ChevronRight, FolderLock, Pencil, Sun } from "lucide-react";
 
 import { TripRoute } from "@/components/trips/trip-route";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { getAccommodations } from "@/lib/accommodations/queries";
 import { getActivities } from "@/lib/activities/queries";
 import { getTripFiles } from "@/lib/files/queries";
 import { initials } from "@/lib/initials";
@@ -43,7 +44,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   if (!trip) notFound();
 
   const supabase = await createClient();
-  const [{ data: claimsData }, { data: members }, coverUrls, stops, activities, travelers, files] = await Promise.all([
+  const [{ data: claimsData }, { data: members }, coverUrls, stops, activities, travelers, files, stays] = await Promise.all([
     supabase.auth.getClaims(),
     supabase
       .from("trip_members")
@@ -55,9 +56,11 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
     getActivities(trip.id),
     getTravelers(trip.id),
     getTripFiles(trip.id),
+    getAccommodations(trip.id),
   ]);
   const coverUrl = trip.cover_image_path ? coverUrls.get(trip.cover_image_path) : undefined;
   const myRole = toTripRole(members?.find((m) => m.user_id === claimsData?.claims.sub)?.role);
+  const citiesWithoutStay = stops.filter((s) => !stays.some((a) => a.trip_stop_id === s.id)).length;
 
   const today = resolveTripNow(stops).today;
   const status = getTripStatus(trip.start_date, trip.end_date, today);
@@ -150,6 +153,25 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
             {activities.length === 0
               ? "Planea las actividades de cada día"
               : `${activities.length} ${activities.length === 1 ? "actividad" : "actividades"}`}
+          </span>
+        </span>
+        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
+      </Link>
+
+      <Link
+        href={`/viajes/${trip.id}/hospedajes`}
+        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
+      >
+        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
+          <BedDouble className="size-5" aria-hidden="true" />
+        </span>
+        <span className="flex flex-1 flex-col">
+          <span className="font-semibold">Hospedajes</span>
+          <span className="text-sm text-muted-foreground">
+            {stays.length === 0
+              ? "Dónde duermen en cada ciudad"
+              : `${stays.length} ${stays.length === 1 ? "hospedaje" : "hospedajes"}` +
+                (citiesWithoutStay === 0 ? "" : ` · falta en ${citiesWithoutStay === 1 ? "1 ciudad" : `${citiesWithoutStay} ciudades`}`)}
           </span>
         </span>
         <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
