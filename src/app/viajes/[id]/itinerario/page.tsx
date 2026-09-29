@@ -16,7 +16,7 @@ import { getActivities } from "@/lib/activities/queries";
 import { findConflicts, formatDuration, formatTimeRange } from "@/lib/activities/schedule";
 import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
-import { stopForDate } from "@/lib/trips/stops";
+import { stopsForDate } from "@/lib/trips/stops";
 import { resolveTripNow } from "@/lib/trips/today";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
@@ -120,7 +120,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     ...dayEvents.map((e): Row => ({ kind: "stay", at: e.at, event: e })),
     ...dayLegs.map((item): Row => ({ kind: "leg", at: item.at, item })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
-  const dayStop = day ? stopForDate(stops, day.date) : undefined;
+  const dayStops = day ? stopsForDate(stops, day.date) : [];
   const addHref = `/viajes/${trip.id}/actividades/nueva${day ? `?dia=${day.date}` : ""}`;
   const itineraryHref = (params: { dia?: string; persona?: string | null }) => {
     const q = new URLSearchParams();
@@ -235,10 +235,10 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                   {day.dayNumber ? `Día ${day.dayNumber} · ` : ""}
                   {day.label}
                 </h2>
-                {dayStop && (
+                {dayStops.length > 0 && (
                   <span className="flex items-center gap-1 text-sm text-muted-foreground">
                     <MapPin className="size-3.5" aria-hidden="true" />
-                    {dayStop.name}
+                    {dayStops.map((s) => s.name).join(" → ")}
                   </span>
                 )}
               </div>
