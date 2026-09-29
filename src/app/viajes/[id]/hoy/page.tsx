@@ -1,0 +1,352 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ExternalLink, MapPin, Navigation, Plus } from "lucide-react";
+
+import { StartsIn } from "@/components/activities/starts-in";
+import { TripClock } from "@/components/trips/trip-clock";
+import { TravelerStack } from "@/components/travelers/traveler-avatar";
+import { Button } from "@/components/ui/button";
+import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
+import { buildDayPlan, forTraveler, formatStartsIn } from "@/lib/activities/day-plan";
+import { activityDate } from "@/lib/activities/itinerary";
+import { getActivities } from "@/lib/activities/queries";
+import { formatDuration, formatTimeRange } from "@/lib/activities/schedule";
+import { createClient } from "@/lib/supabase/server";
+import { getTravelers } from "@/lib/travelers/queries";
+import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus } from "@/lib/trips/dates";
+import { clockParts, zoneCity } from "@/lib/trips/clock";
+import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
+import { resolveTripNow } from "@/lib/trips/today";
+import { instantToZonedTime } from "@/lib/zoned-time";
+
+export async function generateMetadata({ params }: PageProps<"/viajes/[id]/hoy">): Promise<Metadata> {
+  const trip = await getTrip((await params).id);
+  return { title: trip ? `Hoy · ${trip.name} · Travio` : "Hoy · Travio" };
+}
+
+const longDate = new Intl.DateTimeFormat("es-MX", {
+  weekday: "long",
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+function formatLongDate(date: string) {
+  const s = longDate.format(new Date(`${date}T00:00:00Z`)).replace(/\./g, "").replace(/ de /g, " ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function addDays(date: string, days: number) {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Opens Google Maps directions (app on phones) to the activity. No API key needed.
+ * Only the activity's own place counts: directions to just the city aren't useful.
+ */
+function directionsUrl(parts: (string | null | undefined)[]) {
+  const destination = parts.filter(Boolean).join(", ");
+  return destination ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}` : null;
+}
+
+export default async function TodayPage({ params, searchParams }: PageProps<"/viajes/[id]/hoy">) {
+  const { id } = await params;
+  const { todos } = await searchParams;
+  const supabase = await createClient();
+  const [trip, role, stops, activities, travelers, { data: claims }] = await Promise.all([
+    getTrip(id),
+    getMyTripRole(id),
+    getStops(id),
+    getActivities(id),
+    getTravelers(id),
+    supabase.auth.getClaims(),
+  ]);
+  if (!trip) notFound();
+
+  const now = new Date();
+  const editable = canEdit(role);
+  const { today, timeZone, stop } = resolveTripNow(stops, now);
+  const status = getTripStatus(trip.start_date, trip.end_date, today);
+  const dayNumber = getTripDayNumber(trip.start_date, trip.end_date, today);
+  const tripDays = getTripLengthDays(trip.start_date, trip.end_date);
+  const travelerById = new Map(travelers.map((t) => [t.id, t]));
+
+  // "Mi día": if the viewer is one of the travelers, show only what they take part in.
+  const me = travelers.find((t) => t.user_id === claims?.claims.sub);
+  const showAll = todos === "1" || !me;
+  const mine = (list: typeof prepared) => (showAll ? list : forTraveler(list, me!.id));
+
+  const prepared = activities.map((a) => ({
+    ...a,
+    date: activityDate(a),
+    startsAt: new Date(a.starts_at),
+    durationMinutes: a.duration_minutes,
+    participantIds: a.activity_participants.map((p) => p.traveler_id),
+  }));
+  const todays = mine(prepared.filter((a) => a.date === today));
+  const tomorrowFirst = mine(prepared.filter((a) => a.date === addDays(today, 1)))[0];
+  const hasSubsets = prepared.some((a) => a.participantIds.length > 0);
+
+  const plan = buildDayPlan(todays, now);
+  const peopleOf = (a: (typeof prepared)[number]) =>
+    a.participantIds.length > 0 ? a.participantIds.flatMap((pid) => travelerById.get(pid) ?? []) : travelers;
+  const base = `/viajes/${trip.id}`;
+
+  return (
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
+      <header className="flex items-start gap-2">
+        <Button asChild variant="ghost" size="icon" className="-ml-2 size-11 shrink-0">
+          <Link href={base} aria-label={`Volver a ${trip.name}`}>
+            <ChevronLeft aria-hidden="true" />
+          </Link>
+        </Button>
+        <div className="min-w-0 flex-1">
+          <h1 className="truncate text-2xl font-bold tracking-tight">Hoy{stop ? ` · ${stop.name}` : ""}</h1>
+          <p className="text-sm text-muted-foreground">
+            {formatLongDate(today)}
+            {dayNumber && tripDays ? ` · día ${dayNumber} de ${tripDays}` : ""}
+          </p>
+          <TripClock timeZone={timeZone} place={stop?.name ?? zoneCity(timeZone)} initial={clockParts(now, timeZone)} />
+        </div>
+      </header>
+
+      {me && hasSubsets && (
+        <nav aria-label="Qué mostrar" className="flex gap-2">
+          {[
+            { label: "Mi día", href: `${base}/hoy`, active: !showAll },
+            { label: "Todo el grupo", href: `${base}/hoy?todos=1`, active: showAll },
+          ].map((o) => (
+            <Link
+              key={o.label}
+              href={o.href}
+              aria-current={o.active ? "page" : undefined}
+              className={
+                "flex h-9 items-center rounded-full px-3 text-sm " +
+                (o.active ? "bg-primary font-semibold text-primary-foreground" : "border bg-card text-foreground/80 hover:bg-muted")
+              }
+            >
+              {o.label}
+            </Link>
+          ))}
+        </nav>
+      )}
+
+      {todays.length === 0 ? (
+        <section className="flex flex-col items-center gap-3 rounded-2xl border border-dashed bg-card px-6 py-8 text-center">
+          <CalendarDays className="size-8 text-primary" aria-hidden="true" />
+          <p className="font-semibold">
+            {status === "upcoming" && trip.start_date
+              ? `Tu viaje empieza el ${formatTripDates(trip.start_date, null)}`
+              : status === "past"
+                ? "Este viaje ya terminó"
+                : status === "undated"
+                  ? "Este viaje aún no tiene fechas"
+                  : "Hoy no hay nada planeado"}
+          </p>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            {status === "active"
+              ? "Día libre. Si surge un plan, agrégalo para tenerlo a la mano."
+              : "Aquí verás el plan de cada día mientras viajas: qué sigue, cómo llegar y tus reservas."}
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {editable && status === "active" && (
+              <Button asChild>
+                <Link href={`${base}/actividades/nueva?dia=${today}`}>
+                  <Plus aria-hidden="true" />
+                  Agregar actividad
+                </Link>
+              </Button>
+            )}
+            <Button asChild variant="outline">
+              <Link href={`${base}/itinerario`}>Ver itinerario</Link>
+            </Button>
+          </div>
+        </section>
+      ) : plan.focus.length > 0 ? (
+        plan.focus.map((focus) => {
+          const category = isCategory(focus.category) ? CATEGORY_META[focus.category] : CATEGORY_META.other;
+          const Icon = category.icon;
+          const happening = plan.current.includes(focus);
+          const people = peopleOf(focus);
+          const directions = directionsUrl([focus.location_name, focus.address]);
+          const overlaps = plan.items.find((i) => i.kind === "activity" && i.activity.id === focus.id);
+          const titleId = `focus-${focus.id}`;
+          return (
+            <section key={focus.id} aria-labelledby={titleId} className="flex flex-col gap-3 rounded-[20px] border bg-card p-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-muted-foreground">{happening ? "Ahora" : showAll ? "Próximo plan" : "Tu próximo plan"}</span>
+                <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
+                  {happening ? "En curso" : <StartsIn startsAt={focus.starts_at} initial={formatStartsIn(focus.startsAt, now)} />}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className={`flex size-14 shrink-0 items-center justify-center rounded-2xl ${category.className}`}>
+                  <Icon className="size-7" aria-hidden="true" />
+                </span>
+                <div className="flex min-w-0 flex-col">
+                  <h2 id={titleId} className="text-xl font-bold">
+                    {focus.title}
+                  </h2>
+                  <p className="text-sm text-foreground/80">
+                    {formatTimeRange(focus.startsAt, focus.duration_minutes, focus.timezone)} ({formatDuration(focus.duration_minutes)})
+                  </p>
+                  {(focus.location_name || focus.address) && (
+                    <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{[focus.location_name, focus.address].filter(Boolean).join(" · ")}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+              {people.length > 0 && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <TravelerStack travelers={people} max={4} />
+                  <span className="truncate">
+                    {focus.participantIds.length === 0 ? "Todo el grupo" : people.map((t) => t.name.split(" ")[0]).join(", ")}
+                  </span>
+                </div>
+              )}
+              {overlaps?.kind === "activity" && overlaps.conflicts.length > 0 && (
+                <p className="flex items-start gap-2 rounded-lg bg-warning-soft p-2 text-xs text-warning-foreground">
+                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                  {overlaps.conflicts.map((c) => `Se solapa ${formatDuration(c.overlapMinutes)} con ${c.title}`).join(". ")}
+                </p>
+              )}
+              {focus.reservation_ref && (
+                <p className="text-sm">
+                  Referencia: <strong className="font-mono">{focus.reservation_ref}</strong>
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                {directions ? (
+                  <Button asChild size="lg" className="h-11">
+                    <a href={directions} target="_blank" rel="noopener noreferrer">
+                      <Navigation aria-hidden="true" />
+                      Cómo llegar
+                    </a>
+                  </Button>
+                ) : (
+                  <Button size="lg" className="h-11" disabled title="Agrega el lugar o la dirección a la actividad">
+                    <Navigation aria-hidden="true" />
+                    Cómo llegar
+                  </Button>
+                )}
+                {focus.external_url ? (
+                  <Button asChild size="lg" variant="outline" className="h-11">
+                    <a href={focus.external_url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink aria-hidden="true" />
+                      Ver reserva
+                    </a>
+                  </Button>
+                ) : (
+                  <Button asChild size="lg" variant="outline" className="h-11">
+                    <Link href={editable ? `${base}/actividades/${focus.id}` : `${base}/itinerario?dia=${today}`}>
+                      {editable ? "Ver detalles" : "Ver en itinerario"}
+                    </Link>
+                  </Button>
+                )}
+              </div>
+              {!directions && (
+                <p className="text-xs text-muted-foreground">
+                  {editable
+                    ? "Agrega el lugar o la dirección a la actividad para ver cómo llegar."
+                    : "Esta actividad aún no tiene lugar ni dirección."}
+                </p>
+              )}
+            </section>
+          );
+        })
+      ) : (
+        <section className="flex flex-col gap-1 rounded-2xl border bg-card p-4">
+          <p className="font-semibold">Terminaste los planes de hoy</p>
+          <p className="text-sm text-muted-foreground">
+            {tomorrowFirst
+              ? `Mañana: ${tomorrowFirst.title} a las ${instantToZonedTime(tomorrowFirst.startsAt, tomorrowFirst.timezone).time}.`
+              : "Mañana no hay nada planeado todavía."}
+          </p>
+        </section>
+      )}
+
+      {todays.length > 0 && (
+        <section aria-labelledby="day-heading" className="flex flex-col gap-2">
+          <h2 id="day-heading" className="font-semibold">
+            El día de hoy
+          </h2>
+          <ol className="relative flex flex-col">
+            <span aria-hidden="true" className="absolute top-5 bottom-5 left-[5px] w-0.5 bg-timeline" />
+            {plan.items.map((item, i) => {
+              if (item.kind === "free") {
+                return (
+                  <li key={`free-${i}`} className="flex items-center gap-2.5 py-1 pl-6 text-xs text-muted-foreground">
+                    Tiempo libre · {formatDuration(item.minutes)}
+                  </li>
+                );
+              }
+              const a = item.activity;
+              const done = item.state === "done";
+              const current = item.state === "now";
+              const people = peopleOf(a);
+              const row = (
+                <>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className={"truncate text-sm " + (done ? "text-muted-foreground line-through" : "font-semibold")}>
+                      {a.title}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {formatDuration(a.duration_minutes)}
+                      {current ? " · ahora" : item.isNext ? " · siguiente" : ""}
+                      {a.location_name ? ` · ${a.location_name}` : ""}
+                    </span>
+                    {item.conflicts.length > 0 && (
+                      <span className="flex items-center gap-1 text-xs text-warning-foreground">
+                        <AlertTriangle className="size-3" aria-hidden="true" />
+                        Se solapa con {item.conflicts.map((c) => c.title).join(", ")}
+                      </span>
+                    )}
+                  </span>
+                  {people.length > 0 && <TravelerStack travelers={people} max={3} />}
+                </>
+              );
+              return (
+                <li
+                  key={a.id}
+                  className={"flex items-center gap-2.5 rounded-xl py-2 " + (current || item.isNext ? "-mx-2 bg-secondary px-2" : "")}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={
+                      "relative flex size-3 shrink-0 items-center justify-center rounded-full " +
+                      (done ? "bg-success" : current ? "bg-primary ring-4 ring-primary/20" : "border-2 border-primary bg-card")
+                    }
+                  >
+                    {done && <Check className="size-2 text-white" strokeWidth={4} />}
+                  </span>
+                  <time dateTime={a.starts_at} className="w-11 shrink-0 font-mono text-xs font-semibold">
+                    {instantToZonedTime(a.startsAt, a.timezone).time}
+                  </time>
+                  <span className="sr-only">{done ? "Hecho." : current ? "En curso." : ""}</span>
+                  {editable ? (
+                    <Link href={`${base}/actividades/${a.id}`} className="flex min-w-0 flex-1 items-center gap-2 hover:underline">
+                      {row}
+                    </Link>
+                  ) : (
+                    <span className="flex min-w-0 flex-1 items-center gap-2">{row}</span>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+          <Button asChild variant="outline" className="mt-1 h-11">
+            <Link href={`${base}/itinerario?dia=${today}`}>
+              <CalendarDays aria-hidden="true" />
+              Ver en el itinerario
+            </Link>
+          </Button>
+        </section>
+      )}
+    </main>
+  );
+}

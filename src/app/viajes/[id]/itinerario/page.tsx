@@ -10,9 +10,9 @@ import { activityDate, buildItineraryDays, pickDay } from "@/lib/activities/itin
 import { getActivities } from "@/lib/activities/queries";
 import { findConflicts, formatDuration, formatTimeRange } from "@/lib/activities/schedule";
 import { getTravelers } from "@/lib/travelers/queries";
-import { todayIn } from "@/lib/trips/dates";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { stopForDate } from "@/lib/trips/stops";
+import { resolveTripNow } from "@/lib/trips/today";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itinerario">): Promise<Metadata> {
@@ -47,7 +47,8 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     }))
     .filter((a) => !person || a.participantIds.length === 0 || a.participantIds.includes(person.id));
   const days = buildItineraryDays(trip, withDates.map((a) => a.date));
-  const day = pickDay(days, typeof dia === "string" ? dia : undefined, todayIn());
+  // "Today" where the travelers are (their current city's time zone).
+  const day = pickDay(days, typeof dia === "string" ? dia : undefined, resolveTripNow(stops).today);
 
   // Conflicts across the whole trip: an overnight activity can overlap the next
   // day. Only activities that share a traveler can clash.

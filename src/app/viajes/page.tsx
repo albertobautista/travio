@@ -8,7 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { initials } from "@/lib/initials";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
-import { getTripStatus, todayIn, type TripStatus } from "@/lib/trips/dates";
+import { getTripStatus, type TripStatus } from "@/lib/trips/dates";
+import { resolveTripNow } from "@/lib/trips/today";
 import { createClient } from "@/lib/supabase/server";
 
 import { signOut } from "../login/actions";
@@ -53,20 +54,20 @@ export default async function TripsPage({ searchParams }: PageProps<"/viajes">) 
     supabase
       .from("trips")
       // Embedded select: PostgREST follows the trip_stops.trip_id foreign key.
-      .select("id, name, start_date, end_date, cover_image_path, trip_stops (name, position)"),
+      .select("id, name, start_date, end_date, cover_image_path, trip_stops (name, position, timezone, arrives_on, departs_on)"),
   ]);
 
   // One batch request signs every cover on the page.
   const coverUrls = await getCoverUrls((rows ?? []).map((t) => t.cover_image_path));
 
-  const today = todayIn();
   const allTrips: TripCardData[] = (rows ?? [])
     .map((t) => ({
       id: t.id,
       name: t.name,
       start_date: t.start_date,
       end_date: t.end_date,
-      status: getTripStatus(t.start_date, t.end_date, today),
+      // Each trip's "today" is local to where its travelers are.
+      status: getTripStatus(t.start_date, t.end_date, resolveTripNow(t.trip_stops).today),
       coverUrl: t.cover_image_path ? (coverUrls.get(t.cover_image_path) ?? null) : null,
       cities: [...t.trip_stops].sort((a, b) => a.position - b.position).map((s) => s.name),
     }))

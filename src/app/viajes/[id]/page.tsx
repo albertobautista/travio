@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarDays, ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Pencil, Sun } from "lucide-react";
 
 import { TripRoute } from "@/components/trips/trip-route";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -16,10 +16,10 @@ import {
   getTripDayNumber,
   getTripLengthDays,
   getTripStatus,
-  todayIn,
 } from "@/lib/trips/dates";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { canEdit, getStops, getTrip, toTripRole } from "@/lib/trips/queries";
+import { resolveTripNow } from "@/lib/trips/today";
 import { createClient } from "@/lib/supabase/server";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -57,7 +57,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   const coverUrl = trip.cover_image_path ? coverUrls.get(trip.cover_image_path) : undefined;
   const myRole = toTripRole(members?.find((m) => m.user_id === claimsData?.claims.sub)?.role);
 
-  const today = todayIn();
+  const today = resolveTripNow(stops).today;
   const status = getTripStatus(trip.start_date, trip.end_date, today);
   const days = getTripLengthDays(trip.start_date, trip.end_date);
   const dayNumber = getTripDayNumber(trip.start_date, trip.end_date, today);
@@ -118,6 +118,22 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
         <StatTile label="Ciudades" value={stops.length} />
         <StatTile label="Actividades" value={activities.length} />
       </dl>
+
+      {status === "active" && (
+        <Link
+          href={`/viajes/${trip.id}/hoy`}
+          className="flex min-h-14 items-center gap-3 rounded-2xl bg-primary p-4 text-primary-foreground hover:bg-primary-hover"
+        >
+          <span className="flex size-10 items-center justify-center rounded-xl bg-white/15">
+            <Sun className="size-5" aria-hidden="true" />
+          </span>
+          <span className="flex flex-1 flex-col">
+            <span className="font-semibold">Hoy{dayNumber && days ? ` · día ${dayNumber} de ${days}` : ""}</span>
+            <span className="text-sm text-white/85">Qué sigue, cómo llegar y tus reservas</span>
+          </span>
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </Link>
+      )}
 
       <Link
         href={`/viajes/${trip.id}/itinerario`}
