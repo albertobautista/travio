@@ -6,12 +6,10 @@ import { ChevronLeft } from "lucide-react";
 import { TripMap } from "@/components/maps/trip-map";
 import { Button } from "@/components/ui/button";
 import { getAccommodations } from "@/lib/accommodations/queries";
-import { buildItineraryDays } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
+import { buildMapDays } from "@/lib/maps/days";
 import { buildMapPoints } from "@/lib/maps/points";
-import { legTimes } from "@/lib/transportations/legs";
 import { getTransportations } from "@/lib/transportations/queries";
-import { legRoute, transportMeta } from "@/lib/transportations/types";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
 
@@ -33,21 +31,9 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
   ]);
   if (!trip) notFound();
 
-  const points = buildMapPoints({ tripId: trip.id, editable: canEdit(role), activities, stays, stops });
-  // Legs by local departure day, for the "how you get there" strip on travel days.
-  const legs = transportations.map((l) => {
-    const { departs } = legTimes(l);
-    const service = [l.carrier, l.service_number].filter(Boolean).join(" ");
-    return {
-      id: l.id,
-      date: departs.date,
-      time: departs.time,
-      type: l.type,
-      label: l.type === "car_rental" ? `Recoger auto · ${l.origin_name}` : legRoute(l),
-      detail: service || transportMeta(l.type).label,
-    };
-  });
-  const days = buildItineraryDays(trip, []).map((d) => ({ date: d.date, label: d.label, dayNumber: d.dayNumber }));
+  const editable = canEdit(role);
+  const points = buildMapPoints({ tripId: trip.id, editable, activities, stays, stops });
+  const days = buildMapDays({ trip, editable, stops, activities, stays, legs: transportations });
   // ?dia= when valid; otherwise today if it's a trip day; otherwise the whole trip.
   const today = resolveTripNow(stops).today;
   const initialDay =
@@ -66,7 +52,7 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
           <p className="truncate text-sm text-muted-foreground">{trip.name}</p>
         </div>
       </header>
-      <TripMap points={points} days={days} legs={legs} initialDay={initialDay} />
+      <TripMap points={points} days={days} initialDay={initialDay} />
     </main>
   );
 }
