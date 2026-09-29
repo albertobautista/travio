@@ -75,6 +75,43 @@ export function isFilePathFor(path: string, tripId: string, fileId: string) {
   return rest.length === 0 && trip === tripId && file === fileId && /^[a-z0-9-]+\.[a-z]+$/.test(name ?? "");
 }
 
+/** Extensions accepted as-is for each type ("foto.jpeg" stays .jpeg). */
+function extensionsFor(type: FileMimeType): string[] {
+  return type === "image/jpeg" ? ["jpg", "jpeg"] : [FILE_TYPES[type]];
+}
+
+/**
+ * "Boleto tren.PDF" -> { base: "Boleto tren", ext: "PDF" }. Only an extension
+ * that matches the stored type counts, so "Reserva v1.2" (a PDF) keeps its dot.
+ */
+export function splitFileName(name: string, type: string) {
+  const exts = isFileType(type) ? extensionsFor(type) : [];
+  const match = name.match(/^(.*)\.([^.]+)$/);
+  if (match && exts.includes(match[2].toLowerCase())) return { base: match[1], ext: match[2] };
+  return { base: name, ext: isFileType(type) ? FILE_TYPES[type] : "" };
+}
+
+export const MAX_FILE_NAME = 255;
+
+/**
+ * Cleans a name typed by the user and makes sure it ends with the right
+ * extension, so a download still opens in the right app. Returns null if
+ * nothing usable is left.
+ */
+export function normalizeFileName(input: string, type: string, currentName: string) {
+  const { ext } = splitFileName(currentName, type);
+  const base = splitFileName(
+    input
+      .replace(/[\u0000-\u001f\u007f/\\]/g, " ") // control chars and slashes break downloads
+      .replace(/\s+/g, " ")
+      .trim(),
+    type,
+  ).base.trim();
+  if (!base) return null;
+  const suffix = ext ? `.${ext}` : "";
+  return base.slice(0, MAX_FILE_NAME - suffix.length) + suffix;
+}
+
 // ---------------------------------------------------------------------------
 // Document types: how the Documents page groups files.
 // ---------------------------------------------------------------------------

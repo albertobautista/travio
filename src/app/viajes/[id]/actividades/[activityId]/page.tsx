@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
 import { ActivityForm } from "@/components/activities/activity-form";
-import { DeleteFileButton } from "@/components/files/delete-file-button";
+import { EditFileButton } from "@/components/files/edit-file-button";
 import { FileRow } from "@/components/files/file-row";
 import { UploadForm } from "@/components/files/upload-form";
 import { getActivities, getActivity } from "@/lib/activities/queries";
@@ -117,7 +117,7 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
                 <FileRow
                   tripId={trip.id}
                   file={file}
-                  actions={<DeleteFileButton tripId={trip.id} fileId={file.id} name={file.original_name} />}
+                  actions={<EditFileButton tripId={trip.id} file={file} />}
                 />
               </li>
             ))}

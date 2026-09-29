@@ -2,7 +2,7 @@
 
 import { refresh } from "next/cache";
 
-import { FILES_BUCKET, isDocumentType, isFilePathFor, isFileType, MAX_FILE_BYTES } from "@/lib/files/rules";
+import { FILES_BUCKET, isDocumentType, isFilePathFor, isFileType, MAX_FILE_BYTES, normalizeFileName } from "@/lib/files/rules";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/uuid";
 
@@ -84,6 +84,44 @@ export async function registerFile(tripId: string, input: RegisterInput): Promis
             : "No pudimos guardar el archivo. Inténtalo de nuevo.",
     };
   }
+
+  refresh();
+  return {};
+}
+
+/**
+ * Renames a document. Only the name shown in Travio and used for downloads
+ * changes; the object in Storage keeps its path, so nothing is copied or moved.
+ * The extension is kept from the current name (normalizeFileName).
+ */
+export async function renameFile(tripId: string, fileId: string, name: string): Promise<FileActionResult> {
+  if (!isUuid(tripId) || !isUuid(fileId)) return { error: "Este archivo no existe." };
+
+  const supabase = await createClient();
+  const { data: current } = await supabase
+    .from("files")
+    .select("original_name, mime_type")
+    .eq("trip_id", tripId)
+    .eq("id", fileId)
+    .maybeSingle();
+  if (!current) return { error: "Este archivo no existe." };
+
+  const cleaned = normalizeFileName(name, current.mime_type, current.original_name);
+  if (!cleaned) return { error: "Escribe un nombre." };
+
+  const { data, error } = await supabase
+    .from("files")
+    .update({ original_name: cleaned })
+    .eq("trip_id", tripId)
+    .eq("id", fileId)
+    .select("id");
+
+  if (error) {
+    console.error("renameFile failed", error);
+    return { error: "No pudimos cambiar el nombre. Inténtalo de nuevo." };
+  }
+  // Viewers can read the row but RLS blocks the update: zero rows.
+  if (data.length === 0) return { error: "No tienes permiso para editar este archivo." };
 
   refresh();
   return {};

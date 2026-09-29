@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, FolderLock } from "lucide-react";
 
-import { DeleteFileButton } from "@/components/files/delete-file-button";
+import { EditFileButton } from "@/components/files/edit-file-button";
 import { FileRow } from "@/components/files/file-row";
 import { UploadForm } from "@/components/files/upload-form";
 import { Button } from "@/components/ui/button";
@@ -104,7 +104,7 @@ export default async function DocumentsPage({ params }: PageProps<"/viajes/[id]/
                       ) : null
                     }
                     actions={
-                      editable ? <DeleteFileButton tripId={trip.id} fileId={file.id} name={file.original_name} /> : null
+                      editable ? <EditFileButton tripId={trip.id} file={file} /> : null
                     }
                   />
                 </li>
