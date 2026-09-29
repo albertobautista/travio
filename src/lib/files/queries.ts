@@ -1,7 +1,12 @@
 import { cache } from "react";
 
+import { getAccommodations } from "@/lib/accommodations/queries";
+import { getActivities } from "@/lib/activities/queries";
 import { createClient } from "@/lib/supabase/server";
+import { getTransportations } from "@/lib/transportations/queries";
 import { isUuid } from "@/lib/uuid";
+
+import { buildAttachTargets } from "./targets";
 
 /**
  * A trip's documents, newest first, with the activity each one is attached to.
@@ -21,3 +26,13 @@ export const getTripFiles = cache(async (tripId: string) => {
 });
 
 export type TripFile = Awaited<ReturnType<typeof getTripFiles>>[number];
+
+/** Everything in the trip a document can be attached to (for the pickers). */
+export const getAttachTargets = cache(async (tripId: string) => {
+  const [activities, stays, legs] = await Promise.all([
+    getActivities(tripId),
+    getAccommodations(tripId),
+    getTransportations(tripId),
+  ]);
+  return buildAttachTargets({ activities, stays, legs });
+});

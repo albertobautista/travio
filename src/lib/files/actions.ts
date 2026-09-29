@@ -6,17 +6,38 @@ import { FILES_BUCKET, isDocumentType, isFilePathFor, isFileType, MAX_FILE_BYTES
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/uuid";
 
+import type { AttachIds } from "./targets";
+
 export type FileActionResult = { error?: string };
 
-type RegisterInput = {
+type RegisterInput = AttachIds & {
   fileId: string;
   path: string;
   originalName: string;
   documentType: string;
-  activityId?: string | null;
-  accommodationId?: string | null;
-  transportationId?: string | null;
 };
+
+/**
+ * The parent columns for a file, from ids sent by the browser: each must be a
+ * uuid and at most one may be set. Whether the parent exists and belongs to
+ * the same trip is checked by the database (composite foreign keys).
+ */
+function parentColumns(ids: AttachIds) {
+  const columns = {
+    activity_id: ids.activityId || null,
+    accommodation_id: ids.accommodationId || null,
+    transportation_id: ids.transportationId || null,
+  };
+  const set = Object.values(columns).filter((v) => v !== null);
+  return set.length <= 1 && set.every(isUuid) ? columns : null;
+}
+
+/** 42501: RLS said no. 23503: the parent isn't in this trip (or was deleted). */
+function describeWriteError(code: string | undefined, fallback: string) {
+  if (code === "42501") return "No tienes permiso para editar los archivos de este viaje.";
+  if (code === "23503") return "Lo que elegiste para adjuntar ya no existe o no es de este viaje.";
+  return fallback;
+}
 
 /**
  * Step 2 of adding a document. Step 1 already happened in the browser: the
@@ -34,17 +55,13 @@ type RegisterInput = {
  */
 export async function registerFile(tripId: string, input: RegisterInput): Promise<FileActionResult> {
   const name = input.originalName.trim().slice(0, 255);
-  const activityId = input.activityId || null;
-  const accommodationId = input.accommodationId || null;
-  const transportationId = input.transportationId || null;
-  const parents = [activityId, accommodationId, transportationId].filter((p) => p !== null);
+  const parents = parentColumns(input);
   if (
     !isUuid(tripId) ||
     !isUuid(input.fileId) ||
     !isFilePathFor(input.path, tripId, input.fileId) ||
     !isDocumentType(input.documentType) ||
-    parents.some((p) => !isUuid(p)) ||
-    parents.length > 1 ||
+    !parents ||
     name.length === 0
   ) {
     return { error: "El archivo no es válido." };
@@ -74,23 +91,13 @@ export async function registerFile(tripId: string, input: RegisterInput): Promis
     mime_type: info.contentType,
     size_bytes: info.size,
     document_type: input.documentType,
-    activity_id: activityId,
-    accommodation_id: accommodationId,
-    transportation_id: transportationId,
+    ...parents,
   });
 
   if (error) {
     console.error("registerFile failed", error);
     await discard();
-    // 42501: RLS said no. 23503: the activity isn't in this trip.
-    return {
-      error:
-        error.code === "42501"
-          ? "No tienes permiso para subir archivos a este viaje."
-          : error.code === "23503"
-            ? "Lo que elegiste para adjuntar no es de este viaje."
-            : "No pudimos guardar el archivo. Inténtalo de nuevo.",
-    };
+    return { error: describeWriteError(error.code, "No pudimos guardar el archivo. Inténtalo de nuevo.") };
   }
 
   refresh();
@@ -98,12 +105,20 @@ export async function registerFile(tripId: string, input: RegisterInput): Promis
 }
 
 /**
- * Renames a document. Only the name shown in Travio and used for downloads
- * changes; the object in Storage keeps its path, so nothing is copied or moved.
- * The extension is kept from the current name (normalizeFileName).
+ * Edits a document's metadata: its name and what it's attached to.
+ *
+ * Only the database row changes. The object in Storage keeps its path
+ * ({trip}/{file}/{name}), which doesn't depend on the parent or the display
+ * name, so nothing is copied or moved. The extension is kept from the current
+ * name (normalizeFileName) so downloads still open in the right app.
  */
-export async function renameFile(tripId: string, fileId: string, name: string): Promise<FileActionResult> {
-  if (!isUuid(tripId) || !isUuid(fileId)) return { error: "Este archivo no existe." };
+export async function updateFile(
+  tripId: string,
+  fileId: string,
+  input: AttachIds & { name: string },
+): Promise<FileActionResult> {
+  const parents = parentColumns(input);
+  if (!isUuid(tripId) || !isUuid(fileId) || !parents) return { error: "Este archivo no existe." };
 
   const supabase = await createClient();
   const { data: current } = await supabase
@@ -114,19 +129,19 @@ export async function renameFile(tripId: string, fileId: string, name: string): 
     .maybeSingle();
   if (!current) return { error: "Este archivo no existe." };
 
-  const cleaned = normalizeFileName(name, current.mime_type, current.original_name);
+  const cleaned = normalizeFileName(input.name, current.mime_type, current.original_name);
   if (!cleaned) return { error: "Escribe un nombre." };
 
   const { data, error } = await supabase
     .from("files")
-    .update({ original_name: cleaned })
+    .update({ original_name: cleaned, ...parents })
     .eq("trip_id", tripId)
     .eq("id", fileId)
     .select("id");
 
   if (error) {
-    console.error("renameFile failed", error);
-    return { error: "No pudimos cambiar el nombre. Inténtalo de nuevo." };
+    console.error("updateFile failed", error);
+    return { error: describeWriteError(error.code, "No pudimos guardar los cambios. Inténtalo de nuevo.") };
   }
   // Viewers can read the row but RLS blocks the update: zero rows.
   if (data.length === 0) return { error: "No tienes permiso para editar este archivo." };

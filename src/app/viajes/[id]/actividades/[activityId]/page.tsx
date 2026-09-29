@@ -8,7 +8,7 @@ import { EditFileButton } from "@/components/files/edit-file-button";
 import { FileRow } from "@/components/files/file-row";
 import { UploadForm } from "@/components/files/upload-form";
 import { getActivities, getActivity } from "@/lib/activities/queries";
-import { getTripFiles } from "@/lib/files/queries";
+import { getAttachTargets, getTripFiles } from "@/lib/files/queries";
 import { listTimeZones } from "@/lib/time-zones";
 import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
@@ -27,7 +27,7 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
   const { id, activityId } = await params;
   // Set when the activity saved but its participants didn't (see saveParticipants).
   const participantsFailed = (await searchParams).participantes === "error";
-  const [trip, role, activity, stops, activities, travelers, tripFiles] = await Promise.all([
+  const [trip, role, activity, stops, activities, travelers, tripFiles, targets] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getActivity(id, activityId),
@@ -35,6 +35,7 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
     getActivities(id),
     getTravelers(id),
     getTripFiles(id),
+    getAttachTargets(id),
   ]);
 
   if (!trip || !activity) notFound();
@@ -117,7 +118,7 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
                 <FileRow
                   tripId={trip.id}
                   file={file}
-                  actions={<EditFileButton tripId={trip.id} file={file} />}
+                  actions={<EditFileButton tripId={trip.id} file={file} targets={targets} />}
                 />
               </li>
             ))}

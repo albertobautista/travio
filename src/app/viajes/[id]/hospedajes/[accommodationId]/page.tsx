@@ -8,7 +8,7 @@ import { EditFileButton } from "@/components/files/edit-file-button";
 import { FileRow } from "@/components/files/file-row";
 import { UploadForm } from "@/components/files/upload-form";
 import { getAccommodation } from "@/lib/accommodations/queries";
-import { getTripFiles } from "@/lib/files/queries";
+import { getAttachTargets, getTripFiles } from "@/lib/files/queries";
 import { listTimeZones } from "@/lib/time-zones";
 import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
@@ -31,13 +31,14 @@ export default async function EditAccommodationPage({
 }: PageProps<"/viajes/[id]/hospedajes/[accommodationId]">) {
   const { id, accommodationId } = await params;
   const { participantes, nuevo } = await searchParams;
-  const [trip, role, stay, stops, travelers, tripFiles] = await Promise.all([
+  const [trip, role, stay, stops, travelers, tripFiles, targets] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getAccommodation(id, accommodationId),
     getStops(id),
     getTravelers(id),
     getTripFiles(id),
+    getAttachTargets(id),
   ]);
 
   if (!trip || !stay) notFound();
@@ -84,7 +85,7 @@ export default async function EditAccommodationPage({
           <ul className="flex flex-col gap-2">
             {files.map((file) => (
               <li key={file.id}>
-                <FileRow tripId={trip.id} file={file} actions={<EditFileButton tripId={trip.id} file={file} />} />
+                <FileRow tripId={trip.id} file={file} actions={<EditFileButton tripId={trip.id} file={file} targets={targets} />} />
               </li>
             ))}
           </ul>

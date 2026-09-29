@@ -15,22 +15,39 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { deleteFile, renameFile } from "@/lib/files/actions";
+import { TargetSelect } from "@/components/files/target-select";
+import { deleteFile, updateFile } from "@/lib/files/actions";
 import { splitFileName } from "@/lib/files/rules";
+import { parseTarget, targetValue, type AttachTarget } from "@/lib/files/targets";
 
-type Props = { tripId: string; file: { id: string; original_name: string; mime_type: string } };
+type Props = {
+  tripId: string;
+  file: {
+    id: string;
+    original_name: string;
+    mime_type: string;
+    activity_id: string | null;
+    accommodation_id: string | null;
+    transportation_id: string | null;
+  };
+  /** Everything in the trip the file could be attached to. */
+  targets: AttachTarget[];
+};
 
 /**
  * Editors' controls for one document, in one dialog so the row only needs a
- * single button on phones: rename it, or delete it (with a second confirm).
- * Renaming only edits the name shown and used for downloads; the extension
- * stays fixed so the file still opens in the right app.
+ * single button on phones: rename it, change what it's attached to, or delete
+ * it (with a second confirm). Only metadata changes; the stored file stays
+ * where it is. The extension stays fixed so the file still opens in the right
+ * app.
  */
-export function EditFileButton({ tripId, file }: Props) {
+export function EditFileButton({ tripId, file, targets }: Props) {
   const inputId = useId();
   const { base, ext } = splitFileName(file.original_name, file.mime_type);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(base);
+  const current = targetValue(file);
+  const [attachTo, setAttachTo] = useState(current);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -40,6 +57,7 @@ export function EditFileButton({ tripId, file }: Props) {
     if (next) {
       // Start from the current name each time the dialog opens.
       setName(base);
+      setAttachTo(current);
       setConfirmingDelete(false);
       setError(null);
     }
@@ -92,12 +110,12 @@ export function EditFileButton({ tripId, file }: Props) {
             className="contents"
             onSubmit={(e) => {
               e.preventDefault();
-              run(() => renameFile(tripId, file.id, ext ? `${name}.${ext}` : name));
+              run(() => updateFile(tripId, file.id, { name: ext ? `${name}.${ext}` : name, ...parseTarget(attachTo) }));
             }}
           >
             <AlertDialogHeader>
               <AlertDialogTitle>Editar documento</AlertDialogTitle>
-              <AlertDialogDescription>El nombre cambia para todos y se usa al descargarlo.</AlertDialogDescription>
+              <AlertDialogDescription>Los cambios los ven todos. El nombre se usa al descargarlo.</AlertDialogDescription>
             </AlertDialogHeader>
             <div className="flex flex-col gap-1.5">
               <label htmlFor={inputId} className="text-sm font-medium">
@@ -117,6 +135,14 @@ export function EditFileButton({ tripId, file }: Props) {
                 {ext && <span className="shrink-0 font-mono text-sm text-muted-foreground">.{ext}</span>}
               </div>
             </div>
+            <TargetSelect
+              id={`${inputId}-target`}
+              label="Adjunto a"
+              targets={targets}
+              value={attachTo}
+              onChange={setAttachTo}
+              disabled={pending}
+            />
             {error && (
               <p role="alert" className="text-sm text-destructive">
                 {error}
@@ -137,7 +163,7 @@ export function EditFileButton({ tripId, file }: Props) {
                 Borrar archivo
               </Button>
               <AlertDialogCancel disabled={pending}>Cancelar</AlertDialogCancel>
-              <Button type="submit" disabled={pending || !name.trim() || name.trim() === base}>
+              <Button type="submit" disabled={pending || !name.trim() || (name.trim() === base && attachTo === current)}>
                 {pending ? "Guardando…" : "Guardar"}
               </Button>
             </AlertDialogFooter>

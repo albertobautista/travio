@@ -4,28 +4,15 @@ import { useId, useRef, useState } from "react";
 import { FileUp, Loader2, X } from "lucide-react";
 
 import { selectClass } from "@/components/form-field";
+import { TargetSelect } from "@/components/files/target-select";
 import { Button } from "@/components/ui/button";
 import { DOCUMENT_TYPES, FILE_ACCEPT, formatFileSize, validateFile, type DocumentType } from "@/lib/files/rules";
+import { parseTarget, type AttachTarget } from "@/lib/files/targets";
 import { uploadTripFile } from "@/lib/files/upload";
 
 import { registerFile } from "@/lib/files/actions";
 
 type Step = "idle" | "uploading" | "saving";
-
-/** "transportation:…" -> { transportationId: "…" }. */
-function picked(value: string) {
-  const [kind, id] = value.split(":");
-  if (!id) return {};
-  return kind === "activity" ? { activityId: id } : kind === "accommodation" ? { accommodationId: id } : { transportationId: id };
-}
-
-export type AttachTarget = { kind: "activity" | "accommodation" | "transportation"; id: string; label: string };
-
-const TARGET_GROUPS: { kind: AttachTarget["kind"]; label: string }[] = [
-  { kind: "transportation", label: "Transporte" },
-  { kind: "accommodation", label: "Hospedajes" },
-  { kind: "activity", label: "Actividades" },
-];
 
 type Props = {
   tripId: string;
@@ -102,7 +89,7 @@ export function UploadForm({
       // A fixed parent (the page's own) wins; otherwise the optional pick.
       ...(activityId || accommodationId || transportationId
         ? { activityId, accommodationId, transportationId }
-        : picked(attachTo)),
+        : parseTarget(attachTo)),
     });
     setStep("idle");
     if (result.error) {
@@ -180,32 +167,14 @@ export function UploadForm({
       </div>
 
       {!activityId && !accommodationId && !transportationId && targets && targets.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor={`${ids}-target`} className="text-sm font-medium">
-            Adjuntar a <span className="font-normal text-muted-foreground">(opcional)</span>
-          </label>
-          <select
-            id={`${ids}-target`}
-            value={attachTo}
-            disabled={busy}
-            onChange={(e) => setAttachTo(e.target.value)}
-            className={selectClass}
-          >
-            <option value="">Nada: documento del viaje</option>
-            {TARGET_GROUPS.map((group) => {
-              const options = targets.filter((t) => t.kind === group.kind);
-              return options.length === 0 ? null : (
-                <optgroup key={group.kind} label={group.label}>
-                  {options.map((t) => (
-                    <option key={t.id} value={`${t.kind}:${t.id}`}>
-                      {t.label}
-                    </option>
-                  ))}
-                </optgroup>
-              );
-            })}
-          </select>
-        </div>
+        <TargetSelect
+          id={`${ids}-target`}
+          label="Adjuntar a (opcional)"
+          targets={targets}
+          value={attachTo}
+          onChange={setAttachTo}
+          disabled={busy}
+        />
       )}
 
       {error && (

@@ -7,23 +7,9 @@ import { EditFileButton } from "@/components/files/edit-file-button";
 import { FileRow } from "@/components/files/file-row";
 import { UploadForm } from "@/components/files/upload-form";
 import { Button } from "@/components/ui/button";
-import { getAccommodations } from "@/lib/accommodations/queries";
-import { getActivities } from "@/lib/activities/queries";
-import { getTripFiles } from "@/lib/files/queries";
+import { getAttachTargets, getTripFiles } from "@/lib/files/queries";
 import { DOCUMENT_TYPES, isDocumentType, type DocumentType } from "@/lib/files/rules";
-import { getTransportations } from "@/lib/transportations/queries";
-import { transportMeta } from "@/lib/transportations/types";
 import { canEdit, getMyTripRole, getTrip } from "@/lib/trips/queries";
-import { instantToZonedTime } from "@/lib/zoned-time";
-
-const shortDate = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "short", timeZone: "UTC" });
-
-/** "29 sep · 21:00 · Ir al jardín", in the local time of the place. */
-function targetLabel(iso: string, timeZone: string, name: string) {
-  const local = instantToZonedTime(iso, timeZone);
-  const day = shortDate.format(new Date(`${local.date}T00:00:00Z`)).replace(".", "");
-  return `${day} · ${local.time} · ${name}`;
-}
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/documentos">): Promise<Metadata> {
   const trip = await getTrip((await params).id);
@@ -36,13 +22,11 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/docum
  */
 export default async function DocumentsPage({ params }: PageProps<"/viajes/[id]/documentos">) {
   const { id } = await params;
-  const [trip, role, files, activities, stays, legs] = await Promise.all([
+  const [trip, role, files, targets] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getTripFiles(id),
-    getActivities(id),
-    getAccommodations(id),
-    getTransportations(id),
+    getAttachTargets(id),
   ]);
   if (!trip) notFound();
   const editable = canEdit(role);
@@ -72,26 +56,7 @@ export default async function DocumentsPage({ params }: PageProps<"/viajes/[id]/
       </header>
 
       {editable && (
-        <UploadForm
-          tripId={trip.id}
-          targets={[
-            ...legs.map((l) => ({
-              kind: "transportation" as const,
-              id: l.id,
-              label: targetLabel(l.departs_at, l.departs_timezone, `${transportMeta(l.type).label} ${l.origin_name} → ${l.destination_name}`),
-            })),
-            ...stays.map((s) => ({
-              kind: "accommodation" as const,
-              id: s.id,
-              label: targetLabel(s.check_in_at, s.timezone, s.name),
-            })),
-            ...activities.map((a) => ({
-              kind: "activity" as const,
-              id: a.id,
-              label: targetLabel(a.starts_at, a.timezone, a.title),
-            })),
-          ]}
-        />
+        <UploadForm tripId={trip.id} targets={targets} />
       )}
 
       {groups.length === 0 ? (
@@ -139,7 +104,7 @@ export default async function DocumentsPage({ params }: PageProps<"/viajes/[id]/
                       ) : null
                     }
                     actions={
-                      editable ? <EditFileButton tripId={trip.id} file={file} /> : null
+                      editable ? <EditFileButton tripId={trip.id} file={file} targets={targets} /> : null
                     }
                   />
                 </li>
