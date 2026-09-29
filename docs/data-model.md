@@ -230,6 +230,8 @@ Check-in/check-out appear in the itinerary as **derived events** (a query/view),
 | cost_amount, cost_currency | | |
 | notes | text | |
 
+**Implemented (2026-09-29)**: as above, plus a 90-day limit and `transportation_participants.seat`. `set_transportation_participants(id, [{traveler_id, seat}])` stores "everyone" as no rows only when nobody has a seat (seats need rows). Origin/destination stay free text; the form's city shortcuts fill in a stop's name and zone. Legs count in the itinerary's overlap check, and `files.transportation_id` completes `files_single_parent`.
+
 ### Participation
 
 `activity_participants`, `accommodation_participants`, `transportation_participants`: `(parent_id, traveler_id)` primary key, both same-trip FKs with cascade.
