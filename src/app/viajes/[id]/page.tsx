@@ -1,31 +1,30 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BedDouble, Bookmark, CalendarDays, PiggyBank, ChevronLeft, ChevronRight, FolderLock, Map as MapIcon, Pencil, Plane, Sun } from "lucide-react";
+import { AlertCircle, ChevronLeft, ChevronRight, Pencil, Sun } from "lucide-react";
 
 import { TripRoute } from "@/components/trips/trip-route";
-import { TravelerStack } from "@/components/travelers/traveler-avatar";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
+import { TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { getAccommodations } from "@/lib/accommodations/queries";
+import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
+import { activityDate, formatDayLabel } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
-import { formatMoney, toCents } from "@/lib/budget/money";
-import { getTripFiles } from "@/lib/files/queries";
-import { getSavedPlaces } from "@/lib/saved-places/queries";
-import { getTransportations } from "@/lib/transportations/queries";
+import { formatMoney } from "@/lib/budget/money";
+import { plannedItems, spentItems } from "@/lib/budget/planned";
+import { getExchangeRates, getExpenses } from "@/lib/budget/queries";
+import { summarizeBudget } from "@/lib/budget/summary";
 import { initials } from "@/lib/initials";
+import { getSavedPlaces } from "@/lib/saved-places/queries";
+import { createClient } from "@/lib/supabase/server";
+import { getTransportations } from "@/lib/transportations/queries";
 import { getTravelers } from "@/lib/travelers/queries";
-import {
-  formatTripDates,
-  getTripDayNumber,
-  getTripLengthDays,
-  getTripStatus,
-} from "@/lib/trips/dates";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
+import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus } from "@/lib/trips/dates";
 import { canEdit, getStops, getTrip, toTripRole } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
-import { createClient } from "@/lib/supabase/server";
+import { instantToZonedTime } from "@/lib/zoned-time";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Propietario",
@@ -38,6 +37,11 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]">): P
   return { title: trip ? `${trip.name} · Travio` : "Viaje · Travio" };
 }
 
+/**
+ * The trip at a glance (the "Resumen" mockup): cover, key numbers, what's
+ * next, what's still missing, budget, route and people. Sections themselves
+ * are one tap away in the navigation.
+ */
 export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   const { id } = await params;
   const trip = await getTrip(id);
@@ -47,25 +51,28 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   if (!trip) notFound();
 
   const supabase = await createClient();
-  const [{ data: claimsData }, { data: members }, coverUrls, stops, activities, travelers, files, stays, legs, saved] = await Promise.all([
-    supabase.auth.getClaims(),
-    supabase
-      .from("trip_members")
-      .select("user_id, role, profiles (display_name, avatar_url)")
-      .eq("trip_id", trip.id)
-      .order("created_at"),
-    getCoverUrls([trip.cover_image_path]),
-    getStops(trip.id),
-    getActivities(trip.id),
-    getTravelers(trip.id),
-    getTripFiles(trip.id),
-    getAccommodations(trip.id),
-    getTransportations(trip.id),
-    getSavedPlaces(trip.id),
-  ]);
+  const [{ data: claimsData }, { data: members }, coverUrls, stops, activities, travelers, stays, legs, saved, expenses, rates] =
+    await Promise.all([
+      supabase.auth.getClaims(),
+      supabase
+        .from("trip_members")
+        .select("user_id, role, profiles (display_name, avatar_url)")
+        .eq("trip_id", trip.id)
+        .order("created_at"),
+      getCoverUrls([trip.cover_image_path]),
+      getStops(trip.id),
+      getActivities(trip.id),
+      getTravelers(trip.id),
+      getAccommodations(trip.id),
+      getTransportations(trip.id),
+      getSavedPlaces(trip.id),
+      getExpenses(trip.id),
+      getExchangeRates(trip.id),
+    ]);
   const coverUrl = trip.cover_image_path ? coverUrls.get(trip.cover_image_path) : undefined;
   const myRole = toTripRole(members?.find((m) => m.user_id === claimsData?.claims.sub)?.role);
-  const citiesWithoutStay = stops.filter((s) => !stays.some((a) => a.trip_stop_id === s.id)).length;
+  const editable = canEdit(myRole);
+  const base = `/viajes/${trip.id}`;
 
   const today = resolveTripNow(stops).today;
   const status = getTripStatus(trip.start_date, trip.end_date, today);
@@ -74,64 +81,77 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   const dateLine = [
     formatTripDates(trip.start_date, trip.end_date),
     days ? (days === 1 ? "1 día" : `${days} días`) : null,
-    dayNumber && days ? `día ${dayNumber} de ${days}` : null,
+    travelers.length === 1 ? "1 viajero" : `${travelers.length} viajeros`,
   ]
     .filter(Boolean)
     .join(" · ");
 
+  // What's next: the first activity that hasn't started (transfers aren't "plans").
+  const now = new Date();
+  const next = activities.find((a) => a.category !== "transfer" && new Date(a.starts_at) > now);
+  const stopName = new Map(stops.map((s) => [s.id, s.name]));
+
+  // Gaps worth a nudge while planning (editors only).
+  const citiesWithoutStay = stops.filter((s) => !stays.some((a) => a.trip_stop_id === s.id));
+  const pendingSaved = saved.filter((p) => p.activities.length === 0).length;
+  const todo = editable
+    ? [
+        ...citiesWithoutStay.map((s) => ({ text: `Falta hospedaje en ${s.name}`, href: `${base}/hospedajes/nuevo?ciudad=${s.id}` })),
+        ...(trip.budget_amount === null ? [{ text: "Define un presupuesto", href: `${base}/presupuesto` }] : []),
+        ...(pendingSaved > 0
+          ? [{ text: `${pendingSaved} ${pendingSaved === 1 ? "lugar guardado" : "lugares guardados"} sin día`, href: `${base}/guardados?ver=pendientes` }]
+          : []),
+      ]
+    : [];
+
+  const budget = summarizeBudget({
+    tripCurrency: trip.currency,
+    budgetAmount: trip.budget_amount === null ? null : Number(trip.budget_amount),
+    rates,
+    planned: plannedItems({ stays, legs, activities }),
+    expenses: spentItems(expenses),
+  });
+  const spentPct = budget.budget ? Math.round((budget.spent / budget.budget) * 100) : null;
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-6">
-      <div className="flex items-center justify-between gap-3">
+      {/* Hero: the cover with the trip's name on it (a solid band keeps text readable on any photo). */}
+      <header className={"relative overflow-hidden rounded-[20px] " + (coverUrl ? "" : "bg-primary")}>
+        {coverUrl ? (
+          // Plain <img>: signed URLs change on every load, so the Next image optimizer adds nothing.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={coverUrl} alt="" className="h-56 w-full object-cover sm:h-64" />
+        ) : (
+          <div className="h-40" aria-hidden="true" />
+        )}
         <Link
           href="/viajes"
-          className="-ml-2 inline-flex min-h-11 w-fit items-center gap-1 px-2 text-sm text-muted-foreground hover:text-foreground"
+          aria-label="Volver a mis viajes"
+          className="absolute top-3 left-3 flex size-11 items-center justify-center rounded-full bg-card/90 text-foreground shadow hover:bg-card"
         >
-          <ChevronLeft className="size-4" aria-hidden="true" />
-          Mis viajes
+          <ChevronLeft className="size-5" aria-hidden="true" />
         </Link>
-        {canEdit(myRole) && (
-          <Button asChild variant="outline" className="h-11">
-            <Link href={`/viajes/${trip.id}/editar`}>
-              <Pencil aria-hidden="true" />
-              Editar
-            </Link>
-          </Button>
+        {editable && (
+          <Link
+            href={`${base}/editar`}
+            className="absolute top-3 right-3 flex h-11 items-center gap-1.5 rounded-xl bg-card/90 px-3 text-sm font-semibold text-foreground shadow hover:bg-card"
+          >
+            <Pencil className="size-4" aria-hidden="true" />
+            Editar
+          </Link>
         )}
-      </div>
-
-      {coverUrl ? (
-        <header className="relative overflow-hidden rounded-[20px]">
-          {/* Plain <img>: signed URLs change on every load, so the Next image optimizer adds nothing. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={coverUrl} alt="" className="aspect-[16/9] w-full object-cover" />
-          {/* Solid dark band rather than text straight on the photo: stays readable on any image. */}
-          <div className="absolute inset-x-0 bottom-0 flex flex-col gap-1 bg-foreground/75 px-4 py-3 text-white">
-            <div className="flex items-start justify-between gap-3">
-              <h1 className="text-2xl font-bold tracking-tight">{trip.name}</h1>
-              <TripStatusBadge status={status} className="mt-1" />
-            </div>
-            <p className="text-sm text-white/85">{dateLine}</p>
-          </div>
-        </header>
-      ) : (
-        <header className="flex flex-col gap-2 rounded-2xl bg-secondary p-5">
+        <div className={"absolute inset-x-0 bottom-0 flex flex-col gap-1 px-4 py-3 text-white " + (coverUrl ? "bg-foreground/75" : "")}>
           <div className="flex items-start justify-between gap-3">
-            <h1 className="text-3xl font-bold tracking-tight">{trip.name}</h1>
-            <TripStatusBadge status={status} className="mt-2" />
+            <h1 className="text-2xl font-bold tracking-tight">{trip.name}</h1>
+            <TripStatusBadge status={status} className="mt-1" />
           </div>
-          <p className="text-foreground/80">{dateLine}</p>
-        </header>
-      )}
-
-      <dl className="grid grid-cols-3 gap-3">
-        <StatTile label="Días" value={days ?? "—"} />
-        <StatTile label="Ciudades" value={stops.length} />
-        <StatTile label="Actividades" value={activities.length} />
-      </dl>
+          <p className="text-sm text-white/85">{dateLine}</p>
+        </div>
+      </header>
 
       {status === "active" && (
         <Link
-          href={`/viajes/${trip.id}/hoy`}
+          href={`${base}/hoy`}
           className="flex min-h-14 items-center gap-3 rounded-2xl bg-primary p-4 text-primary-foreground hover:bg-primary-hover"
         >
           <span className="flex size-10 items-center justify-center rounded-xl bg-white/15">
@@ -145,129 +165,92 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
         </Link>
       )}
 
-      <Link
-        href={`/viajes/${trip.id}/itinerario`}
-        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
-      >
-        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
-          <CalendarDays className="size-5" aria-hidden="true" />
-        </span>
-        <span className="flex flex-1 flex-col">
-          <span className="font-semibold">Itinerario</span>
-          <span className="text-sm text-muted-foreground">
-            {activities.length === 0
-              ? "Planea las actividades de cada día"
-              : `${activities.length} ${activities.length === 1 ? "actividad" : "actividades"}`}
+      <dl className="grid grid-cols-4 gap-2">
+        <StatTile label="Días" value={days ?? "—"} />
+        <StatTile label="Ciudades" value={stops.length} />
+        <StatTile label="Hospedajes" value={stays.length} />
+        <StatTile label="Actividades" value={activities.filter((a) => a.category !== "transfer").length} />
+      </dl>
+
+      {todo.length > 0 && (
+        <section aria-labelledby="todo" className="flex flex-col gap-2 rounded-2xl border border-warning-border bg-warning-soft p-4">
+          <h2 id="todo" className="flex items-center gap-2 font-semibold text-warning-foreground">
+            <AlertCircle className="size-4" aria-hidden="true" />
+            Por completar
+          </h2>
+          <ul className="flex flex-col">
+            {todo.map((t) => (
+              <li key={t.text}>
+                <Link href={t.href} className="flex min-h-11 items-center justify-between gap-2 text-sm text-warning-foreground hover:underline">
+                  {t.text}
+                  <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {next && (
+        <section aria-labelledby="next" className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <h2 id="next" className="font-semibold">
+              Próxima actividad
+            </h2>
+            <Link href={`${base}/itinerario`} className="text-sm text-primary hover:underline">
+              Ver itinerario
+            </Link>
+          </div>
+          {(() => {
+            const cat = isCategory(next.category) ? CATEGORY_META[next.category] : CATEGORY_META.other;
+            const Icon = cat.icon;
+            const date = activityDate(next);
+            return (
+              <Link
+                href={`${base}/itinerario?dia=${date}`}
+                className="flex items-center gap-3 rounded-2xl border bg-card p-3 hover:border-primary/40"
+              >
+                <span className={`flex size-14 shrink-0 items-center justify-center rounded-xl ${cat.className}`}>
+                  <Icon className="size-6" aria-hidden="true" />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate font-semibold">{next.title}</span>
+                  <span className="truncate text-sm text-muted-foreground">
+                    {date === today ? "Hoy" : formatDayLabel(date)} · {instantToZonedTime(next.starts_at, next.timezone).time}
+                    {next.trip_stop_id ? ` · ${stopName.get(next.trip_stop_id)}` : ""}
+                  </span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </Link>
+            );
+          })()}
+        </section>
+      )}
+
+      <TripRoute tripId={trip.id} stops={stops} editable={editable} />
+
+      {(budget.budget !== null || budget.spent > 0) && (
+        <Link href={`${base}/presupuesto`} className="flex flex-col gap-2 rounded-2xl border bg-card p-4 hover:border-primary/40">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="font-semibold">Presupuesto</span>
+            {spentPct !== null && <span className="text-sm text-muted-foreground">{spentPct}% gastado</span>}
           </span>
-        </span>
-        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
-      </Link>
-
-      <Link
-        href={`/viajes/${trip.id}/mapa`}
-        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
-      >
-        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
-          <MapIcon className="size-5" aria-hidden="true" />
-        </span>
-        <span className="flex flex-1 flex-col">
-          <span className="font-semibold">Mapa</span>
-          <span className="text-sm text-muted-foreground">Lugares y ruta de cada día</span>
-        </span>
-        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
-      </Link>
-
-      <Link
-        href={`/viajes/${trip.id}/guardados`}
-        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
-      >
-        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
-          <Bookmark className="size-5" aria-hidden="true" />
-        </span>
-        <span className="flex flex-1 flex-col">
-          <span className="font-semibold">Guardados</span>
-          <span className="text-sm text-muted-foreground">
-            {saved.length === 0
-              ? "Lugares por visitar, antes de decidir cuándo"
-              : `${saved.length} ${saved.length === 1 ? "lugar" : "lugares"} · ${saved.filter((p) => p.activities.length === 0).length} pendientes`}
+          <span className="font-mono text-2xl font-bold">
+            {formatMoney(budget.budget ?? budget.spent, trip.currency)} <span className="text-sm font-normal text-muted-foreground">{trip.currency}</span>
           </span>
-        </span>
-        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
-      </Link>
+          {spentPct !== null && (
+            <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+              <span
+                className={"block h-full rounded-full " + (spentPct > 100 ? "bg-destructive" : "bg-success")}
+                style={{ width: `${Math.min(100, spentPct)}%` }}
+              />
+            </span>
+          )}
+        </Link>
+      )}
 
       <Link
-        href={`/viajes/${trip.id}/hospedajes`}
-        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
-      >
-        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
-          <BedDouble className="size-5" aria-hidden="true" />
-        </span>
-        <span className="flex flex-1 flex-col">
-          <span className="font-semibold">Hospedajes</span>
-          <span className="text-sm text-muted-foreground">
-            {stays.length === 0
-              ? "Dónde duermen en cada ciudad"
-              : `${stays.length} ${stays.length === 1 ? "hospedaje" : "hospedajes"}` +
-                (citiesWithoutStay === 0 ? "" : ` · falta en ${citiesWithoutStay === 1 ? "1 ciudad" : `${citiesWithoutStay} ciudades`}`)}
-          </span>
-        </span>
-        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
-      </Link>
-
-      <Link
-        href={`/viajes/${trip.id}/transporte`}
-        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
-      >
-        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
-          <Plane className="size-5" aria-hidden="true" />
-        </span>
-        <span className="flex flex-1 flex-col">
-          <span className="font-semibold">Transporte</span>
-          <span className="text-sm text-muted-foreground">
-            {legs.length === 0 ? "Vuelos, trenes y autos" : `${legs.length} ${legs.length === 1 ? "trayecto" : "trayectos"}`}
-          </span>
-        </span>
-        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
-      </Link>
-
-      <Link
-        href={`/viajes/${trip.id}/presupuesto`}
-        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
-      >
-        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
-          <PiggyBank className="size-5" aria-hidden="true" />
-        </span>
-        <span className="flex flex-1 flex-col">
-          <span className="font-semibold">Presupuesto</span>
-          <span className="text-sm text-muted-foreground">
-            {trip.budget_amount === null
-              ? "Estimado, gastos y tipos de cambio"
-              : `${formatMoney(toCents(Number(trip.budget_amount)), trip.currency)} · ver lo gastado`}
-          </span>
-        </span>
-        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
-      </Link>
-
-      <Link
-        href={`/viajes/${trip.id}/documentos`}
-        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
-      >
-        <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary">
-          <FolderLock className="size-5" aria-hidden="true" />
-        </span>
-        <span className="flex flex-1 flex-col">
-          <span className="font-semibold">Documentos</span>
-          <span className="text-sm text-muted-foreground">
-            {files.length === 0
-              ? "Boletos, reservas y seguros, privados"
-              : `${files.length} ${files.length === 1 ? "archivo" : "archivos"}`}
-          </span>
-        </span>
-        <ChevronRight className="size-4 text-muted-foreground" aria-hidden="true" />
-      </Link>
-
-      <Link
-        href={`/viajes/${trip.id}/viajeros`}
+        href={`${base}/viajeros`}
         className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
       >
         <span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -279,8 +262,6 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
         {travelers.length > 0 && <TravelerStack travelers={travelers} />}
         <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
       </Link>
-
-      <TripRoute tripId={trip.id} stops={stops} editable={canEdit(myRole)} />
 
       {trip.description && (
         <section className="flex flex-col gap-2 rounded-2xl border bg-card p-4">
@@ -298,9 +279,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
           {members?.map((m) => (
             <li key={m.user_id} className="flex items-center gap-3">
               <Avatar>
-                {m.profiles?.avatar_url && (
-                  <AvatarImage src={m.profiles.avatar_url} alt="" referrerPolicy="no-referrer" />
-                )}
+                {m.profiles?.avatar_url && <AvatarImage src={m.profiles.avatar_url} alt="" referrerPolicy="no-referrer" />}
                 <AvatarFallback>{initials(m.profiles?.display_name)}</AvatarFallback>
               </Avatar>
               <span className="flex min-w-0 flex-1 flex-col">
@@ -315,17 +294,15 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
         </ul>
       </section>
 
-      {myRole === "viewer" && (
-        <p className="text-center text-sm text-muted-foreground">Tienes acceso de solo lectura a este viaje.</p>
-      )}
+      {myRole === "viewer" && <p className="text-center text-sm text-muted-foreground">Tienes acceso de solo lectura a este viaje.</p>}
     </main>
   );
 }
 
 function StatTile({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="flex flex-col gap-0.5 rounded-2xl border bg-card p-3 text-center">
-      <dt className="order-2 text-xs text-muted-foreground">{label}</dt>
+    <div className="flex flex-col gap-0.5 rounded-2xl border bg-card px-1 py-3 text-center">
+      <dt className="order-2 truncate text-xs text-muted-foreground">{label}</dt>
       <dd className="order-1 text-xl font-bold">{value}</dd>
     </div>
   );

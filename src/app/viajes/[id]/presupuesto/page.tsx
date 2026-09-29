@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { formatDayLabel } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
-import { BUDGET_META, isBudgetCategory, plannedCategory } from "@/lib/budget/categories";
+import { BUDGET_META, isBudgetCategory } from "@/lib/budget/categories";
 import { suggestRates } from "@/lib/budget/ecb-rates";
 import { convert, formatMoney, toCents } from "@/lib/budget/money";
 import { getExchangeRates, getExpenses } from "@/lib/budget/queries";
-import { summarizeBudget, type MoneyItem } from "@/lib/budget/summary";
+import { plannedItems, spentItems } from "@/lib/budget/planned";
+import { summarizeBudget } from "@/lib/budget/summary";
 import { getTransportations } from "@/lib/transportations/queries";
 import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
@@ -47,32 +48,12 @@ export default async function BudgetPage({ params }: PageProps<"/viajes/[id]/pre
   const cur = trip.currency;
   const money = (cents: number) => formatMoney(cents, cur);
 
-  // Planned costs already entered on stays, legs and activities.
-  const planned: MoneyItem[] = [
-    ...stays.flatMap((s) =>
-      s.cost_amount !== null && s.cost_currency ? [{ category: plannedCategory({ kind: "stay" }), amount: Number(s.cost_amount), currency: s.cost_currency }] : [],
-    ),
-    ...legs.flatMap((l) =>
-      l.cost_amount !== null && l.cost_currency
-        ? [{ category: plannedCategory({ kind: "leg", type: l.type }), amount: Number(l.cost_amount), currency: l.cost_currency }]
-        : [],
-    ),
-    ...activities.flatMap((a) =>
-      a.cost_amount !== null && a.cost_currency
-        ? [{ category: plannedCategory({ kind: "activity", category: a.category }), amount: Number(a.cost_amount), currency: a.cost_currency }]
-        : [],
-    ),
-  ];
-  const spentItems: MoneyItem[] = expenses.flatMap((e) =>
-    isBudgetCategory(e.category) ? [{ category: e.category, amount: Number(e.amount), currency: e.currency }] : [],
-  );
-
   const summary = summarizeBudget({
     tripCurrency: cur,
     budgetAmount: trip.budget_amount === null ? null : Number(trip.budget_amount),
     rates,
-    planned,
-    expenses: spentItems,
+    planned: plannedItems({ stays, legs, activities }),
+    expenses: spentItems(expenses),
   });
   const suggestions = editable ? await suggestRates(summary.currencies, cur) : new Map();
 

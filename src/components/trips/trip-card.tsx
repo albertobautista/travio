@@ -15,6 +15,9 @@ export type TripCardData = {
   coverUrl: string | null;
   /** City names in route order. */
   cities: string[];
+  travelerCount: number;
+  /** 0–100, or null for undated trips (see lib/trips/progress). */
+  progress: number | null;
 };
 
 const MAX_CITY_CHIPS = 3;
@@ -45,7 +48,14 @@ export function TripCard({ trip }: { trip: TripCardData }) {
           <TripStatusBadge status={trip.status} />
         </span>
         <span className="text-sm text-foreground/80">{formatTripDates(trip.start_date, trip.end_date)}</span>
-        {days && <span className="text-xs text-muted-foreground">{days === 1 ? "1 día" : `${days} días`}</span>}
+        <span className="text-xs text-muted-foreground">
+          {[
+            trip.travelerCount === 1 ? "1 viajero" : `${trip.travelerCount} viajeros`,
+            days ? (days === 1 ? "1 día" : `${days} días`) : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
         {trip.cities.length > 0 && (
           <span className="flex gap-1 overflow-hidden">
             {trip.cities.slice(0, MAX_CITY_CHIPS).map((city, i) => (
@@ -58,6 +68,17 @@ export function TripCard({ trip }: { trip: TripCardData }) {
                 +{trip.cities.length - MAX_CITY_CHIPS}
               </span>
             )}
+          </span>
+        )}
+        {trip.progress !== null && trip.status !== "past" && (
+          <span className="mt-auto flex items-center gap-2">
+            <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+              <span
+                className={"block h-full rounded-full " + (trip.progress >= 60 ? "bg-success" : "bg-primary")}
+                style={{ width: `${trip.progress}%` }}
+              />
+            </span>
+            <span className="text-[11px] whitespace-nowrap text-muted-foreground">{trip.progress}% planificado</span>
           </span>
         )}
       </span>

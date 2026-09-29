@@ -4,15 +4,12 @@ import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 
 import { TripCard, type TripCardData } from "@/components/trips/trip-card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { initials } from "@/lib/initials";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { getTripStatus, type TripStatus } from "@/lib/trips/dates";
+import { planningProgress } from "@/lib/trips/progress";
 import { resolveTripNow } from "@/lib/trips/today";
 import { createClient } from "@/lib/supabase/server";
-
-import { signOut } from "../login/actions";
 
 export const metadata: Metadata = {
   title: "Mis viajes · Travio",
@@ -49,13 +46,12 @@ export default async function TripsPage({ searchParams }: PageProps<"/viajes">) 
   const filter = FILTERS.find((f) => f.key === filtro) ?? FILTERS[0];
 
   // No filter by user needed: RLS only returns trips this user is a member of.
-  const [{ data: profile }, { data: rows, error }] = await Promise.all([
-    supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
-    supabase
-      .from("trips")
-      // Embedded select: PostgREST follows the trip_stops.trip_id foreign key.
-      .select("id, name, start_date, end_date, cover_image_path, trip_stops (name, position, timezone, arrives_on, departs_on)"),
-  ]);
+  // Embedded selects: PostgREST follows each table's trip_id foreign key.
+  const { data: rows, error } = await supabase
+    .from("trips")
+    .select(
+      "id, name, start_date, end_date, cover_image_path, trip_stops (name, position, timezone, arrives_on, departs_on), travelers (count), activities (starts_at, timezone), transportations (departs_at, departs_timezone), accommodations (check_in_at, check_out_at, timezone)",
+    );
 
   // One batch request signs every cover on the page.
   const coverUrls = await getCoverUrls((rows ?? []).map((t) => t.cover_image_path));
@@ -70,6 +66,14 @@ export default async function TripsPage({ searchParams }: PageProps<"/viajes">) 
       status: getTripStatus(t.start_date, t.end_date, resolveTripNow(t.trip_stops).today),
       coverUrl: t.cover_image_path ? (coverUrls.get(t.cover_image_path) ?? null) : null,
       cities: [...t.trip_stops].sort((a, b) => a.position - b.position).map((s) => s.name),
+      travelerCount: t.travelers[0]?.count ?? 0,
+      progress: planningProgress({
+        start: t.start_date,
+        end: t.end_date,
+        activities: t.activities,
+        legs: t.transportations,
+        stays: t.accommodations,
+      }),
     }))
     .sort(compareTrips);
   const trips = allTrips.filter((t) => filter.matches(t.status));
@@ -77,26 +81,6 @@ export default async function TripsPage({ searchParams }: PageProps<"/viajes">) 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-6">
       <header className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <Avatar>
-              {profile?.avatar_url && (
-                // Google may refuse to serve profile photos when a Referer header is sent.
-                <AvatarImage src={profile.avatar_url} alt="" referrerPolicy="no-referrer" />
-              )}
-              <AvatarFallback>{initials(profile?.display_name)}</AvatarFallback>
-            </Avatar>
-            <p className="truncate text-sm text-muted-foreground">
-              Hola{profile?.display_name ? `, ${profile.display_name}` : ""}.
-            </p>
-          </div>
-          <form action={signOut}>
-            <Button type="submit" variant="ghost" size="sm">
-              Cerrar sesión
-            </Button>
-          </form>
-        </div>
-
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-3xl font-bold tracking-tight">Mis viajes</h1>
           <Button asChild size="icon-lg" className="size-11 rounded-xl">
