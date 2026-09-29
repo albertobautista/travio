@@ -79,6 +79,37 @@ isOneToOne: false
       referencedColumns: ["trip_id","id"]
     }
                   ]
+                },"files": {
+                  Row: {
+                    "activity_id": string | null,"created_at": string,"document_type": string,"id": string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"trip_id": string,"updated_at": string,"uploaded_by": string | null
+                  }
+                  Insert: {
+                    "activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"trip_id": string,"updated_at"?: string,"uploaded_by"?: string | null
+                  }
+                  Update: {
+                    "activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type"?: string,"original_name"?: string,"size_bytes"?: number,"storage_path"?: string,"trip_id"?: string,"updated_at"?: string,"uploaded_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "files_activity_same_trip"
+      columns: ["trip_id","activity_id"]
+isOneToOne: false
+      referencedRelation: "activities"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "files_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "files_uploaded_by_fkey"
+      columns: ["uploaded_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"profiles": {
                   Row: {
                     "avatar_url": string | null,"created_at": string,"display_name": string | null,"id": string,"updated_at": string
