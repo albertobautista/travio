@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ExternalLink, MapPin, Navigation, Plus } from "lucide-react";
+import { AlertTriangle, CalendarDays, Check, ChevronLeft, ExternalLink, FolderLock, MapPin, Navigation, Paperclip, Plus, Ticket } from "lucide-react";
 
 import { StartsIn } from "@/components/activities/starts-in";
+import { FileRow, fileHref } from "@/components/files/file-row";
 import { TripClock } from "@/components/trips/trip-clock";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
 import { buildDayPlan, forTraveler, formatStartsIn } from "@/lib/activities/day-plan";
 import { activityDate } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
+import { getTripFiles } from "@/lib/files/queries";
 import { formatDuration, formatTimeRange } from "@/lib/activities/schedule";
 import { createClient } from "@/lib/supabase/server";
 import { getTravelers } from "@/lib/travelers/queries";
@@ -56,12 +58,13 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
   const { id } = await params;
   const { todos } = await searchParams;
   const supabase = await createClient();
-  const [trip, role, stops, activities, travelers, { data: claims }] = await Promise.all([
+  const [trip, role, stops, activities, travelers, files, { data: claims }] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
     getActivities(id),
     getTravelers(id),
+    getTripFiles(id),
     supabase.auth.getClaims(),
   ]);
   if (!trip) notFound();
@@ -73,6 +76,11 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
   const dayNumber = getTripDayNumber(trip.start_date, trip.end_date, today);
   const tripDays = getTripLengthDays(trip.start_date, trip.end_date);
   const travelerById = new Map(travelers.map((t) => [t.id, t]));
+  // Tickets and reservations attached to each activity, oldest first (the order they were added).
+  const filesByActivity = new Map<string, typeof files>();
+  for (const f of [...files].reverse()) {
+    if (f.activity_id) filesByActivity.set(f.activity_id, [...(filesByActivity.get(f.activity_id) ?? []), f]);
+  }
 
   // "Mi día": if the viewer is one of the travelers, show only what they take part in.
   const me = travelers.find((t) => t.user_id === claims?.claims.sub);
@@ -174,6 +182,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
           const directions = directionsUrl([focus.location_name, focus.address]);
           const overlaps = plan.items.find((i) => i.kind === "activity" && i.activity.id === focus.id);
           const titleId = `focus-${focus.id}`;
+          const tickets = filesByActivity.get(focus.id) ?? [];
           return (
             <section key={focus.id} aria-labelledby={titleId} className="flex flex-col gap-3 rounded-[20px] border bg-card p-4">
               <div className="flex items-center justify-between gap-2">
@@ -234,7 +243,14 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                     Cómo llegar
                   </Button>
                 )}
-                {focus.external_url ? (
+                {tickets.length === 1 ? (
+                  <Button asChild size="lg" variant="outline" className="h-11">
+                    <a href={fileHref(trip.id, tickets[0].id)} target="_blank" rel="noopener noreferrer">
+                      <Ticket aria-hidden="true" />
+                      Ver ticket
+                    </a>
+                  </Button>
+                ) : focus.external_url ? (
                   <Button asChild size="lg" variant="outline" className="h-11">
                     <a href={focus.external_url} target="_blank" rel="noopener noreferrer">
                       <ExternalLink aria-hidden="true" />
@@ -249,6 +265,15 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                   </Button>
                 )}
               </div>
+              {tickets.length > 1 && (
+                <ul aria-label="Boletos y reservas" className="flex flex-col gap-2">
+                  {tickets.map((file) => (
+                    <li key={file.id}>
+                      <FileRow tripId={trip.id} file={file} />
+                    </li>
+                  ))}
+                </ul>
+              )}
               {!directions && (
                 <p className="text-xs text-muted-foreground">
                   {editable
@@ -289,6 +314,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
               const done = item.state === "done";
               const current = item.state === "now";
               const people = peopleOf(a);
+              const attached = filesByActivity.get(a.id)?.length ?? 0;
               const row = (
                 <>
                   <span className="flex min-w-0 flex-1 flex-col">
@@ -300,6 +326,12 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                       {current ? " · ahora" : item.isNext ? " · siguiente" : ""}
                       {a.location_name ? ` · ${a.location_name}` : ""}
                     </span>
+                    {attached > 0 && (
+                      <span className="flex items-center gap-1 text-xs text-primary">
+                        <Paperclip className="size-3" aria-hidden="true" />
+                        {attached === 1 ? "1 archivo" : `${attached} archivos`}
+                      </span>
+                    )}
                     {item.conflicts.length > 0 && (
                       <span className="flex items-center gap-1 text-xs text-warning-foreground">
                         <AlertTriangle className="size-3" aria-hidden="true" />
@@ -347,6 +379,19 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
           </Button>
         </section>
       )}
+
+      <Link
+        href={`${base}/documentos`}
+        className="flex min-h-14 items-center gap-3 rounded-2xl border bg-card p-4 hover:border-primary/40"
+      >
+        <FolderLock className="size-5 text-primary" aria-hidden="true" />
+        <span className="flex flex-1 flex-col">
+          <span className="font-semibold">Documentos del viaje</span>
+          <span className="text-sm text-muted-foreground">
+            {files.length === 0 ? "Boletos, reservas y seguros" : `${files.length} ${files.length === 1 ? "archivo" : "archivos"}`}
+          </span>
+        </span>
+      </Link>
     </main>
   );
 }
