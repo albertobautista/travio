@@ -114,9 +114,9 @@ export async function deleteTraveler(tripId: string, travelerId: string): Promis
   const supabase = await createClient();
 
   // No participant rows means "everyone". If this traveler is the only
-  // participant of an activity or a stay, deleting them would silently turn it
+  // participant of an activity, a stay or a leg, deleting them would silently turn it
   // into "everyone", so we ask the user to decide first.
-  const [{ data: activities }, { data: stays }] = await Promise.all([
+  const [{ data: activities }, { data: stays }, { data: legs }] = await Promise.all([
     supabase
       .from("activity_participants")
       .select("activity_id, activities (title)")
@@ -127,8 +127,13 @@ export async function deleteTraveler(tripId: string, travelerId: string): Promis
       .select("accommodation_id, accommodations (name)")
       .eq("trip_id", tripId)
       .eq("traveler_id", travelerId),
+    supabase
+      .from("transportation_participants")
+      .select("transportation_id, transportations (origin_name, destination_name)")
+      .eq("trip_id", tripId)
+      .eq("traveler_id", travelerId),
   ]);
-  const [soleActivities, soleStays] = await Promise.all([
+  const [soleActivities, soleStays, soleLegs] = await Promise.all([
     soleIn(
       (activities ?? []).map((p) => ({ id: p.activity_id, title: p.activities?.title ?? "" })),
       async (ids) =>
@@ -143,9 +148,19 @@ export async function deleteTraveler(tripId: string, travelerId: string): Promis
           (p) => p.accommodation_id,
         ),
     ),
+    soleIn(
+      (legs ?? []).map((p) => ({
+        id: p.transportation_id,
+        title: p.transportations ? `${p.transportations.origin_name} → ${p.transportations.destination_name}` : "",
+      })),
+      async (ids) =>
+        ((await supabase.from("transportation_participants").select("transportation_id").in("transportation_id", ids)).data ?? []).map(
+          (p) => p.transportation_id,
+        ),
+    ),
   ]);
-  if (soleActivities.length > 0 || soleStays.length > 0) {
-    const titles = [...soleActivities, ...soleStays];
+  const titles = [...soleActivities, ...soleStays, ...soleLegs];
+  if (titles.length > 0) {
     return {
       error: `Es la única persona en: ${titles.join(", ")}. Cambia quién va antes de quitarla.`,
     };

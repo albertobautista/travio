@@ -137,13 +137,13 @@ isOneToOne: false
                   ]
                 },"files": {
                   Row: {
-                    "accommodation_id": string | null,"activity_id": string | null,"created_at": string,"document_type": string,"id": string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"trip_id": string,"updated_at": string,"uploaded_by": string | null
+                    "accommodation_id": string | null,"activity_id": string | null,"created_at": string,"document_type": string,"id": string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"transportation_id": string | null,"trip_id": string,"updated_at": string,"uploaded_by": string | null
                   }
                   Insert: {
-                    "accommodation_id"?: string | null,"activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"trip_id": string,"updated_at"?: string,"uploaded_by"?: string | null
+                    "accommodation_id"?: string | null,"activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"transportation_id"?: string | null,"trip_id": string,"updated_at"?: string,"uploaded_by"?: string | null
                   }
                   Update: {
-                    "accommodation_id"?: string | null,"activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type"?: string,"original_name"?: string,"size_bytes"?: number,"storage_path"?: string,"trip_id"?: string,"updated_at"?: string,"uploaded_by"?: string | null
+                    "accommodation_id"?: string | null,"activity_id"?: string | null,"created_at"?: string,"document_type"?: string,"id"?: string,"mime_type"?: string,"original_name"?: string,"size_bytes"?: number,"storage_path"?: string,"transportation_id"?: string | null,"trip_id"?: string,"updated_at"?: string,"uploaded_by"?: string | null
                   }
                   Relationships: [
                     {
@@ -157,6 +157,12 @@ isOneToOne: false
       columns: ["trip_id","activity_id"]
 isOneToOne: false
       referencedRelation: "activities"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "files_transportation_same_trip"
+      columns: ["trip_id","transportation_id"]
+isOneToOne: false
+      referencedRelation: "transportations"
       referencedColumns: ["trip_id","id"]
     },{
       foreignKeyName: "files_trip_id_fkey"
@@ -184,6 +190,56 @@ isOneToOne: false
                   }
                   Relationships: [
                     
+                  ]
+                },"transportation_participants": {
+                  Row: {
+                    "created_at": string,"seat": string | null,"transportation_id": string,"traveler_id": string,"trip_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"seat"?: string | null,"transportation_id": string,"traveler_id": string,"trip_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"seat"?: string | null,"transportation_id"?: string,"traveler_id"?: string,"trip_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "transportation_participants_trip_id_transportation_id_fkey"
+      columns: ["trip_id","transportation_id"]
+isOneToOne: false
+      referencedRelation: "transportations"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "transportation_participants_trip_id_traveler_id_fkey"
+      columns: ["trip_id","traveler_id"]
+isOneToOne: false
+      referencedRelation: "travelers"
+      referencedColumns: ["trip_id","id"]
+    }
+                  ]
+                },"transportations": {
+                  Row: {
+                    "arrival_detail": string | null,"arrives_at": string,"arrives_timezone": string,"booking_ref": string | null,"booking_status": string,"booking_url": string | null,"carrier": string | null,"cost_amount": number | null,"cost_currency": string | null,"created_at": string,"created_by": string | null,"departs_at": string,"departs_timezone": string,"departure_detail": string | null,"destination_name": string,"destination_place_id": string | null,"id": string,"notes": string | null,"origin_name": string,"origin_place_id": string | null,"service_number": string | null,"trip_id": string,"type": string,"updated_at": string
+                  }
+                  Insert: {
+                    "arrival_detail"?: string | null,"arrives_at": string,"arrives_timezone": string,"booking_ref"?: string | null,"booking_status"?: string,"booking_url"?: string | null,"carrier"?: string | null,"cost_amount"?: number | null,"cost_currency"?: string | null,"created_at"?: string,"created_by"?: string | null,"departs_at": string,"departs_timezone": string,"departure_detail"?: string | null,"destination_name": string,"destination_place_id"?: string | null,"id"?: string,"notes"?: string | null,"origin_name": string,"origin_place_id"?: string | null,"service_number"?: string | null,"trip_id": string,"type"?: string,"updated_at"?: string
+                  }
+                  Update: {
+                    "arrival_detail"?: string | null,"arrives_at"?: string,"arrives_timezone"?: string,"booking_ref"?: string | null,"booking_status"?: string,"booking_url"?: string | null,"carrier"?: string | null,"cost_amount"?: number | null,"cost_currency"?: string | null,"created_at"?: string,"created_by"?: string | null,"departs_at"?: string,"departs_timezone"?: string,"departure_detail"?: string | null,"destination_name"?: string,"destination_place_id"?: string | null,"id"?: string,"notes"?: string | null,"origin_name"?: string,"origin_place_id"?: string | null,"service_number"?: string | null,"trip_id"?: string,"type"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "transportations_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "transportations_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"travelers": {
                   Row: {
@@ -311,6 +367,9 @@ isOneToOne: false
                            },
 "set_activity_participants":
 { Args: { "p_activity_id": string,"p_traveler_ids": (string)[] }; Returns: undefined
+                           },
+"set_transportation_participants":
+{ Args: { "p_transportation_id": string,"p_travelers": Json }; Returns: undefined
                            },
 "shares_trip_with":
 { Args: { "p_user_id": string }; Returns: boolean
