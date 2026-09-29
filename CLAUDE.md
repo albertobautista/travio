@@ -369,7 +369,7 @@ Do not silently decide these. Discuss them with Alberto before implementation wh
 
 - [ ] Exact final SQL schema
 - [x] ORM vs direct Supabase client/database approach (no ORM, see section 3)
-- [ ] Final weather provider
+- [x] Final weather provider (Open-Meteo: forecast + archive averages, no key; free for non-commercial use, so revisit if Travio goes commercial; isolated in `src/lib/weather/open-meteo.ts`. Decided 2026-09-30.)
 - [ ] Hosting/deployment details
 - [x] Exact Google Maps APIs enabled (Maps JavaScript API + Places API (New), browser key restricted by referrer and API; decided 2026-09-29. Routes API for travel times comes later.)
 - [x] File size/type limits (10 MB; PDF, JPG, PNG, WebP, HEIC/HEIF; decided 2026-09-29, enforced by the `trip-files` bucket)

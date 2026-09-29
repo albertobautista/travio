@@ -6,6 +6,7 @@ import { AlertTriangle, BedDouble, CalendarDays, Check, ChevronLeft, ExternalLin
 import { StayCard } from "@/components/accommodations/stay-card";
 import { TransportCard } from "@/components/transportations/transport-card";
 import { StartsIn } from "@/components/activities/starts-in";
+import { TodayWeather } from "@/components/weather/today-weather";
 import { FileRow, fileHref } from "@/components/files/file-row";
 import { TripClock } from "@/components/trips/trip-clock";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -27,6 +28,7 @@ import { clockParts, zoneCity } from "@/lib/trips/clock";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
 import { directionsUrl } from "@/lib/maps/directions";
+import { getDailyWeather, getNowWeather } from "@/lib/weather/open-meteo";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/hoy">): Promise<Metadata> {
@@ -124,6 +126,12 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
     today,
   );
 
+  // Weather where the travelers are (the stop for today), if it has coordinates.
+  const weatherPlace = stop && stop.lat !== null && stop.lng !== null ? { lat: stop.lat, lng: stop.lng, timezone: stop.timezone } : null;
+  const [nowWeather, todayWeather] = weatherPlace
+    ? await Promise.all([getNowWeather(weatherPlace, today), getDailyWeather(weatherPlace, today, today, today)])
+    : [null, null];
+
   const plan = buildDayPlan(todays, now);
   const peopleOf = (a: (typeof prepared)[number]) =>
     a.participantIds.length > 0 ? a.participantIds.flatMap((pid) => travelerById.get(pid) ?? []) : travelers;
@@ -196,6 +204,15 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
       )}
 
       {legsFirst.map(legCard)}
+
+      {nowWeather && stop && (
+        <TodayWeather
+          city={stop.name}
+          now={nowWeather}
+          today={todayWeather?.get(today) ?? null}
+          plans={todays.map((a) => ({ title: a.title, time: instantToZonedTime(a.startsAt, a.timezone).time }))}
+        />
+      )}
 
       {todays.length === 0 ? (
         // A travel day with only a flight isn't "nothing planned": the leg card says it all.

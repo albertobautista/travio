@@ -17,6 +17,10 @@ import { findConflicts, formatDuration, formatTimeRange } from "@/lib/activities
 import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { stopsForDate } from "@/lib/trips/stops";
+import { todayIn } from "@/lib/trips/dates";
+import { getDailyWeather } from "@/lib/weather/open-meteo";
+import { WeatherChip } from "@/components/weather/weather-chip";
+import { WEATHER_ATTRIBUTION } from "@/lib/weather/types";
 import { resolveTripNow } from "@/lib/trips/today";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
@@ -121,6 +125,19 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     ...dayLegs.map((item): Row => ({ kind: "leg", at: item.at, item })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
   const dayStops = day ? stopsForDate(stops, day.date) : [];
+  // Weather where the day ends up (the destination on a travel day).
+  const weatherStop = [...dayStops].reverse().find((s) => s.lat !== null && s.lng !== null);
+  const weather =
+    day && weatherStop
+      ? (
+          await getDailyWeather(
+            { lat: weatherStop.lat!, lng: weatherStop.lng!, timezone: weatherStop.timezone },
+            day.date,
+            day.date,
+            todayIn(weatherStop.timezone),
+          )
+        ).get(day.date)
+      : undefined;
   const addHref = `/viajes/${trip.id}/actividades/nueva${day ? `?dia=${day.date}` : ""}`;
   const itineraryHref = (params: { dia?: string; persona?: string | null }) => {
     const q = new URLSearchParams();
@@ -242,6 +259,21 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                   </span>
                 )}
               </div>
+              {weather && (
+                <p className="-mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
+                  <WeatherChip
+                    code={weather.code}
+                    max={weather.max}
+                    min={weather.min}
+                    rainChance={weather.rainChance}
+                    typical={weather.kind === "typical"}
+                  />
+                  {dayStops.length > 1 && <span className="text-xs">en {weatherStop!.name}</span>}
+                  <a href={WEATHER_ATTRIBUTION.href} target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] hover:underline">
+                    {WEATHER_ATTRIBUTION.label}
+                  </a>
+                </p>
+              )}
               {tonight && (
                 <Link
                   href={`/viajes/${trip.id}/hospedajes`}

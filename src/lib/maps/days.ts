@@ -4,6 +4,7 @@ import { formatDuration, formatTimeRange } from "@/lib/activities/schedule";
 import { legEndTitle, transportMeta } from "@/lib/transportations/types";
 import { legTimes } from "@/lib/transportations/legs";
 import { stopsForDate } from "@/lib/trips/stops";
+import type { DayWeather, summarize } from "@/lib/weather/types";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
 /**
@@ -38,6 +39,8 @@ export type MapDay = {
   stopIds: string[];
   tonight: string | null;
   rows: MapRow[];
+  /** Filled in by the page (weather is fetched separately). */
+  weather?: DayWeather | null;
 };
 
 type Located = { lat: number | null; lng: number | null };
@@ -179,6 +182,8 @@ export type MapCity = {
   leaveBy: MapLegSummary | null;
   /** The trip days spent there, for the "Día 2 · Día 3…" shortcuts. */
   days: { date: string; dayNumber: number | null }[];
+  /** Filled in by the page: expected weather over the stay. */
+  weather?: ReturnType<typeof summarize>;
 };
 
 export function buildMapCities({

@@ -13,6 +13,9 @@ import { getSavedPlaces } from "@/lib/saved-places/queries";
 import { getTransportations } from "@/lib/transportations/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
+import { todayIn } from "@/lib/trips/dates";
+import { getDailyWeather } from "@/lib/weather/open-meteo";
+import { summarize } from "@/lib/weather/types";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/mapa">): Promise<Metadata> {
   const trip = await getTrip((await params).id);
@@ -37,7 +40,33 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
   const pending = savedPlaces.filter((p) => p.activities.length === 0);
   const points = buildMapPoints({ tripId: trip.id, editable, activities, stays, stops, saved: pending });
   const days = buildMapDays({ trip, editable, stops, activities, stays, legs: transportations });
-  const cities = buildMapCities({ stops, activities, stays, legs: transportations, days });
+  const baseCities = buildMapCities({ stops, activities, stays, legs: transportations, days });
+
+  // Weather per city over its stay (one cached request each), then per day
+  // from the city the day ends in.
+  const weatherByStop = new Map(
+    await Promise.all(
+      stops
+        .filter((s) => s.lat !== null && s.lng !== null && s.arrives_on)
+        .map(async (s) => [
+          s.id,
+          await getDailyWeather(
+            { lat: s.lat!, lng: s.lng!, timezone: s.timezone },
+            s.arrives_on!,
+            s.departs_on ?? s.arrives_on!,
+            todayIn(s.timezone),
+          ),
+        ] as const),
+    ),
+  );
+  const cities = baseCities.map((c) => ({
+    ...c,
+    weather: summarize([...(weatherByStop.get(c.id)?.values() ?? [])]),
+  }));
+  const daysWithWeather = days.map((d) => {
+    const stopId = [...d.stopIds].reverse().find((id) => weatherByStop.has(id));
+    return { ...d, weather: stopId ? (weatherByStop.get(stopId)?.get(d.date) ?? null) : null };
+  });
   // ?dia= when valid; otherwise today if it's a trip day; otherwise the whole trip.
   const today = resolveTripNow(stops).today;
   const initialDay =
@@ -56,7 +85,7 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
           <p className="truncate text-sm text-muted-foreground">{trip.name}</p>
         </div>
       </header>
-      <TripMap tripId={trip.id} editable={editable} points={points} days={days} cities={cities} initialDay={initialDay} />
+      <TripMap tripId={trip.id} editable={editable} points={points} days={daysWithWeather} cities={cities} initialDay={initialDay} />
     </main>
   );
 }

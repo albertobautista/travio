@@ -10,6 +10,8 @@ import type { MapCity, MapDay, MapRow } from "@/lib/maps/days";
 import { importMapsLibrary, MAPS_MAP_ID, mapsConfigured } from "@/lib/maps/load";
 import type { MapPoint } from "@/lib/maps/points";
 import { transportMeta } from "@/lib/transportations/types";
+import { WeatherChip } from "@/components/weather/weather-chip";
+import { weatherMeta, WEATHER_ATTRIBUTION } from "@/lib/weather/types";
 
 type Props = {
   tripId: string;
@@ -356,6 +358,20 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
             </span>
           )}
         </div>
+        {dayInfo?.weather && (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <WeatherChip
+              code={dayInfo.weather.code}
+              max={dayInfo.weather.max}
+              min={dayInfo.weather.min}
+              rainChance={dayInfo.weather.rainChance}
+              typical={dayInfo.weather.kind === "typical"}
+            />
+            <a href={WEATHER_ATTRIBUTION.href} target="_blank" rel="noopener noreferrer" className="ml-auto text-[10px] hover:underline">
+              {WEATHER_ATTRIBUTION.label}
+            </a>
+          </p>
+        )}
         {dayInfo?.tonight && (
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
             <BedDouble className="size-4 text-primary" aria-hidden="true" />
@@ -500,6 +516,17 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
                     <MapPin className="size-4 shrink-0 text-primary" aria-hidden="true" />
                     {c.activityCount === 1 ? "1 actividad" : `${c.activityCount} actividades`}
                   </li>
+                  {c.weather && (
+                    <li className="flex flex-wrap items-center gap-x-2 text-muted-foreground">
+                      <WeatherChip code={c.weather.code} max={c.weather.max} min={c.weather.min} typical={c.weather.kind === "typical"} />
+                      <span className="text-xs">
+                        {weatherMeta(c.weather.code).label}
+                        {c.weather.rainyDays > 0
+                          ? ` · lluvia probable ${c.weather.rainyDays === 1 ? "1 día" : `${c.weather.rainyDays} días`}`
+                          : ""}
+                      </span>
+                    </li>
+                  )}
                   {Out && c.leaveBy && (
                     <li className="flex items-center gap-2 text-muted-foreground">
                       <Out className="size-4 shrink-0 text-primary" aria-hidden="true" />
