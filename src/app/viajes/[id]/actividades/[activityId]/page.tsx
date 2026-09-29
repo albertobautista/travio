@@ -4,7 +4,11 @@ import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
 import { ActivityForm } from "@/components/activities/activity-form";
+import { DeleteFileButton } from "@/components/files/delete-file-button";
+import { FileRow } from "@/components/files/file-row";
+import { UploadForm } from "@/components/files/upload-form";
 import { getActivities, getActivity } from "@/lib/activities/queries";
+import { getTripFiles } from "@/lib/files/queries";
 import { listTimeZones } from "@/lib/time-zones";
 import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
@@ -23,16 +27,18 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
   const { id, activityId } = await params;
   // Set when the activity saved but its participants didn't (see saveParticipants).
   const participantsFailed = (await searchParams).participantes === "error";
-  const [trip, role, activity, stops, activities, travelers] = await Promise.all([
+  const [trip, role, activity, stops, activities, travelers, tripFiles] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getActivity(id, activityId),
     getStops(id),
     getActivities(id),
     getTravelers(id),
+    getTripFiles(id),
   ]);
 
   if (!trip || !activity) notFound();
+  const files = tripFiles.filter((f) => f.activity_id === activity.id);
   if (!canEdit(role)) redirect(`/viajes/${trip.id}/itinerario`);
 
   // Stored as an instant; edited as local wall time in the activity's zone.
@@ -96,6 +102,34 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
           cancelHref={backHref}
         />
       </div>
+
+      <section aria-labelledby="activity-files" className="flex flex-col gap-3">
+        <div>
+          <h2 id="activity-files" className="font-semibold">
+            Boletos y reservas
+          </h2>
+          <p className="text-sm text-muted-foreground">Aparecen en Hoy y en Documentos. Solo los ve quien tiene acceso al viaje.</p>
+        </div>
+        {files.length > 0 && (
+          <ul className="flex flex-col gap-2">
+            {files.map((file) => (
+              <li key={file.id}>
+                <FileRow
+                  tripId={trip.id}
+                  file={file}
+                  actions={<DeleteFileButton tripId={trip.id} fileId={file.id} name={file.original_name} />}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+        <UploadForm
+          tripId={trip.id}
+          activityId={activity.id}
+          defaultType={activity.category === "tour" ? "tour" : "ticket"}
+          title={files.length > 0 ? "Agregar otro archivo" : "Adjuntar boleto o reserva"}
+        />
+      </section>
 
       <section aria-labelledby="remove-activity" className="flex flex-col gap-3 rounded-2xl border border-destructive/30 bg-card p-5">
         <h2 id="remove-activity" className="font-semibold">
