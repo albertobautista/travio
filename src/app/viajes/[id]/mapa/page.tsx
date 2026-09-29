@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
 
 import { TripMap } from "@/components/maps/trip-map";
-import { Button } from "@/components/ui/button";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { getActivities } from "@/lib/activities/queries";
 import { buildMapCities, buildMapDays } from "@/lib/maps/days";
@@ -75,11 +72,6 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
       <header className="flex items-start gap-2">
-        <Button asChild variant="ghost" size="icon" className="-ml-2 size-11 shrink-0">
-          <Link href={`/viajes/${trip.id}`} aria-label={`Volver a ${trip.name}`}>
-            <ChevronLeft aria-hidden="true" />
-          </Link>
-        </Button>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Mapa</h1>
           <p className="truncate text-sm text-muted-foreground">{trip.name}</p>

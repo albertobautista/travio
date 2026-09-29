@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bookmark, ChevronLeft, Plus } from "lucide-react";
+import { Bookmark, Plus } from "lucide-react";
 
 import { SavedPlaceCard } from "@/components/saved-places/saved-place-card";
 import { Button } from "@/components/ui/button";
@@ -65,11 +65,6 @@ export default async function SavedPlacesPage({ params, searchParams }: PageProp
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-6">
       <header className="flex items-start gap-2">
-        <Button asChild variant="ghost" size="icon" className="-ml-2 size-11 shrink-0">
-          <Link href={`/viajes/${trip.id}`} aria-label={`Volver a ${trip.name}`}>
-            <ChevronLeft aria-hidden="true" />
-          </Link>
-        </Button>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Guardados</h1>
           <p className="text-sm text-muted-foreground">Lugares por visitar, antes de decidir cuándo.</p>

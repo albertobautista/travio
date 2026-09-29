@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, BedDouble, ChevronLeft, ChevronRight, LogIn, LogOut, MapPin, Plus } from "lucide-react";
+import { AlertTriangle, BedDouble, ChevronRight, LogIn, LogOut, MapPin, Plus } from "lucide-react";
 
 import { TravelerAvatar, TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
@@ -151,11 +151,6 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
       <header className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="icon" className="-ml-2 size-11">
-          <Link href={`/viajes/${trip.id}`} aria-label={`Volver a ${trip.name}`}>
-            <ChevronLeft aria-hidden="true" />
-          </Link>
-        </Button>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Itinerario</h1>
           <p className="truncate text-sm text-muted-foreground">{trip.name}</p>

@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, FolderLock } from "lucide-react";
+import { FolderLock } from "lucide-react";
 
 import { EditFileButton } from "@/components/files/edit-file-button";
 import { FileRow } from "@/components/files/file-row";
 import { UploadForm } from "@/components/files/upload-form";
-import { Button } from "@/components/ui/button";
 import { getAttachTargets, getTripFiles } from "@/lib/files/queries";
 import { DOCUMENT_TYPES, isDocumentType, type DocumentType } from "@/lib/files/rules";
 import { canEdit, getMyTripRole, getTrip } from "@/lib/trips/queries";
@@ -41,11 +40,6 @@ export default async function DocumentsPage({ params }: PageProps<"/viajes/[id]/
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
       <header className="flex items-start gap-2">
-        <Button asChild variant="ghost" size="icon" className="-ml-2 size-11 shrink-0">
-          <Link href={`/viajes/${trip.id}`} aria-label={`Volver a ${trip.name}`}>
-            <ChevronLeft aria-hidden="true" />
-          </Link>
-        </Button>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Documentos</h1>
           <p className="flex items-center gap-1.5 text-sm text-muted-foreground">

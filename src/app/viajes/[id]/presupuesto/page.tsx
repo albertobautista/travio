@@ -1,10 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ChevronLeft, Plus } from "lucide-react";
+import { AlertTriangle, Plus } from "lucide-react";
 
 import { BudgetAmountForm, ExpenseForm, RateForm } from "@/components/budget/budget-forms";
-import { Button } from "@/components/ui/button";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { formatDayLabel } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
@@ -72,11 +70,6 @@ export default async function BudgetPage({ params }: PageProps<"/viajes/[id]/pre
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-6">
       <header className="flex items-start gap-2">
-        <Button asChild variant="ghost" size="icon" className="-ml-2 size-11 shrink-0">
-          <Link href={`/viajes/${trip.id}`} aria-label={`Volver a ${trip.name}`}>
-            <ChevronLeft aria-hidden="true" />
-          </Link>
-        </Button>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Presupuesto</h1>
           <p className="text-sm text-muted-foreground">Todo en {cur}, con los tipos de cambio del viaje.</p>
