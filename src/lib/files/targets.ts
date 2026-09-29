@@ -1,4 +1,4 @@
-import { transportMeta } from "@/lib/transportations/types";
+import { legRoute, transportMeta } from "@/lib/transportations/types";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
 /**
@@ -64,7 +64,7 @@ export function buildAttachTargets({
     ...legs.map((l) => ({
       kind: "transportation" as const,
       id: l.id,
-      label: label(l.departs_at, l.departs_timezone, `${transportMeta(l.type).label} ${l.origin_name} → ${l.destination_name}`),
+      label: label(l.departs_at, l.departs_timezone, `${transportMeta(l.type).label} ${legRoute(l)}`),
     })),
     ...stays.map((s) => ({ kind: "accommodation" as const, id: s.id, label: label(s.check_in_at, s.timezone, s.name) })),
     ...activities.map((a) => ({ kind: "activity" as const, id: a.id, label: label(a.starts_at, a.timezone, a.title) })),

@@ -87,3 +87,16 @@ export function isTransportType(value: string): value is TransportType {
 export function transportMeta(type: string) {
   return TRANSPORT_META[isTransportType(type) ? type : "other"];
 }
+
+/** "Londres → Cracovia", or just "Málaga" when a car is picked up and returned at the same place. */
+export function legRoute(leg: { origin_name: string; destination_name: string }) {
+  return leg.origin_name === leg.destination_name ? leg.origin_name : `${leg.origin_name} → ${leg.destination_name}`;
+}
+
+/** The itinerary row title for one end of a leg ("Recoger auto · Málaga", "Llegada a Cracovia"). */
+export function legEndTitle(leg: { type: string; origin_name: string; destination_name: string }, end: "departs" | "arrives") {
+  if (leg.type === "car_rental") {
+    return end === "departs" ? `Recoger auto · ${leg.origin_name}` : `Devolver auto · ${leg.destination_name}`;
+  }
+  return end === "departs" ? legRoute(leg) : `Llegada a ${leg.destination_name}`;
+}

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BOOKING_META, isBookingStatus } from "@/lib/activities/categories";
 import { formatDuration } from "@/lib/activities/schedule";
 import { legMinutes, legTimes } from "@/lib/transportations/legs";
-import { transportMeta } from "@/lib/transportations/types";
+import { legRoute, transportMeta } from "@/lib/transportations/types";
 import { formatLocalMoment } from "@/lib/zoned-time";
 
 type Traveler = { id: string; name: string; color: string; avatar_url: string | null };
@@ -61,7 +61,7 @@ export function TransportCard({ tripId, leg, travelers, files, editable, eyebrow
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           {eyebrow && <span className="text-sm text-muted-foreground">{eyebrow}</span>}
           <h3 id={titleId} className="text-lg leading-tight font-bold">
-            {leg.origin_name} → {leg.destination_name}
+            {legRoute(leg)}
           </h3>
           <p className="text-sm text-muted-foreground">
             {meta.label}

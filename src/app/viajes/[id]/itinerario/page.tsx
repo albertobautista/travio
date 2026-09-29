@@ -9,7 +9,7 @@ import { getAccommodations } from "@/lib/accommodations/queries";
 import { stayEvents } from "@/lib/accommodations/stays";
 import { formatLegTimes, legMinutes, legTimes } from "@/lib/transportations/legs";
 import { getTransportations } from "@/lib/transportations/queries";
-import { transportMeta } from "@/lib/transportations/types";
+import { legEndTitle, legRoute, transportMeta } from "@/lib/transportations/types";
 import { BOOKING_META, CATEGORY_META, isBookingStatus, isCategory } from "@/lib/activities/categories";
 import { activityDate, buildItineraryDays, pickDay } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
@@ -60,6 +60,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
   // Conflicts across the whole trip: an overnight activity can overlap the next
   // day. Only activities that share a traveler can clash.
   // Transportation counts too: nobody can be at a museum during their flight.
+  // Except car rentals: having the car for two days doesn't block anything.
   const personLegs = legs.filter((l) => {
     const ids = l.transportation_participants.map((p) => p.traveler_id);
     return !person || ids.length === 0 || ids.includes(person.id);
@@ -72,9 +73,9 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
       durationMinutes: a.duration_minutes,
       participantIds: a.participantIds,
     })),
-    ...personLegs.map((l) => ({
+    ...personLegs.filter((l) => l.type !== "car_rental").map((l) => ({
       id: l.id,
-      title: `${transportMeta(l.type).label} ${l.origin_name} → ${l.destination_name}`,
+      title: `${transportMeta(l.type).label} ${legRoute(l)}`,
       startsAt: new Date(l.departs_at),
       durationMinutes: legMinutes(l),
       participantIds: l.transportation_participants.map((p) => p.traveler_id),
@@ -296,7 +297,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                               </span>
                               <span className="flex min-w-0 flex-1 flex-col">
                                 <span className="truncate font-semibold">
-                                  {end === "arrives" ? `Llegada a ${leg.destination_name}` : `${leg.origin_name} → ${leg.destination_name}`}
+                                  {legEndTitle(leg, end)}
                                 </span>
                                 <span className="truncate text-xs text-muted-foreground">
                                   {formatLegTimes(leg)}
