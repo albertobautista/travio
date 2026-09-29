@@ -382,6 +382,34 @@ from (values
 ) as c(title, lat, lng)
 where a.trip_id = (select id from ids where key = 'trip') and a.title = c.title;
 
+-- ---------------------------------------------------------------------------
+-- Saved places: recommendations not (all) in the plan yet
+-- ---------------------------------------------------------------------------
+insert into public.saved_places (trip_id, trip_stop_id, name, category, address, lat, lng, estimated_minutes, external_url, notes)
+select trip.id, s.id, p.name, p.category, p.address, p.lat, p.lng, p.minutes, p.url, p.notes
+from (values
+  ('Barcelona', 'Casa Vicens', 'sightseeing', 'Carrer de les Carolines, 20-26, Barcelona', 41.4035, 2.1506, 75, 'https://casavicens.org', 'La primera casa de Gaudí. Menos gente que Batlló.'),
+  ('Barcelona', 'Bar Cañete', 'food', 'Carrer de la Unió, 17, Barcelona', 41.3797, 2.1733, 90, null, 'Recomendación de Ximena. Reservar barra.'),
+  ('Barcelona', 'Mercat de Sant Antoni', 'shopping', 'Carrer del Comte d''Urgell, 1, Barcelona', 41.3787, 2.1622, 60, null, 'Domingo por la mañana: mercado de libros.'),
+  ('Barcelona', 'Tibidabo', 'sightseeing', 'Plaça del Tibidabo, 3-4, Barcelona', 41.4225, 2.1186, 180, null, 'Vista de toda la ciudad. Funicular desde Plaça del Doctor Andreu.'),
+  ('Madrid', 'Casa Lucio', 'food', 'Calle Cava Baja, 35, Madrid', 40.4125, -3.7090, 90, null, 'Huevos rotos.'),
+  ('Madrid', 'Museo Thyssen-Bornemisza', 'sightseeing', 'Paseo del Prado, 8, Madrid', 40.4161, -3.6949, 120, 'https://www.museothyssen.org', 'Gratis los lunes de 12 a 16 h.'),
+  ('Madrid', 'El Rastro', 'shopping', 'Calle de la Ribera de Curtidores, Madrid', 40.4087, -3.7075, 120, null, 'Solo domingos y festivos, de 9 a 15 h.'),
+  ('Sevilla', 'Palacio de las Dueñas', 'sightseeing', 'Calle Dueñas, 5, Sevilla', 37.3951, -5.9905, 60, null, null),
+  ('Sevilla', 'Bodeguita Romero', 'food', 'Calle Harinas, 10, Sevilla', 37.3863, -5.9955, 60, null, 'Montadito de pringá.'),
+  ('Málaga', 'El Pimpi', 'food', 'Calle Granada, 62, Málaga', 36.7219, -4.4172, 90, null, null),
+  ('Málaga', 'Caminito del Rey', 'tour', 'Ardales, Málaga', 36.9313, -4.7859, 240, 'https://www.caminitodelrey.info', 'Hay que reservar con semanas de anticipación. ¿Cabe el día 13?'),
+  ('Málaga', 'Frigiliana', 'sightseeing', 'Frigiliana, Málaga', 36.7898, -3.8942, 120, null, 'Pueblo blanco a 10 min de Nerja.')
+) as p(city, name, category, address, lat, lng, minutes, url, notes)
+join ids trip on trip.key = 'trip'
+join public.trip_stops s on s.trip_id = trip.id and s.name = p.city;
+
+-- Two of them are already planned: link the activities back to the saved place.
+update public.activities a set saved_place_id = sp.id
+from public.saved_places sp
+where a.trip_id = (select id from ids where key = 'trip') and sp.trip_id = a.trip_id
+  and (a.title, sp.name) in (('Cena en Casa Lucio', 'Casa Lucio'), ('Cena en El Pimpi', 'El Pimpi'));
+
 -- Summary
 select
   (select name from public.trips where id = (select id from ids where key = 'trip')) as trip,
@@ -390,7 +418,8 @@ select
   (select count(*) from public.travelers where trip_id = (select id from ids where key = 'trip')) as travelers,
   (select count(*) from public.accommodations where trip_id = (select id from ids where key = 'trip')) as stays,
   (select count(*) from public.transportations where trip_id = (select id from ids where key = 'trip')) as legs,
-  (select count(*) from public.activities where trip_id = (select id from ids where key = 'trip')) as activities;
+  (select count(*) from public.activities where trip_id = (select id from ids where key = 'trip')) as activities,
+  (select count(*) from public.saved_places where trip_id = (select id from ids where key = 'trip')) as saved;
 
 
 commit;

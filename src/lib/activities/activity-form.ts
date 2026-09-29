@@ -87,7 +87,7 @@ export function parseActivityForm(
   formData: FormData,
   { trip, stops, travelerIds }: Context,
 ):
-  | { ok: true; data: ActivityData; participantIds: string[]; values: ActivityFormValues }
+  | { ok: true; data: ActivityData; participantIds: string[]; savedPlaceId: string | null; values: ActivityFormValues }
   | { ok: false; fieldErrors: Partial<Record<ActivityField, string>>; values: ActivityFormValues } {
   const values: ActivityFormValues = {
     participants: formData.getAll("participants").map(String),
@@ -189,10 +189,15 @@ export function parseActivityForm(
     return { ok: false, fieldErrors: errors, values };
   }
 
+  // Set when scheduling a saved place. Only used on create; the database checks
+  // it's a saved place of the same trip (composite foreign key).
+  const savedPlaceId = text(formData, "saved_place_id");
+
   return {
     ok: true,
     values,
     participantIds,
+    savedPlaceId: isUuid(savedPlaceId) ? savedPlaceId : null,
     data: {
       title: values.title,
       category: values.category as ActivityCategory,

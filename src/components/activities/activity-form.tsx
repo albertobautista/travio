@@ -51,6 +51,8 @@ type ActivityFormProps = {
   submitLabel: string;
   pendingLabel: string;
   cancelHref: string;
+  /** When scheduling a saved place: links the new activity back to it. */
+  savedPlaceId?: string;
 };
 
 const DURATION_PRESETS = [30, 60, 90, 120, 180, 240];
@@ -67,6 +69,7 @@ export function ActivityForm({
   submitLabel,
   pendingLabel,
   cancelHref,
+  savedPlaceId,
 }: ActivityFormProps) {
   const [state, action, pending] = useActionState(serverAction, undefined);
   const errors: Partial<Record<ActivityField, string>> = state?.fieldErrors ?? {};
@@ -130,6 +133,7 @@ export function ActivityForm({
 
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
+      {savedPlaceId && <input type="hidden" name="saved_place_id" value={savedPlaceId} />}
       <Field id="title" label="Actividad" error={errors.title}>
         <Input
           id="title"

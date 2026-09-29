@@ -5,6 +5,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { ActivityForm } from "@/components/activities/activity-form";
 import { getActivities } from "@/lib/activities/queries";
+import { getSavedPlace } from "@/lib/saved-places/queries";
 import { listTimeZones } from "@/lib/time-zones";
 import { getTravelers } from "@/lib/travelers/queries";
 import { isIsoDate } from "@/lib/trips/trip-form";
@@ -19,13 +20,15 @@ export const metadata: Metadata = {
 
 export default async function NewActivityPage({ params, searchParams }: PageProps<"/viajes/[id]/actividades/nueva">) {
   const { id } = await params;
-  const { dia } = await searchParams;
-  const [trip, role, stops, activities, travelers] = await Promise.all([
+  const { dia, guardado } = await searchParams;
+  const [trip, role, stops, activities, travelers, saved] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
     getActivities(id),
     getTravelers(id),
+    // "Agregar al itinerario" from Guardados: start from that place.
+    typeof guardado === "string" ? getSavedPlace(id, guardado) : null,
   ]);
 
   if (!trip) notFound();
@@ -33,7 +36,10 @@ export default async function NewActivityPage({ params, searchParams }: PageProp
 
   // Day from the itinerary (?dia=), else the trip's first day.
   const date = typeof dia === "string" && isIsoDate(dia) ? dia : (trip.start_date ?? "");
-  const backHref = `/viajes/${trip.id}/itinerario${date ? `?dia=${date}` : ""}`;
+  const backHref = saved
+    ? `/viajes/${trip.id}/guardados`
+    : `/viajes/${trip.id}/itinerario${date ? `?dia=${date}` : ""}`;
+  const duration = saved?.estimated_minutes ?? 60;
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 py-6">
@@ -46,30 +52,31 @@ export default async function NewActivityPage({ params, searchParams }: PageProp
           Itinerario
         </Link>
         <h1 className="text-3xl font-bold tracking-tight">Nueva actividad</h1>
+        {saved && <p className="text-sm text-muted-foreground">Desde tus guardados: elige el día y la hora.</p>}
       </header>
       <div className="rounded-2xl border bg-card p-5">
         <ActivityForm
           action={createActivity.bind(null, trip.id)}
           initialValues={{
-            title: "",
-            category: "sightseeing",
-            trip_stop_id: (date && stopForDate(stops, date)?.id) || "",
+            title: saved?.name ?? "",
+            category: saved?.category ?? "sightseeing",
+            trip_stop_id: saved?.trip_stop_id ?? ((date && stopForDate(stops, date)?.id) || ""),
             timezone: "",
             date,
             start_time: "",
-            duration_hours: "1",
-            duration_minutes: "0",
-            location_name: "",
-            address: "",
+            duration_hours: String(Math.floor(duration / 60)),
+            duration_minutes: String(duration % 60),
+            location_name: saved?.name ?? "",
+            address: saved?.address ?? "",
             booking_status: "planned",
             reservation_ref: "",
             cost_amount: "",
             cost_currency: trip.currency,
-            external_url: "",
-            notes: "",
-            google_place_id: "",
-            lat: "",
-            lng: "",
+            external_url: saved?.external_url ?? "",
+            notes: saved?.notes ?? "",
+            google_place_id: saved?.google_place_id ?? "",
+            lat: saved?.lat == null ? "" : String(saved.lat),
+            lng: saved?.lng == null ? "" : String(saved.lng),
             // Everyone by default.
             participants: travelers.map((t) => t.id),
           }}
@@ -82,6 +89,7 @@ export default async function NewActivityPage({ params, searchParams }: PageProp
           submitLabel="Guardar actividad"
           pendingLabel="Guardando…"
           cancelHref={backHref}
+          savedPlaceId={saved?.id}
         />
       </div>
     </main>

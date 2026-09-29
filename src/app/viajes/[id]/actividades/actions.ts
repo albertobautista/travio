@@ -55,7 +55,7 @@ export async function createActivity(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("activities")
-    .insert({ ...parsed.data, trip_id: tripId })
+    .insert({ ...parsed.data, trip_id: tripId, saved_place_id: parsed.savedPlaceId })
     .select("id");
 
   if (error) {
