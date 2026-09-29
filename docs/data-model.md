@@ -249,6 +249,8 @@ Check-in/check-out appear in the itinerary as **derived events** (a query/view),
 
 **`saved_places`**: `trip_id`, `trip_stop_id`, `name`, `category`, `google_place_id`, `address`, `lat`, `lng`, `estimated_minutes` ("Aprox. 1 h"), `notes`. "Add to itinerary" creates an activity with `saved_place_id` pointing back; the saved place stays.
 
+**Implemented (2026-09-30)**: plus `external_url` (where the recommendation came from; http(s) only). `category` uses the activity categories so it carries over when scheduled, and `estimated_minutes` becomes the activity's duration. `activities.saved_place_id` is a same-trip FK with `on delete set null`: deleting the saved place keeps the planned activity. A place is "planned" when some activity points to it.
+
 ### Files (metadata only)
 
 **`files`**: the binary lives in Supabase Storage; PostgreSQL stores **metadata**.
