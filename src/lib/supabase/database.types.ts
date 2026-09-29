@@ -141,6 +141,37 @@ isOneToOne: false
       referencedColumns: ["trip_id","id"]
     }
                   ]
+                },"expenses": {
+                  Row: {
+                    "amount": number,"category": string,"created_at": string,"created_by": string | null,"currency": string,"description": string,"id": string,"notes": string | null,"paid_by": string | null,"spent_on": string,"trip_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "amount": number,"category"?: string,"created_at"?: string,"created_by"?: string | null,"currency": string,"description": string,"id"?: string,"notes"?: string | null,"paid_by"?: string | null,"spent_on": string,"trip_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "amount"?: number,"category"?: string,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string,"id"?: string,"notes"?: string | null,"paid_by"?: string | null,"spent_on"?: string,"trip_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "expenses_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "expenses_paid_by_same_trip"
+      columns: ["trip_id","paid_by"]
+isOneToOne: false
+      referencedRelation: "travelers"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "expenses_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"files": {
                   Row: {
                     "accommodation_id": string | null,"activity_id": string | null,"created_at": string,"document_type": string,"id": string,"mime_type": string,"original_name": string,"size_bytes": number,"storage_path": string,"transportation_id": string | null,"trip_id": string,"updated_at": string,"uploaded_by": string | null
@@ -304,6 +335,31 @@ isOneToOne: false
     },{
       foreignKeyName: "travelers_user_id_fkey"
       columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"trip_exchange_rates": {
+                  Row: {
+                    "created_at": string,"currency": string,"rate": number,"trip_id": string,"updated_at": string,"updated_by": string | null
+                  }
+                  Insert: {
+                    "created_at"?: string,"currency": string,"rate": number,"trip_id": string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Update: {
+                    "created_at"?: string,"currency"?: string,"rate"?: number,"trip_id"?: string,"updated_at"?: string,"updated_by"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "trip_exchange_rates_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_exchange_rates_updated_by_fkey"
+      columns: ["updated_by"]
 isOneToOne: false
       referencedRelation: "profiles"
       referencedColumns: ["id"]
