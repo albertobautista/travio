@@ -313,6 +313,75 @@ join ids trip on trip.key = 'trip'
 join public.trip_stops s on s.trip_id = trip.id and s.name = a.city;
 
 
+-- ---------------------------------------------------------------------------
+-- Approximate coordinates for the Map page (no Google Places requests needed).
+-- Transfers stay without coordinates: they aren't a place.
+-- ---------------------------------------------------------------------------
+update public.trip_stops s set lat = c.lat, lng = c.lng
+from (values
+  ('Barcelona', 41.3874, 2.1686), ('Madrid', 40.4168, -3.7038),
+  ('Sevilla', 37.3891, -5.9845), ('Málaga', 36.7213, -4.4214)
+) as c(name, lat, lng)
+where s.trip_id = (select id from ids where key = 'trip') and s.name = c.name;
+
+update public.accommodations a set lat = c.lat, lng = c.lng
+from (values
+  ('Casa Bonay', 41.3938, 2.1714),
+  ('Only YOU Boutique Hotel Madrid', 40.4205, -3.6966),
+  ('Hotel Casa 1800 Sevilla', 37.3858, -5.9913),
+  ('Molina Lario Hotel', 36.7195, -4.4195)
+) as c(name, lat, lng)
+where a.trip_id = (select id from ids where key = 'trip') and a.name = c.name;
+
+update public.activities a set lat = c.lat, lng = c.lng
+from (values
+  -- Barcelona
+  ('Paseo por el Barrio Gótico', 41.3845, 2.1757), ('Tapas en El Xampanyet', 41.3848, 2.1810),
+  ('El Born y Santa Maria del Mar', 41.3838, 2.1820), ('Vermut en Bar del Pla', 41.3846, 2.1806),
+  ('Desayuno en Brunch & Cake', 41.3890, 2.1599), ('Sagrada Família con torres', 41.4036, 2.1744),
+  ('Fotos desde la Plaça de Gaudí', 41.4041, 2.1747), ('Mercado de La Boqueria', 41.3818, 2.1716),
+  ('La Rambla y Palau Güell', 41.3789, 2.1742), ('Park Güell', 41.4145, 2.1527),
+  ('Mirador Bunkers del Carmel', 41.4190, 2.1618), ('Cena en Cervecería Catalana', 41.3927, 2.1609),
+  ('Desayuno en Café Cosmo', 41.3867, 2.1614), ('Casa Batlló', 41.3917, 2.1649),
+  ('Passeig de Gràcia y La Pedrera', 41.3953, 2.1620), ('Comida en Bar Mut', 41.3961, 2.1636),
+  ('Museo Picasso', 41.3852, 2.1809), ('Playa de la Barceloneta', 41.3784, 2.1925),
+  ('Atardecer en el Port Vell', 41.3765, 2.1822), ('Paella en Can Solé', 41.3802, 2.1893),
+  ('Desayuno rápido en el hotel', 41.3938, 2.1714), ('Excursión a Montserrat', 41.3870, 2.1701),
+  ('Descanso en el hotel', 41.3938, 2.1714), ('Cena en Quimet & Quimet', 41.3739, 2.1646),
+  ('Font Màgica de Montjuïc', 41.3712, 2.1517),
+  -- Madrid
+  ('Comida en Casa Labra', 40.4180, -3.7045), ('Museo del Prado', 40.4138, -3.6921),
+  ('Retiro y Palacio de Cristal', 40.4135, -3.6827), ('Tapas en el Mercado de San Miguel', 40.4154, -3.7090),
+  ('Desayuno en La Mallorquina', 40.4169, -3.7034), ('Palacio Real', 40.4180, -3.7143),
+  ('Catedral de la Almudena', 40.4157, -3.7146), ('Plaza Mayor y Calle Mayor', 40.4155, -3.7074),
+  ('Comida en Sobrino de Botín', 40.4141, -3.7083), ('Paseo por La Latina', 40.4115, -3.7115),
+  ('Museo Reina Sofía (Guernica)', 40.4086, -3.6944), ('Atardecer en el Templo de Debod', 40.4240, -3.7178),
+  ('Cena en Casa Lucio', 40.4125, -3.7090), ('Desayuno en el hotel', 40.4205, -3.6966),
+  ('Excursión a Toledo', 40.4185, -3.7120), ('Compras en Gran Vía', 40.4203, -3.7058),
+  ('Tapas en la Cava Baja', 40.4128, -3.7089), ('Chocolate con churros en San Ginés', 40.4168, -3.7066),
+  -- Sevilla
+  ('Tapas en Bodega Santa Cruz', 37.3860, -5.9906), ('Real Alcázar', 37.3831, -5.9903),
+  ('Helado en La Fiorentina', 37.3884, -5.9978), ('Paseo por el Barrio de Santa Cruz', 37.3857, -5.9885),
+  ('Cena en El Rinconcillo', 37.3945, -5.9885), ('Tostadas en Bar Alfalfa', 37.3915, -5.9895),
+  ('Catedral y La Giralda', 37.3861, -5.9926), ('Archivo de Indias', 37.3846, -5.9932),
+  ('Comida en Eslava', 37.3990, -5.9974), ('Siesta', 37.3858, -5.9913),
+  ('Plaza de España y Parque de María Luisa', 37.3772, -5.9869), ('Torre del Oro y paseo por el río', 37.3824, -5.9964),
+  ('Flamenco en Casa de la Memoria', 37.3918, -5.9942), ('Churros en Bar El Comercio', 37.3924, -5.9953),
+  ('Metropol Parasol (Las Setas)', 37.3933, -5.9917), ('Paseo en barco por el Guadalquivir', 37.3824, -5.9964),
+  ('Comida en Bar Las Teresas', 37.3862, -5.9895), ('Baños árabes Aire de Sevilla', 37.3888, -5.9892),
+  ('Mercado de Triana y cerámica', 37.3858, -6.0030), ('Atardecer en el Puente de Triana', 37.3857, -6.0013),
+  ('Cena de tapas en Triana', 37.3840, -6.0010),
+  -- Málaga
+  ('Comida en el Mercado de Atarazanas', 36.7183, -4.4240), ('Alcazaba y Teatro Romano', 36.7212, -4.4159),
+  ('Castillo de Gibralfaro', 36.7234, -4.4119), ('Calle Larios y Muelle Uno', 36.7196, -4.4216),
+  ('Cena en El Pimpi', 36.7219, -4.4172), ('Desayuno en Café Central', 36.7206, -4.4214),
+  ('Ronda: Puente Nuevo y Plaza de Toros', 36.7409, -5.1662), ('Playa de la Malagueta', 36.7197, -4.4079),
+  ('Cena en Los Mellizos', 36.7179, -4.4195), ('Cuevas de Nerja', 36.7617, -3.8456),
+  ('Balcón de Europa y playa Burriana', 36.7456, -3.8757), ('Museo Picasso Málaga', 36.7216, -4.4185),
+  ('Hacer maletas', 36.7195, -4.4195), ('Cena de despedida en El Mesón de Cervantes', 36.7222, -4.4196)
+) as c(title, lat, lng)
+where a.trip_id = (select id from ids where key = 'trip') and a.title = c.title;
+
 -- Summary
 select
   (select name from public.trips where id = (select id from ids where key = 'trip')) as trip,

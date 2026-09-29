@@ -8,7 +8,8 @@ Realistic sample trips for trying the app locally. Not a migration and not
 A 15-day trip (27 sep – 11 oct 2026): Barcelona, Madrid, Sevilla and Málaga.
 2 travelers (the owner and "Ximena", without an account), 4 stays, 7 legs with
 seats (flights, AVE trains, bus, car rental) and 125 activities, including the
-transfers between them. The dates overlap "today" (late September 2026) so the
+transfers between them. Cities, stays and every non-transfer activity get
+approximate coordinates, so the Map page works without any Places requests. The dates overlap "today" (late September 2026) so the
 Hoy screen has something to show; shift them in the SQL for another period.
 
 ### 1. Trip, stays, transportation and activities
