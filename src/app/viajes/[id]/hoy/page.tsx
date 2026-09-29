@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, CalendarDays, Check, ChevronLeft, ExternalLink, FolderLock, MapPin, Navigation, Paperclip, Plus, Ticket } from "lucide-react";
+import { AlertTriangle, BedDouble, CalendarDays, Check, ChevronLeft, ExternalLink, FolderLock, MapPin, Navigation, Paperclip, Plus, Ticket } from "lucide-react";
 
+import { StayCard } from "@/components/accommodations/stay-card";
 import { StartsIn } from "@/components/activities/starts-in";
 import { FileRow, fileHref } from "@/components/files/file-row";
 import { TripClock } from "@/components/trips/trip-clock";
@@ -11,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
 import { buildDayPlan, forTraveler, formatStartsIn } from "@/lib/activities/day-plan";
 import { activityDate } from "@/lib/activities/itinerary";
+import { getAccommodations } from "@/lib/accommodations/queries";
+import { stayForToday, stayPhase } from "@/lib/accommodations/stays";
 import { getActivities } from "@/lib/activities/queries";
 import { getTripFiles } from "@/lib/files/queries";
 import { formatDuration, formatTimeRange } from "@/lib/activities/schedule";
@@ -58,13 +61,14 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
   const { id } = await params;
   const { todos } = await searchParams;
   const supabase = await createClient();
-  const [trip, role, stops, activities, travelers, files, { data: claims }] = await Promise.all([
+  const [trip, role, stops, activities, travelers, files, stays, { data: claims }] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
     getActivities(id),
     getTravelers(id),
     getTripFiles(id),
+    getAccommodations(id),
     supabase.auth.getClaims(),
   ]);
   if (!trip) notFound();
@@ -97,6 +101,22 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
   const todays = mine(prepared.filter((a) => a.date === today));
   const tomorrowFirst = mine(prepared.filter((a) => a.date === addDays(today, 1)))[0];
   const hasSubsets = prepared.some((a) => a.participantIds.length > 0);
+
+  // Where they sleep: the stay they're in, or the one checked into/out of today.
+  const myStays = stays.filter((s) => {
+    const ids = s.accommodation_participants.map((p) => p.traveler_id);
+    return showAll || ids.length === 0 || ids.includes(me!.id);
+  });
+  const stay = stayForToday(myStays, now, today);
+  const stayEyebrow = (() => {
+    if (!stay) return undefined;
+    const phase = stayPhase(stay, now);
+    const checkIn = instantToZonedTime(stay.check_in_at, stay.timezone);
+    const checkOut = instantToZonedTime(stay.check_out_at, stay.timezone);
+    if (phase === "before") return `Llegas hoy · check-in desde las ${checkIn.time}`;
+    if (phase === "after") return `Saliste hoy a las ${checkOut.time}`;
+    return checkOut.date === today ? `Sales hoy · check-out a las ${checkOut.time}` : "Esta noche duermes en";
+  })();
 
   const plan = buildDayPlan(todays, now);
   const peopleOf = (a: (typeof prepared)[number]) =>
@@ -293,6 +313,29 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
               : "Mañana no hay nada planeado todavía."}
           </p>
         </section>
+      )}
+
+      {!stay && editable && status === "active" && (
+        <Link
+          href={`${base}/hospedajes/nuevo${stop ? `?ciudad=${stop.id}` : ""}`}
+          className="flex min-h-14 items-center gap-3 rounded-2xl border border-dashed bg-card p-4 hover:border-primary/40"
+        >
+          <BedDouble className="size-5 text-primary" aria-hidden="true" />
+          <span className="flex flex-1 flex-col">
+            <span className="font-semibold">¿Dónde duermes hoy?</span>
+            <span className="text-sm text-muted-foreground">Agrega el hospedaje para tener la dirección y la reserva aquí.</span>
+          </span>
+        </Link>
+      )}
+      {stay && (
+        <StayCard
+          tripId={trip.id}
+          stay={stay}
+          travelers={travelers}
+          files={files.filter((f) => f.accommodation_id === stay.id)}
+          editable={false}
+          eyebrow={stayEyebrow}
+        />
       )}
 
       {todays.length > 0 && (

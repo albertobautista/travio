@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ChevronLeft, ChevronRight, MapPin, Plus } from "lucide-react";
+import { AlertTriangle, BedDouble, ChevronLeft, ChevronRight, LogIn, LogOut, MapPin, Plus } from "lucide-react";
 
 import { TravelerAvatar, TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
+import { getAccommodations } from "@/lib/accommodations/queries";
+import { stayEvents } from "@/lib/accommodations/stays";
 import { BOOKING_META, CATEGORY_META, isBookingStatus, isCategory } from "@/lib/activities/categories";
 import { activityDate, buildItineraryDays, pickDay } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
@@ -23,12 +25,13 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itine
 export default async function ItineraryPage({ params, searchParams }: PageProps<"/viajes/[id]/itinerario">) {
   const { id } = await params;
   const { dia, persona } = await searchParams;
-  const [trip, role, stops, activities, travelers] = await Promise.all([
+  const [trip, role, stops, activities, travelers, stays] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
     getActivities(id),
     getTravelers(id),
+    getAccommodations(id),
   ]);
   if (!trip) notFound();
 
@@ -62,6 +65,30 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     })),
   );
   const dayActivities = day ? withDates.filter((a) => a.date === day.date) : [];
+
+  // Stays: check-in/check-out are derived events in the timeline (not stored
+  // as activities), and the day header says where the night is spent.
+  const personStays = stays.filter((s) => {
+    const ids = s.accommodation_participants.map((p) => p.traveler_id);
+    return !person || ids.length === 0 || ids.includes(person.id);
+  });
+  const events = stayEvents(personStays);
+  const dayEvents = day ? events.filter((e) => e.date === day.date) : [];
+  // The night of `day` belongs to the stay checked into on or before it and left after it.
+  const tonight = day
+    ? personStays.find(
+        (s) =>
+          instantToZonedTime(s.check_in_at, s.timezone).date <= day.date &&
+          day.date < instantToZonedTime(s.check_out_at, s.timezone).date,
+      )
+    : undefined;
+  type Row =
+    | { kind: "activity"; at: Date; activity: (typeof dayActivities)[number] }
+    | { kind: "stay"; at: Date; event: (typeof dayEvents)[number] };
+  const dayRows: Row[] = [
+    ...dayActivities.map((a): Row => ({ kind: "activity", at: a.startsAt, activity: a })),
+    ...dayEvents.map((e): Row => ({ kind: "stay", at: e.at, event: e })),
+  ].sort((a, b) => a.at.getTime() - b.at.getTime());
   const dayStop = day ? stopForDate(stops, day.date) : undefined;
   const addHref = `/viajes/${trip.id}/actividades/nueva${day ? `?dia=${day.date}` : ""}`;
   const itineraryHref = (params: { dia?: string; persona?: string | null }) => {
@@ -184,8 +211,17 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                   </span>
                 )}
               </div>
+              {tonight && (
+                <Link
+                  href={`/viajes/${trip.id}/hospedajes`}
+                  className="-mt-1 flex w-fit items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <BedDouble className="size-4 text-primary" aria-hidden="true" />
+                  Esta noche: <span className="font-medium text-foreground">{tonight.name}</span>
+                </Link>
+              )}
 
-              {dayActivities.length === 0 ? (
+              {dayRows.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed bg-card px-6 py-8 text-center">
                   <p className="text-sm text-muted-foreground">Nada planeado este día.</p>
                   {editable && (
@@ -200,7 +236,36 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
               ) : (
                 <ol className="relative flex flex-col gap-2.5">
                   <span aria-hidden="true" className="absolute top-5 bottom-5 left-[5px] w-0.5 bg-timeline" />
-                  {dayActivities.map((a) => {
+                  {dayRows.map((row) => {
+                    if (row.kind === "stay") {
+                      const { event } = row;
+                      const Icon = event.kind === "check_in" ? LogIn : LogOut;
+                      return (
+                        <li key={`${event.stay.id}-${event.kind}`} className="flex items-center gap-2.5">
+                          <span aria-hidden="true" className="relative size-3 shrink-0 rounded-full border-2 border-primary bg-card" />
+                          <time dateTime={event.at.toISOString()} className="w-11 shrink-0 font-mono text-xs font-semibold">
+                            {event.time}
+                          </time>
+                          <Link
+                            href={`/viajes/${trip.id}/hospedajes`}
+                            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[14px] border border-dashed bg-secondary/40 px-2.5 py-2 hover:border-primary/40"
+                          >
+                            <span className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-secondary text-primary">
+                              <Icon className="size-5" aria-hidden="true" />
+                            </span>
+                            <span className="flex min-w-0 flex-1 flex-col">
+                              <span className="truncate font-semibold">
+                                {event.kind === "check_in" ? "Check-in" : "Check-out"} · {event.stay.name}
+                              </span>
+                              <span className="truncate text-xs text-muted-foreground">
+                                {event.stay.address ?? "Hospedaje"}
+                              </span>
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    }
+                    const a = row.activity;
                     const category = isCategory(a.category) ? CATEGORY_META[a.category] : CATEGORY_META.other;
                     const booking = isBookingStatus(a.booking_status) ? BOOKING_META[a.booking_status] : null;
                     const overlaps = conflicts.get(a.id) ?? [];
