@@ -74,7 +74,7 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
       <header className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Mapa</h1>
-          <p className="truncate text-sm text-muted-foreground">{trip.name}</p>
+          <p className="truncate text-sm text-muted-foreground lg:hidden">{trip.name}</p>
         </div>
       </header>
       <TripMap tripId={trip.id} editable={editable} points={points} days={daysWithWeather} cities={cities} initialDay={initialDay} />

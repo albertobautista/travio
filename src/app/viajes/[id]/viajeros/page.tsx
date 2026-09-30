@@ -36,7 +36,7 @@ export default async function TravelersPage({ params }: PageProps<"/viajes/[id]/
         </Button>
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Viajeros</h1>
-          <p className="truncate text-sm text-muted-foreground">{trip.name}</p>
+          <p className="truncate text-sm text-muted-foreground lg:hidden">{trip.name}</p>
         </div>
       </header>
 
