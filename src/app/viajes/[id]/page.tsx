@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertCircle, ChevronLeft, ChevronRight, Pencil, Sun } from "lucide-react";
 
+import { CityPhoto } from "@/components/maps/city-photo";
 import { TripRoute } from "@/components/trips/trip-route";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -224,6 +225,47 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
               </Link>
             );
           })()}
+        </section>
+      )}
+
+      {stops.length > 0 && (
+        <section aria-labelledby="cities" className="flex flex-col gap-2">
+          <div className="flex items-baseline justify-between">
+            <h2 id="cities" className="font-semibold">
+              Ciudades
+            </h2>
+            <Link href={`${base}/mapa`} className="text-sm text-primary hover:underline">
+              Ver mapa
+            </Link>
+          </div>
+          <ol className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
+            {stops.map((s) => (
+              <li key={s.id} className="flex w-28 shrink-0 flex-col gap-1">
+                {/* The photo sits outside the link: its author credit is a link of its own. */}
+                <CityPhoto
+                  tripId={trip.id}
+                  stopId={s.id}
+                  name={s.name}
+                  placeId={s.google_place_id}
+                  lat={s.lat}
+                  lng={s.lng}
+                  canRemember={editable}
+                  className="h-20 w-28 rounded-xl"
+                />
+                <Link
+                  href={s.arrives_on ? `${base}/itinerario?dia=${s.arrives_on}` : `${base}/itinerario`}
+                  className="flex flex-col hover:underline"
+                >
+                  <span className="truncate text-sm font-semibold">{s.name}</span>
+                  {s.arrives_on && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {formatTripDates(s.arrives_on, s.departs_on, { year: false })}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            ))}
+          </ol>
         </section>
       )}
 

@@ -107,3 +107,21 @@ export async function moveStop(stopId: string, direction: -1 | 1) {
 
   refresh();
 }
+
+/**
+ * Remembers the Google place a city resolved to (found by name the first time
+ * its photo is shown), so later views skip the text search, the costly call.
+ * Only fills an empty value: it never overwrites a place someone chose.
+ * Viewers can't write (RLS), and that's fine: their views just search again.
+ */
+export async function rememberStopPlace(tripId: string, stopId: string, placeId: string) {
+  if (!isUuid(tripId) || !isUuid(stopId) || !/^[A-Za-z0-9_-]{10,300}$/.test(placeId)) return;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("trip_stops")
+    .update({ google_place_id: placeId })
+    .eq("trip_id", tripId)
+    .eq("id", stopId)
+    .is("google_place_id", null);
+  if (error) console.error("rememberStopPlace failed", error);
+}
