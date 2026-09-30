@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertCircle, ChevronLeft, ChevronRight, Pencil, Sun } from "lucide-react";
 
-import { CityPhoto } from "@/components/maps/city-photo";
+import { PlacePhoto } from "@/components/maps/place-photo";
 import { TripRoute } from "@/components/trips/trip-route";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -25,6 +25,8 @@ import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus } from "@/lib/trips/dates";
 import { canEdit, getStops, getTrip, toTripRole } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
+
+import { rememberStopPlace } from "./ciudades/actions";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -242,14 +244,14 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
             {stops.map((s) => (
               <li key={s.id} className="flex w-28 shrink-0 flex-col gap-1">
                 {/* The photo sits outside the link: its author credit is a link of its own. */}
-                <CityPhoto
-                  tripId={trip.id}
-                  stopId={s.id}
+                <PlacePhoto
                   name={s.name}
+                  query={s.name}
+                  includedType="locality"
                   placeId={s.google_place_id}
                   lat={s.lat}
                   lng={s.lng}
-                  canRemember={editable}
+                  remember={editable ? rememberStopPlace.bind(null, trip.id, s.id) : undefined}
                   className="h-20 w-28 rounded-xl"
                 />
                 <Link

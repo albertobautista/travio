@@ -124,3 +124,20 @@ export async function deleteActivity(tripId: string, activityId: string, returnD
 
   redirect(/^\d{4}-\d{2}-\d{2}$/.test(returnDate) ? itineraryUrl(tripId, returnDate) : `/viajes/${tripId}/itinerario`);
 }
+
+/**
+ * Remembers the Google place an activity's location resolved to (found by
+ * text when its photo is first shown). Only fills an empty value; coordinates
+ * are left as they are. Viewers can't write (RLS) and just search again.
+ */
+export async function rememberActivityPlace(tripId: string, activityId: string, placeId: string) {
+  if (!isUuid(tripId) || !isUuid(activityId) || !/^[A-Za-z0-9_-]{10,300}$/.test(placeId)) return;
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("activities")
+    .update({ google_place_id: placeId })
+    .eq("trip_id", tripId)
+    .eq("id", activityId)
+    .is("google_place_id", null);
+  if (error) console.error("rememberActivityPlace failed", error);
+}

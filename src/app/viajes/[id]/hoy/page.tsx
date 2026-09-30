@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, BedDouble, CalendarDays, Check, ExternalLink, FolderLock, MapPin, Navigation, Paperclip, Plus, Ticket } from "lucide-react";
+import { AlertTriangle, BedDouble, CalendarDays, Check, ExternalLink, FolderLock, Map as MapIcon, Navigation, Paperclip, Plus, Ticket } from "lucide-react";
 
 import { StayCard } from "@/components/accommodations/stay-card";
 import { TransportCard } from "@/components/transportations/transport-card";
 import { StartsIn } from "@/components/activities/starts-in";
-import { TodayWeather } from "@/components/weather/today-weather";
+import { RainNotice, WeatherNow } from "@/components/weather/today-weather";
+import { PlacePhoto } from "@/components/maps/place-photo";
 import { FileRow, fileHref } from "@/components/files/file-row";
 import { TripClock } from "@/components/trips/trip-clock";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -30,6 +31,8 @@ import { resolveTripNow } from "@/lib/trips/today";
 import { directionsUrl } from "@/lib/maps/directions";
 import { getDailyWeather, getNowWeather } from "@/lib/weather/open-meteo";
 import { instantToZonedTime } from "@/lib/zoned-time";
+
+import { rememberActivityPlace } from "../actividades/actions";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/hoy">): Promise<Metadata> {
   const trip = await getTrip((await params).id);
@@ -168,13 +171,14 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
       <header className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-2xl font-bold tracking-tight">Hoy{stop ? ` · ${stop.name}` : ""}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-balance">Hoy{stop ? ` · ${stop.name}` : ""}</h1>
           <p className="text-sm text-muted-foreground">
             {formatLongDate(today)}
             {dayNumber && tripDays ? ` · día ${dayNumber} de ${tripDays}` : ""}
           </p>
           <TripClock timeZone={timeZone} place={stop?.name ?? zoneCity(timeZone)} initial={clockParts(now, timeZone)} />
         </div>
+        {nowWeather && stop && <WeatherNow city={stop.name} now={nowWeather} today={todayWeather?.get(today) ?? null} />}
       </header>
 
       {me && hasSubsets && (
@@ -200,11 +204,9 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
 
       {legsFirst.map(legCard)}
 
-      {nowWeather && stop && (
-        <TodayWeather
-          city={stop.name}
+      {nowWeather && (
+        <RainNotice
           now={nowWeather}
-          today={todayWeather?.get(today) ?? null}
           plans={todays.map((a) => ({ title: a.title, time: instantToZonedTime(a.startsAt, a.timezone).time }))}
         />
       )}
@@ -254,103 +256,116 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
           const titleId = `focus-${focus.id}`;
           const tickets = filesByActivity.get(focus.id) ?? [];
           return (
-            <section key={focus.id} aria-labelledby={titleId} className="flex flex-col gap-3 rounded-[20px] border bg-card p-4">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-muted-foreground">{happening ? "Ahora" : showAll ? "Próximo plan" : "Tu próximo plan"}</span>
-                <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
-                  {happening ? "En curso" : <StartsIn startsAt={focus.starts_at} initial={formatStartsIn(focus.startsAt, now)} />}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className={`flex size-14 shrink-0 items-center justify-center rounded-2xl ${category.className}`}>
-                  <Icon className="size-7" aria-hidden="true" />
-                </span>
-                <div className="flex min-w-0 flex-col">
-                  <h2 id={titleId} className="text-xl font-bold">
+            <section key={focus.id} aria-labelledby={titleId} className="flex flex-col overflow-hidden rounded-[20px] border bg-card">
+              <PlacePhoto
+                name={focus.location_name ?? focus.title}
+                query={focus.location_name ? [focus.location_name, focus.address].filter(Boolean).join(", ") : ""}
+                placeId={focus.google_place_id}
+                lat={focus.lat}
+                lng={focus.lng}
+                radius={5_000}
+                remember={editable ? rememberActivityPlace.bind(null, trip.id, focus.id) : undefined}
+                maxWidth={800}
+                maxHeight={400}
+                creditAt="top"
+                className="h-[196px]"
+                fallback={
+                  <div className={`flex size-full items-start justify-center pt-12 ${category.className}`} aria-hidden="true">
+                    <Icon className="size-12" />
+                  </div>
+                }
+              >
+                <div className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 bg-gradient-to-t from-black/85 via-black/60 to-transparent px-4 pt-10 pb-3 text-white">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-white/85">
+                      {happening ? "Ahora" : showAll ? "Próximo plan" : "Tu próximo plan"}
+                    </span>
+                    <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
+                      {happening ? "En curso" : <StartsIn startsAt={focus.starts_at} initial={formatStartsIn(focus.startsAt, now)} />}
+                    </span>
+                  </div>
+                  <h2 id={titleId} className="text-xl leading-tight font-bold">
                     {focus.title}
                   </h2>
-                  <p className="text-sm text-foreground/80">
+                  <p className="truncate text-sm text-white/85">
                     {formatTimeRange(focus.startsAt, focus.duration_minutes, focus.timezone)} ({formatDuration(focus.duration_minutes)})
+                    {focus.location_name || focus.address ? ` · ${focus.location_name ?? focus.address}` : ""}
                   </p>
-                  {(focus.location_name || focus.address) && (
-                    <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
-                      <span className="truncate">{[focus.location_name, focus.address].filter(Boolean).join(" · ")}</span>
-                    </p>
+                </div>
+              </PlacePhoto>
+              <div className="flex flex-col gap-3 p-4">
+                {people.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <TravelerStack travelers={people} max={4} />
+                    <span className="truncate">
+                      {focus.participantIds.length === 0 ? "Todo el grupo" : people.map((t) => t.name.split(" ")[0]).join(", ")}
+                    </span>
+                  </div>
+                )}
+                {overlaps?.kind === "activity" && overlaps.conflicts.length > 0 && (
+                  <p className="flex items-start gap-2 rounded-lg bg-warning-soft p-2 text-xs text-warning-foreground">
+                    <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    {overlaps.conflicts.map((c) => `Se solapa ${formatDuration(c.overlapMinutes)} con ${c.title}`).join(". ")}
+                  </p>
+                )}
+                {focus.reservation_ref && (
+                  <p className="text-sm">
+                    Referencia: <strong className="font-mono">{focus.reservation_ref}</strong>
+                  </p>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  {directions ? (
+                    <Button asChild size="lg" className="h-11">
+                      <a href={directions} target="_blank" rel="noopener noreferrer">
+                        <Navigation aria-hidden="true" />
+                        Ir ahora
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button size="lg" className="h-11" disabled title="Agrega el lugar o la dirección a la actividad">
+                      <Navigation aria-hidden="true" />
+                      Ir ahora
+                    </Button>
+                  )}
+                  {tickets.length > 0 ? (
+                    <Button asChild size="lg" variant="outline" className="h-11">
+                      <a href={fileHref(trip.id, tickets[0].id)} target="_blank" rel="noopener noreferrer">
+                        <Ticket aria-hidden="true" />
+                        Mi ticket
+                      </a>
+                    </Button>
+                  ) : focus.external_url ? (
+                    <Button asChild size="lg" variant="outline" className="h-11">
+                      <a href={focus.external_url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink aria-hidden="true" />
+                        Ver reserva
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button asChild size="lg" variant="outline" className="h-11">
+                      <Link href={editable ? `${base}/actividades/${focus.id}` : `${base}/itinerario?dia=${today}`}>
+                        {editable ? "Ver detalles" : "Ver en itinerario"}
+                      </Link>
+                    </Button>
                   )}
                 </div>
-              </div>
-              {people.length > 0 && (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <TravelerStack travelers={people} max={4} />
-                  <span className="truncate">
-                    {focus.participantIds.length === 0 ? "Todo el grupo" : people.map((t) => t.name.split(" ")[0]).join(", ")}
-                  </span>
-                </div>
-              )}
-              {overlaps?.kind === "activity" && overlaps.conflicts.length > 0 && (
-                <p className="flex items-start gap-2 rounded-lg bg-warning-soft p-2 text-xs text-warning-foreground">
-                  <AlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-                  {overlaps.conflicts.map((c) => `Se solapa ${formatDuration(c.overlapMinutes)} con ${c.title}`).join(". ")}
-                </p>
-              )}
-              {focus.reservation_ref && (
-                <p className="text-sm">
-                  Referencia: <strong className="font-mono">{focus.reservation_ref}</strong>
-                </p>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                {directions ? (
-                  <Button asChild size="lg" className="h-11">
-                    <a href={directions} target="_blank" rel="noopener noreferrer">
-                      <Navigation aria-hidden="true" />
-                      Cómo llegar
-                    </a>
-                  </Button>
-                ) : (
-                  <Button size="lg" className="h-11" disabled title="Agrega el lugar o la dirección a la actividad">
-                    <Navigation aria-hidden="true" />
-                    Cómo llegar
-                  </Button>
+                {tickets.length > 1 && (
+                  <ul aria-label="Boletos y reservas" className="flex flex-col gap-2">
+                    {tickets.slice(1).map((file) => (
+                      <li key={file.id}>
+                        <FileRow tripId={trip.id} file={file} />
+                      </li>
+                    ))}
+                  </ul>
                 )}
-                {tickets.length === 1 ? (
-                  <Button asChild size="lg" variant="outline" className="h-11">
-                    <a href={fileHref(trip.id, tickets[0].id)} target="_blank" rel="noopener noreferrer">
-                      <Ticket aria-hidden="true" />
-                      Ver ticket
-                    </a>
-                  </Button>
-                ) : focus.external_url ? (
-                  <Button asChild size="lg" variant="outline" className="h-11">
-                    <a href={focus.external_url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink aria-hidden="true" />
-                      Ver reserva
-                    </a>
-                  </Button>
-                ) : (
-                  <Button asChild size="lg" variant="outline" className="h-11">
-                    <Link href={editable ? `${base}/actividades/${focus.id}` : `${base}/itinerario?dia=${today}`}>
-                      {editable ? "Ver detalles" : "Ver en itinerario"}
-                    </Link>
-                  </Button>
+                {!directions && (
+                  <p className="text-xs text-muted-foreground">
+                    {editable
+                      ? "Agrega el lugar o la dirección a la actividad para ver cómo llegar."
+                      : "Esta actividad aún no tiene lugar ni dirección."}
+                  </p>
                 )}
               </div>
-              {tickets.length > 1 && (
-                <ul aria-label="Boletos y reservas" className="flex flex-col gap-2">
-                  {tickets.map((file) => (
-                    <li key={file.id}>
-                      <FileRow tripId={trip.id} file={file} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {!directions && (
-                <p className="text-xs text-muted-foreground">
-                  {editable
-                    ? "Agrega el lugar o la dirección a la actividad para ver cómo llegar."
-                    : "Esta actividad aún no tiene lugar ni dirección."}
-                </p>
-              )}
             </section>
           );
         })
@@ -466,12 +481,20 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
               );
             })}
           </ol>
-          <Button asChild variant="outline" className="mt-1 h-11">
-            <Link href={`${base}/itinerario?dia=${today}`}>
-              <CalendarDays aria-hidden="true" />
-              Ver en el itinerario
-            </Link>
-          </Button>
+          <div className="mt-1 grid gap-2 sm:grid-cols-2">
+            <Button asChild size="lg" className="h-12">
+              <Link href={`${base}/mapa?dia=${today}`}>
+                <MapIcon aria-hidden="true" />
+                Ver mapa del día
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="h-11 sm:h-12">
+              <Link href={`${base}/itinerario?dia=${today}`}>
+                <CalendarDays aria-hidden="true" />
+                Ver en el itinerario
+              </Link>
+            </Button>
+          </div>
         </section>
       )}
 
