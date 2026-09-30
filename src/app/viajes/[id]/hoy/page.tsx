@@ -9,6 +9,7 @@ import { TransportCard } from "@/components/transportations/transport-card";
 import { StartsIn } from "@/components/activities/starts-in";
 import { RainNotice, WeatherNow } from "@/components/weather/today-weather";
 import { PlacePhoto } from "@/components/maps/place-photo";
+import { LeaveBy } from "@/components/activities/leave-by";
 import { TravelGap } from "@/components/activities/travel-gap";
 import { FileRow, fileHref } from "@/components/files/file-row";
 import { TripClock } from "@/components/trips/trip-clock";
@@ -31,7 +32,7 @@ import { clockParts, zoneCity } from "@/lib/trips/clock";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
 import { directionsUrl } from "@/lib/maps/directions";
-import { isTravelMode, travelPairs } from "@/lib/maps/travel";
+import { hotelStarts, isTravelMode, travelPairs } from "@/lib/maps/travel";
 import { getDailyWeather, getNowWeather } from "@/lib/weather/open-meteo";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
@@ -140,24 +141,46 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
 
   const plan = buildDayPlan(todays, now);
   // Travel time between consecutive plans (free-time rows don't break the chain).
+  const pairStop = (a: (typeof prepared)[number]) => ({
+    id: a.id,
+    title: a.title,
+    category: a.category,
+    start: a.startsAt,
+    end: new Date(a.startsAt.getTime() + a.duration_minutes * 60_000),
+    point: a.lat !== null && a.lng !== null ? { lat: a.lat, lng: a.lng } : null,
+    participantIds: a.participantIds,
+  });
   const travelTo = new Map(
-    travelPairs(
-      plan.items.flatMap((i) =>
-        i.kind === "activity"
-          ? [
-              {
-                id: i.activity.id,
-                category: i.activity.category,
-                start: i.activity.startsAt,
-                end: new Date(i.activity.startsAt.getTime() + i.activity.duration_minutes * 60_000),
-                point: i.activity.lat !== null && i.activity.lng !== null ? { lat: i.activity.lat, lng: i.activity.lng } : null,
-                participantIds: i.activity.participantIds,
-              },
-            ]
-          : [],
-      ),
-    ).map((pair) => [pair.to.id, pair]),
+    travelPairs(plan.items.flatMap((i) => (i.kind === "activity" ? [pairStop(i.activity)] : []))).map((pair) => [pair.to.id, pair]),
   );
+  // And from the hotel: where you woke up, or where you check in today (a trip today in between breaks it).
+  const asHotel = (s: (typeof myStays)[number]) => ({
+    name: s.name,
+    point: s.lat !== null && s.lng !== null ? { lat: s.lat, lng: s.lng } : null,
+  });
+  const morningStay = myStays.find(
+    (s) => instantToZonedTime(s.check_in_at, s.timezone).date < today && today <= instantToZonedTime(s.check_out_at, s.timezone).date,
+  );
+  const fromHotel = hotelStarts<ReturnType<typeof pairStop>, ReturnType<typeof asHotel>>(
+    [
+      ...todays.map((a) => ({ at: a.startsAt.getTime(), row: { kind: "activity" as const, stop: pairStop(a) } })),
+      ...todaysLegs.map((l) => ({ at: Date.parse(l.departs_at), row: { kind: "leg" as const } })),
+      ...myStays
+        .filter((s) => instantToZonedTime(s.check_in_at, s.timezone).date === today)
+        .map((s) => ({ at: Date.parse(s.check_in_at), row: { kind: "check_in" as const, stay: asHotel(s) } })),
+    ]
+      .sort((a, b) => a.at - b.at)
+      .map((r) => r.row),
+    morningStay ? asHotel(morningStay) : null,
+  );
+  // Where you set off for an activity: the previous plan, or the hotel.
+  const originOf = (a: (typeof prepared)[number]) => {
+    const pair = travelTo.get(a.id);
+    if (pair) return { point: pair.from.point!, label: pair.from.title, departAt: pair.from.end.toISOString(), gap: pair.gapMinutes };
+    const hotel = fromHotel.get(a.id);
+    if (hotel) return { point: hotel.point!, label: hotel.name, departAt: new Date(a.startsAt.getTime() - 45 * 60_000).toISOString(), gap: null };
+    return null;
+  };
   const peopleOf = (a: (typeof prepared)[number]) =>
     a.participantIds.length > 0 ? a.participantIds.flatMap((pid) => travelerById.get(pid) ?? []) : travelers;
   const base = `/viajes/${trip.id}`;
@@ -277,6 +300,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
           const overlaps = plan.items.find((i) => i.kind === "activity" && i.activity.id === focus.id);
           const titleId = `focus-${focus.id}`;
           const tickets = filesByActivity.get(focus.id) ?? [];
+          const origin = happening || focus.lat === null || focus.lng === null ? null : originOf(focus);
           return (
             <section key={focus.id} aria-labelledby={titleId} className="flex flex-col overflow-hidden rounded-[20px] border bg-card">
               <PlacePhoto
@@ -323,6 +347,18 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                       {focus.participantIds.length === 0 ? "Todo el grupo" : people.map((t) => t.name.split(" ")[0]).join(", ")}
                     </span>
                   </div>
+                )}
+                {origin && (
+                  <LeaveBy
+                    from={origin.point}
+                    to={{ lat: focus.lat!, lng: focus.lng! }}
+                    mode={isTravelMode(focus.travel_mode) ? focus.travel_mode : null}
+                    fromLabel={origin.label}
+                    departAt={origin.departAt}
+                    arriveAt={focus.starts_at}
+                    timeZone={focus.timezone}
+                    now={now.toISOString()}
+                  />
                 )}
                 {overlaps?.kind === "activity" && overlaps.conflicts.length > 0 && (
                   <p className="flex items-start gap-2 rounded-lg bg-warning-soft p-2 text-xs text-warning-foreground">
@@ -474,18 +510,21 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                   {people.length > 0 && <TravelerStack travelers={people} max={3} />}
                 </>
               );
-              const travel = done ? undefined : travelTo.get(a.id);
+              const origin = done ? null : originOf(a);
               return (
                 <Fragment key={a.id}>
-                  {travel && (
+                  {origin && (
                     <TravelGap
                       tripId={trip.id}
                       toActivityId={a.id}
                       toTitle={a.title}
-                      from={travel.from.point!}
-                      to={travel.to.point!}
-                      gapMinutes={travel.gapMinutes}
-                      departAt={travel.from.end.toISOString()}
+                      from={origin.point}
+                      to={{ lat: a.lat!, lng: a.lng! }}
+                      gapMinutes={origin.gap}
+                      fromLabel={origin.gap === null ? origin.label : undefined}
+                      departAt={origin.departAt}
+                      arriveAt={a.starts_at}
+                      timeZone={a.timezone}
                       mode={isTravelMode(a.travel_mode) ? a.travel_mode : null}
                       editable={editable}
                     />

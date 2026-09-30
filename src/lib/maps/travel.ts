@@ -99,3 +99,34 @@ export function travelPairs<S extends PairStop>(rows: (S | null)[]) {
   }
   return pairs;
 }
+
+export type HotelRow<S extends PairStop, H> =
+  | { kind: "activity"; stop: S }
+  | { kind: "check_in"; stay: H }
+  | { kind: "check_out" }
+  | { kind: "leg" };
+
+/**
+ * Activities you head to from your hotel: the first one of the day (from
+ * where you slept, `morning`) and the first one after a check-in. There's no
+ * gap to check (you leave the hotel when you like), only when to leave.
+ * A flight or train in between means you're not at the hotel; a "transfer"
+ * activity is the trip itself. Checking out doesn't change where you start.
+ */
+export function hotelStarts<S extends PairStop, H extends { point: Point | null }>(rows: HotelRow<S, H>[], morning: H | null) {
+  const starts = new Map<string, H>();
+  let origin: H | null = morning;
+  for (const row of rows) {
+    if (row.kind === "leg") origin = null;
+    else if (row.kind === "check_in") origin = row.stay;
+    else if (row.kind === "activity") {
+      const { stop } = row;
+      if (origin?.point && stop.point && stop.category !== "transfer" && distanceMeters(origin.point, stop.point) >= SAME_PLACE_METERS) {
+        starts.set(stop.id, origin);
+      }
+      // From here on you come from the previous activity.
+      origin = null;
+    }
+  }
+  return starts;
+}

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { AlertTriangle, ChevronDown, Loader2 } from "lucide-react";
 
-import { getTravelTime, type TravelTime } from "@/lib/maps/routes";
 import {
   autoMode,
   MARGIN_MINUTES,
@@ -14,6 +13,7 @@ import {
   type TravelMode,
 } from "@/lib/maps/travel";
 import { formatDuration } from "@/lib/activities/schedule";
+import { formatClock, useTravelTime } from "@/lib/maps/use-travel-time";
 
 import { setTravelMode } from "@/app/viajes/[id]/actividades/actions";
 
@@ -24,10 +24,18 @@ type Props = {
   toTitle: string;
   from: Point;
   to: Point;
-  /** Minutes between the end of one and the start of the next. */
-  gapMinutes: number;
-  /** When the previous activity ends (ISO): transit uses it for the timetable. */
+  /**
+   * Minutes between the end of one and the start of the next, or null when
+   * leaving from the hotel (no gap to check: it says when to leave instead).
+   */
+  gapMinutes: number | null;
+  /** Where you leave from when it isn't the previous activity ("Casa Bonay"). */
+  fromLabel?: string;
+  /** Roughly when you set off (ISO): transit uses it for the timetable. */
   departAt: string;
+  /** When the activity starts (ISO) and its time zone, for "sal a las…". */
+  arriveAt: string;
+  timeZone: string;
   mode: TravelMode | null;
   editable: boolean;
 };
@@ -39,16 +47,26 @@ const formatKm = (m: number) => (m < 1000 ? `${Math.round(m / 10) * 10} m` : `${
  * whether the gap is enough. Asks the Routes API only once the row is on
  * screen, so a long day doesn't fire every request up front.
  */
-export function TravelGap({ tripId, toActivityId, toTitle, from, to, gapMinutes, departAt, mode, editable }: Props) {
+export function TravelGap({
+  tripId,
+  toActivityId,
+  toTitle,
+  from,
+  to,
+  gapMinutes,
+  fromLabel,
+  departAt,
+  arriveAt,
+  timeZone,
+  mode,
+  editable,
+}: Props) {
   const row = useRef<HTMLLIElement>(null);
   const [visible, setVisible] = useState(false);
-  const [result, setResult] = useState<{ key: string; time: TravelTime } | null>(null);
   const [saving, startSaving] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const effective = mode ?? autoMode(from, to);
-  const key = `${effective}|${from.lat},${from.lng}|${to.lat},${to.lng}|${departAt}`;
-  // A result for other inputs (the mode just changed) isn't shown.
-  const time = result?.key === key ? result.time : null;
+  const time = useTravelTime(from, to, effective, departAt, visible);
 
   useEffect(() => {
     const el = row.current;
@@ -66,21 +84,8 @@ export function TravelGap({ tripId, toActivityId, toTitle, from, to, gapMinutes,
     return () => io.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (!visible) return;
-    let cancelled = false;
-    const [m, a, b, when] = key.split("|");
-    const [fromLat, fromLng] = a.split(",").map(Number);
-    const [toLat, toLng] = b.split(",").map(Number);
-    getTravelTime({ lat: fromLat, lng: fromLng }, { lat: toLat, lng: toLng }, m as TravelMode, new Date(when)).then((t) => {
-      if (!cancelled) setResult({ key, time: t });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [visible, key]);
-
-  const verdict = time ? travelVerdict(gapMinutes, time.minutes) : null;
+  const verdict = time && gapMinutes !== null ? travelVerdict(gapMinutes, time.minutes) : null;
+  const leaveAt = time ? formatClock(new Date(Date.parse(arriveAt) - time.minutes * 60_000), timeZone) : null;
   const Icon = TRAVEL_MODE_META[effective].icon;
   const tone =
     verdict === "late"
@@ -134,17 +139,20 @@ export function TravelGap({ tripId, toActivityId, toTitle, from, to, gapMinutes,
           </span>
         ) : (
           <span className="min-w-0 flex-1">
+            {fromLabel && <>Desde {fromLabel} · </>}
             <span className="font-medium">
               {time.estimated ? "≈ " : ""}
               {formatDuration(time.minutes)} {TRAVEL_MODE_META[effective].short}
             </span>
             {time.meters !== null && ` · ${formatKm(time.meters)}`}
             {" · "}
-            {verdict === "late"
-              ? `No alcanzas: tienes ${formatDuration(gapMinutes)}, faltan ${formatDuration(time.minutes - gapMinutes)}`
-              : verdict === "tight"
-                ? `Justo: ${formatDuration(gapMinutes - time.minutes)} de margen (recomendado ${MARGIN_MINUTES} min)`
-                : `te sobran ${formatDuration(gapMinutes - time.minutes)}`}
+            {gapMinutes === null
+              ? `sal a las ${leaveAt}`
+              : verdict === "late"
+                ? `No alcanzas: tienes ${formatDuration(gapMinutes)}, faltan ${formatDuration(time.minutes - gapMinutes)}`
+                : verdict === "tight"
+                  ? `Justo: ${formatDuration(gapMinutes - time.minutes)} de margen (recomendado ${MARGIN_MINUTES} min)`
+                  : `te sobran ${formatDuration(gapMinutes - time.minutes)}`}
             {time.estimated && <span title="Estimado en línea recta: no se pudo consultar la ruta."> · aprox.</span>}
           </span>
         )}

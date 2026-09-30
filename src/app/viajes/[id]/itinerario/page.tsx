@@ -25,7 +25,7 @@ import { WEATHER_ATTRIBUTION } from "@/lib/weather/types";
 import { resolveTripNow } from "@/lib/trips/today";
 import { instantToZonedTime } from "@/lib/zoned-time";
 import { TravelGap } from "@/components/activities/travel-gap";
-import { isTravelMode, travelPairs } from "@/lib/maps/travel";
+import { hotelStarts, isTravelMode, travelPairs } from "@/lib/maps/travel";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itinerario">): Promise<Metadata> {
   const trip = await getTrip((await params).id);
@@ -128,21 +128,40 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     ...dayLegs.map((item): Row => ({ kind: "leg", at: item.at, item })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
   // Travel time to check between consecutive activities (anything else in between breaks the chain).
+  const pairStop = (a: (typeof dayActivities)[number]) => ({
+    id: a.id,
+    category: a.category,
+    start: a.startsAt,
+    end: new Date(a.startsAt.getTime() + a.duration_minutes * 60_000),
+    point: a.lat !== null && a.lng !== null ? { lat: a.lat, lng: a.lng } : null,
+    participantIds: a.participantIds,
+  });
   const travelTo = new Map(
-    travelPairs(
-      dayRows.map((row) =>
-        row.kind === "activity"
-          ? {
-              id: row.activity.id,
-              category: row.activity.category,
-              start: row.activity.startsAt,
-              end: new Date(row.activity.startsAt.getTime() + row.activity.duration_minutes * 60_000),
-              point: row.activity.lat !== null && row.activity.lng !== null ? { lat: row.activity.lat, lng: row.activity.lng } : null,
-              participantIds: row.activity.participantIds,
-            }
-          : null,
-      ),
-    ).map((pair) => [pair.to.id, pair]),
+    travelPairs(dayRows.map((row) => (row.kind === "activity" ? pairStop(row.activity) : null))).map((pair) => [pair.to.id, pair]),
+  );
+  // And from the hotel: where you woke up, or where you just checked in.
+  const asHotel = (s: (typeof personStays)[number]) => ({
+    name: s.name,
+    point: s.lat !== null && s.lng !== null ? { lat: s.lat, lng: s.lng } : null,
+  });
+  const morningStay = day
+    ? personStays.find(
+        (s) =>
+          instantToZonedTime(s.check_in_at, s.timezone).date < day.date &&
+          day.date <= instantToZonedTime(s.check_out_at, s.timezone).date,
+      )
+    : undefined;
+  const fromHotel = hotelStarts<ReturnType<typeof pairStop>, ReturnType<typeof asHotel>>(
+    dayRows.map((row) =>
+      row.kind === "activity"
+        ? { kind: "activity" as const, stop: pairStop(row.activity) }
+        : row.kind === "stay"
+          ? row.event.kind === "check_in"
+            ? { kind: "check_in" as const, stay: asHotel(row.event.stay) }
+            : { kind: "check_out" as const }
+          : { kind: "leg" as const },
+    ),
+    morningStay ? asHotel(morningStay) : null,
   );
   const dayStops = day ? stopsForDate(stops, day.date) : [];
   // Weather where the day ends up (the destination on a travel day).
@@ -460,6 +479,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                       (overlaps.length > 0 ? "border-warning-border bg-warning-soft" : "bg-card");
 
                     const travel = travelTo.get(a.id);
+                    const hotel = travel ? undefined : fromHotel.get(a.id);
                     return (
                       <Fragment key={a.id}>
                         {travel && (
@@ -471,6 +491,24 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                             to={travel.to.point!}
                             gapMinutes={travel.gapMinutes}
                             departAt={travel.from.end.toISOString()}
+                            arriveAt={a.starts_at}
+                            timeZone={a.timezone}
+                            mode={isTravelMode(a.travel_mode) ? a.travel_mode : null}
+                            editable={editable}
+                          />
+                        )}
+                        {hotel && (
+                          <TravelGap
+                            tripId={trip.id}
+                            toActivityId={a.id}
+                            toTitle={a.title}
+                            from={hotel.point!}
+                            to={{ lat: a.lat!, lng: a.lng! }}
+                            gapMinutes={null}
+                            fromLabel={hotel.name}
+                            departAt={new Date(a.startsAt.getTime() - 45 * 60_000).toISOString()}
+                            arriveAt={a.starts_at}
+                            timeZone={a.timezone}
                             mode={isTravelMode(a.travel_mode) ? a.travel_mode : null}
                             editable={editable}
                           />
