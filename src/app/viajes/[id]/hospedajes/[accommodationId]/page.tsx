@@ -94,7 +94,7 @@ export default async function EditAccommodationPage({
           tripId={trip.id}
           accommodationId={stay.id}
           defaultType="hotel"
-          title={files.length > 0 ? "Agregar otro archivo" : "Adjuntar reserva"}
+          title={files.length > 0 ? "Agregar más archivos" : "Adjuntar reserva"}
         />
       </section>
 

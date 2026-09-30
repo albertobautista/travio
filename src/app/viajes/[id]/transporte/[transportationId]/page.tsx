@@ -98,7 +98,7 @@ export default async function EditTransportationPage({
           tripId={trip.id}
           transportationId={leg.id}
           defaultType={leg.type === "flight" ? "flight" : leg.type === "train" ? "train" : "ticket"}
-          title={files.length > 0 ? "Agregar otro archivo" : "Adjuntar boleto"}
+          title={files.length > 0 ? "Agregar más archivos" : "Adjuntar boletos"}
         />
       </section>
 

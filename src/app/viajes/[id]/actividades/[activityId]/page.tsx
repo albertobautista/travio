@@ -131,7 +131,7 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
           tripId={trip.id}
           activityId={activity.id}
           defaultType={activity.category === "tour" ? "tour" : "ticket"}
-          title={files.length > 0 ? "Agregar otro archivo" : "Adjuntar boleto o reserva"}
+          title={files.length > 0 ? "Agregar más archivos" : "Adjuntar boletos o reservas"}
         />
       </section>
 
