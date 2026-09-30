@@ -130,14 +130,15 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
         <Link
           href="/viajes"
           aria-label="Volver a mis viajes"
-          className="absolute top-3 left-3 flex size-11 items-center justify-center rounded-full bg-card/90 text-foreground shadow hover:bg-card"
+          className="absolute top-3 left-3 flex size-11 lg:hidden items-center justify-center rounded-full bg-card/90 text-foreground shadow hover:bg-card"
         >
           <ChevronLeft className="size-5" aria-hidden="true" />
         </Link>
+        {/* On desktop the trip header has these (and the sidebar, the way back). */}
         {editable && (
           <Link
             href={`${base}/editar`}
-            className="absolute top-3 right-3 flex h-11 items-center gap-1.5 rounded-xl bg-card/90 px-3 text-sm font-semibold text-foreground shadow hover:bg-card"
+            className="absolute top-3 right-3 flex h-11 lg:hidden items-center gap-1.5 rounded-xl bg-card/90 px-3 text-sm font-semibold text-foreground shadow hover:bg-card"
           >
             <Pencil className="size-4" aria-hidden="true" />
             Editar

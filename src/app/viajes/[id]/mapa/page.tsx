@@ -70,7 +70,7 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
     (typeof dia === "string" && days.some((d) => d.date === dia) && dia) || (days.some((d) => d.date === today) ? today : null);
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 lg:max-w-5xl flex-col gap-4 px-4 py-6">
       <header className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Mapa</h1>

@@ -382,7 +382,7 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
 
       <div className="relative overflow-hidden rounded-2xl border bg-muted">
         {configured && !error ? (
-          <div ref={container} className="h-[50vh] min-h-72 w-full scroll-mt-4" role="application" aria-label="Mapa del viaje" />
+          <div ref={container} className="h-[50vh] min-h-72 w-full scroll-mt-4 lg:h-[62vh]" role="application" aria-label="Mapa del viaje" />
         ) : (
           <div className="flex h-56 flex-col items-center justify-center gap-2 p-6 text-center">
             <AlertTriangle className="size-6 text-warning" aria-hidden="true" />
