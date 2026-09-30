@@ -16,7 +16,7 @@ export const getExpenses = cache(async (tripId: string) => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("expenses")
-    .select("id, category, description, amount, currency, spent_on, paid_by, notes")
+    .select("id, category, description, amount, currency, spent_on, paid_by, notes, split_mode, expense_shares (traveler_id, share)")
     .eq("trip_id", tripId)
     .order("spent_on", { ascending: false })
     .order("created_at", { ascending: false });
@@ -25,3 +25,17 @@ export const getExpenses = cache(async (tripId: string) => {
 });
 
 export type Expense = Awaited<ReturnType<typeof getExpenses>>[number];
+
+/** Payments between travelers to settle up, newest first. */
+export const getSettlements = cache(async (tripId: string) => {
+  if (!isUuid(tripId)) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("settlements")
+    .select("id, from_traveler, to_traveler, amount, currency, paid_on")
+    .eq("trip_id", tripId)
+    .order("paid_on", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) console.error("getSettlements failed", error);
+  return data ?? [];
+});

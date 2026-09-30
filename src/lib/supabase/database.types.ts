@@ -141,15 +141,40 @@ isOneToOne: false
       referencedColumns: ["trip_id","id"]
     }
                   ]
-                },"expenses": {
+                },"expense_shares": {
                   Row: {
-                    "amount": number,"category": string,"created_at": string,"created_by": string | null,"currency": string,"description": string,"id": string,"notes": string | null,"paid_by": string | null,"spent_on": string,"trip_id": string,"updated_at": string
+                    "created_at": string,"expense_id": string,"share": number | null,"traveler_id": string,"trip_id": string
                   }
                   Insert: {
-                    "amount": number,"category"?: string,"created_at"?: string,"created_by"?: string | null,"currency": string,"description": string,"id"?: string,"notes"?: string | null,"paid_by"?: string | null,"spent_on": string,"trip_id": string,"updated_at"?: string
+                    "created_at"?: string,"expense_id": string,"share"?: number | null,"traveler_id": string,"trip_id": string
                   }
                   Update: {
-                    "amount"?: number,"category"?: string,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string,"id"?: string,"notes"?: string | null,"paid_by"?: string | null,"spent_on"?: string,"trip_id"?: string,"updated_at"?: string
+                    "created_at"?: string,"expense_id"?: string,"share"?: number | null,"traveler_id"?: string,"trip_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "expense_shares_trip_id_expense_id_fkey"
+      columns: ["trip_id","expense_id"]
+isOneToOne: false
+      referencedRelation: "expenses"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "expense_shares_trip_id_traveler_id_fkey"
+      columns: ["trip_id","traveler_id"]
+isOneToOne: false
+      referencedRelation: "travelers"
+      referencedColumns: ["trip_id","id"]
+    }
+                  ]
+                },"expenses": {
+                  Row: {
+                    "amount": number,"category": string,"created_at": string,"created_by": string | null,"currency": string,"description": string,"id": string,"notes": string | null,"paid_by": string | null,"spent_on": string,"split_mode": string,"trip_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "amount": number,"category"?: string,"created_at"?: string,"created_by"?: string | null,"currency": string,"description": string,"id"?: string,"notes"?: string | null,"paid_by"?: string | null,"spent_on": string,"split_mode"?: string,"trip_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "amount"?: number,"category"?: string,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string,"id"?: string,"notes"?: string | null,"paid_by"?: string | null,"spent_on"?: string,"split_mode"?: string,"trip_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -257,6 +282,43 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "trips"
       referencedColumns: ["id"]
+    }
+                  ]
+                },"settlements": {
+                  Row: {
+                    "amount": number,"created_at": string,"created_by": string | null,"currency": string,"from_traveler": string,"id": string,"paid_on": string,"to_traveler": string,"trip_id": string
+                  }
+                  Insert: {
+                    "amount": number,"created_at"?: string,"created_by"?: string | null,"currency": string,"from_traveler": string,"id"?: string,"paid_on"?: string,"to_traveler": string,"trip_id": string
+                  }
+                  Update: {
+                    "amount"?: number,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"from_traveler"?: string,"id"?: string,"paid_on"?: string,"to_traveler"?: string,"trip_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "settlements_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "settlements_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "settlements_trip_id_from_traveler_fkey"
+      columns: ["trip_id","from_traveler"]
+isOneToOne: false
+      referencedRelation: "travelers"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "settlements_trip_id_to_traveler_fkey"
+      columns: ["trip_id","to_traveler"]
+isOneToOne: false
+      referencedRelation: "travelers"
+      referencedColumns: ["trip_id","id"]
     }
                   ]
                 },"transportation_participants": {
@@ -460,6 +522,9 @@ isOneToOne: false
                            },
 "set_activity_participants":
 { Args: { "p_activity_id": string,"p_traveler_ids": (string)[] }; Returns: undefined
+                           },
+"set_expense_shares":
+{ Args: { "p_expense_id": string,"p_mode": string,"p_shares": Json }; Returns: undefined
                            },
 "set_transportation_participants":
 { Args: { "p_transportation_id": string,"p_travelers": Json }; Returns: undefined

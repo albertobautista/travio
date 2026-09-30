@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AlertTriangle, Plus } from "lucide-react";
 
+import { Balances } from "@/components/budget/balances";
 import { BudgetAmountForm, ExpenseForm, RateForm } from "@/components/budget/budget-forms";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { formatDayLabel } from "@/lib/activities/itinerary";
@@ -9,8 +10,9 @@ import { getActivities } from "@/lib/activities/queries";
 import { BUDGET_META, isBudgetCategory } from "@/lib/budget/categories";
 import { suggestRates } from "@/lib/budget/ecb-rates";
 import { convert, formatMoney, toCents } from "@/lib/budget/money";
-import { getExchangeRates, getExpenses } from "@/lib/budget/queries";
+import { getExchangeRates, getExpenses, getSettlements } from "@/lib/budget/queries";
 import { plannedItems, spentItems } from "@/lib/budget/planned";
+import { computeBalances, isSplitMode } from "@/lib/budget/split";
 import { summarizeBudget } from "@/lib/budget/summary";
 import { getTransportations } from "@/lib/transportations/queries";
 import { getTravelers } from "@/lib/travelers/queries";
@@ -30,7 +32,7 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/presu
  */
 export default async function BudgetPage({ params }: PageProps<"/viajes/[id]/presupuesto">) {
   const { id } = await params;
-  const [trip, role, stops, activities, stays, legs, expenses, rates, travelers] = await Promise.all([
+  const [trip, role, stops, activities, stays, legs, expenses, rates, travelers, settlements] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
@@ -40,6 +42,7 @@ export default async function BudgetPage({ params }: PageProps<"/viajes/[id]/pre
     getExpenses(id),
     getExchangeRates(id),
     getTravelers(id),
+    getSettlements(id),
   ]);
   if (!trip) notFound();
   const editable = canEdit(role);
@@ -62,6 +65,20 @@ export default async function BudgetPage({ params }: PageProps<"/viajes/[id]/pre
   const today = resolveTripNow(stops).today;
   const travelerName = new Map(travelers.map((t) => [t.id, t.name.split(" ")[0]]));
   const defaultCurrency = summary.currencies.find((c) => rates.has(c)) ?? cur;
+
+  // Who owes whom (only when there's a group to split with).
+  const split =
+    travelers.length > 1 && (expenses.length > 0 || settlements.length > 0)
+      ? computeBalances({ travelerIds: travelers.map((t) => t.id), expenses, settlements, tripCurrency: cur, rates })
+      : null;
+  const allIds = travelers.map((t) => t.id);
+  const splitLabel = (e: (typeof expenses)[number]) => {
+    if (travelers.length < 2) return "";
+    const n = e.expense_shares.length || travelers.length;
+    if (e.split_mode === "amount") return ` · montos entre ${n}`;
+    if (e.split_mode === "percent") return ` · % entre ${n}`;
+    return e.expense_shares.length === 0 ? " · entre todos" : n === 1 ? ` · solo ${travelerName.get(e.expense_shares[0].traveler_id) ?? ""}` : ` · entre ${n}`;
+  };
 
   // Expenses by day, newest first.
   const byDay = new Map<string, typeof expenses>();
@@ -220,6 +237,9 @@ export default async function BudgetPage({ params }: PageProps<"/viajes/[id]/pre
                   spent_on: today,
                   paid_by: travelers.find((t) => t.user_id)?.id ?? "",
                   notes: "",
+                  split_mode: "equal",
+                  split_ids: allIds,
+                  shares: {},
                 }}
               />
             </div>
@@ -249,6 +269,7 @@ export default async function BudgetPage({ params }: PageProps<"/viajes/[id]/pre
                         <span className="truncate text-xs text-muted-foreground">
                           {BUDGET_META[cat].label}
                           {e.paid_by && travelerName.get(e.paid_by) ? ` · pagó ${travelerName.get(e.paid_by)}` : ""}
+                          {splitLabel(e)}
                         </span>
                       </span>
                       <span className="flex shrink-0 flex-col items-end">
@@ -278,6 +299,11 @@ export default async function BudgetPage({ params }: PageProps<"/viajes/[id]/pre
                                 spent_on: e.spent_on,
                                 paid_by: e.paid_by ?? "",
                                 notes: e.notes ?? "",
+                                split_mode: isSplitMode(e.split_mode) ? e.split_mode : "equal",
+                                split_ids: e.expense_shares.length > 0 ? e.expense_shares.map((x) => x.traveler_id) : allIds,
+                                shares: Object.fromEntries(
+                                  e.expense_shares.filter((x) => x.share !== null).map((x) => [x.traveler_id, String(x.share)]),
+                                ),
                               }}
                             />
                           </div>
@@ -293,6 +319,20 @@ export default async function BudgetPage({ params }: PageProps<"/viajes/[id]/pre
           ))
         )}
       </section>
+
+      {split && (
+        <Balances
+          tripId={trip.id}
+          currency={cur}
+          travelers={travelers}
+          balances={split.balances}
+          transfers={split.transfers}
+          settlements={settlements}
+          withoutPayer={split.withoutPayer}
+          unconverted={split.unconverted}
+          editable={editable}
+        />
+      )}
 
       {/* Exchange rates */}
       {summary.currencies.length > 0 && (
