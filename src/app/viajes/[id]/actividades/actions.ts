@@ -1,8 +1,10 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { parseActivityForm, type ActivityFormState } from "@/lib/activities/activity-form";
+import { isTravelMode } from "@/lib/maps/travel";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/uuid";
 
@@ -140,4 +142,26 @@ export async function rememberActivityPlace(tripId: string, activityId: string, 
     .eq("id", activityId)
     .is("google_place_id", null);
   if (error) console.error("rememberActivityPlace failed", error);
+}
+
+/**
+ * How to get to this activity from the previous one (null = automatic).
+ * Returns an error message for the picker to show.
+ */
+export async function setTravelMode(tripId: string, activityId: string, mode: string | null): Promise<{ error?: string }> {
+  if (!isUuid(tripId) || !isUuid(activityId) || (mode !== null && !isTravelMode(mode))) return { error: "No es válido." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("activities")
+    .update({ travel_mode: mode })
+    .eq("trip_id", tripId)
+    .eq("id", activityId)
+    .select("id");
+  if (error) {
+    console.error("setTravelMode failed", error);
+    return { error: "No pudimos guardarlo." };
+  }
+  if (data.length === 0) return { error: "No tienes permiso para editar este viaje." };
+  refresh();
+  return {};
 }

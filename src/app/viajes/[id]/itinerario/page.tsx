@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, BedDouble, ChevronRight, LogIn, LogOut, MapPin, Plus } from "lucide-react";
@@ -23,6 +24,8 @@ import { WeatherChip } from "@/components/weather/weather-chip";
 import { WEATHER_ATTRIBUTION } from "@/lib/weather/types";
 import { resolveTripNow } from "@/lib/trips/today";
 import { instantToZonedTime } from "@/lib/zoned-time";
+import { TravelGap } from "@/components/activities/travel-gap";
+import { isTravelMode, travelPairs } from "@/lib/maps/travel";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itinerario">): Promise<Metadata> {
   const trip = await getTrip((await params).id);
@@ -124,6 +127,23 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     ...dayEvents.map((e): Row => ({ kind: "stay", at: e.at, event: e })),
     ...dayLegs.map((item): Row => ({ kind: "leg", at: item.at, item })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
+  // Travel time to check between consecutive activities (anything else in between breaks the chain).
+  const travelTo = new Map(
+    travelPairs(
+      dayRows.map((row) =>
+        row.kind === "activity"
+          ? {
+              id: row.activity.id,
+              category: row.activity.category,
+              start: row.activity.startsAt,
+              end: new Date(row.activity.startsAt.getTime() + row.activity.duration_minutes * 60_000),
+              point: row.activity.lat !== null && row.activity.lng !== null ? { lat: row.activity.lat, lng: row.activity.lng } : null,
+              participantIds: row.activity.participantIds,
+            }
+          : null,
+      ),
+    ).map((pair) => [pair.to.id, pair]),
+  );
   const dayStops = day ? stopsForDate(stops, day.date) : [];
   // Weather where the day ends up (the destination on a travel day).
   const weatherStop = [...dayStops].reverse().find((s) => s.lat !== null && s.lng !== null);
@@ -439,29 +459,45 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                       "flex min-w-0 flex-1 flex-col gap-2 rounded-[14px] border px-2.5 py-2 " +
                       (overlaps.length > 0 ? "border-warning-border bg-warning-soft" : "bg-card");
 
+                    const travel = travelTo.get(a.id);
                     return (
-                      <li key={a.id} className="flex items-center gap-2.5">
-                        <span
-                          aria-hidden="true"
-                          className={
-                            "relative size-3 shrink-0 rounded-full border-2 border-card " +
-                            (overlaps.length > 0 ? "bg-warning" : "bg-primary")
-                          }
-                        />
-                        <time
-                          dateTime={a.starts_at}
-                          className="w-11 shrink-0 font-mono text-xs font-semibold"
-                        >
-                          {instantToZonedTime(a.startsAt, a.timezone).time}
-                        </time>
-                        {editable ? (
-                          <Link href={href} className={cardClass + " hover:border-primary/40"}>
-                            {card}
-                          </Link>
-                        ) : (
-                          <div className={cardClass}>{card}</div>
+                      <Fragment key={a.id}>
+                        {travel && (
+                          <TravelGap
+                            tripId={trip.id}
+                            toActivityId={a.id}
+                            toTitle={a.title}
+                            from={travel.from.point!}
+                            to={travel.to.point!}
+                            gapMinutes={travel.gapMinutes}
+                            departAt={travel.from.end.toISOString()}
+                            mode={isTravelMode(a.travel_mode) ? a.travel_mode : null}
+                            editable={editable}
+                          />
                         )}
-                      </li>
+                        <li className="flex items-center gap-2.5">
+                          <span
+                            aria-hidden="true"
+                            className={
+                              "relative size-3 shrink-0 rounded-full border-2 border-card " +
+                              (overlaps.length > 0 ? "bg-warning" : "bg-primary")
+                            }
+                          />
+                          <time
+                            dateTime={a.starts_at}
+                            className="w-11 shrink-0 font-mono text-xs font-semibold"
+                          >
+                            {instantToZonedTime(a.startsAt, a.timezone).time}
+                          </time>
+                          {editable ? (
+                            <Link href={href} className={cardClass + " hover:border-primary/40"}>
+                              {card}
+                            </Link>
+                          ) : (
+                            <div className={cardClass}>{card}</div>
+                          )}
+                        </li>
+                      </Fragment>
                     );
                   })}
                 </ol>

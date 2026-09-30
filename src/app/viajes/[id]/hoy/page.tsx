@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, BedDouble, CalendarDays, Check, ExternalLink, FolderLock, Map as MapIcon, Navigation, Paperclip, Plus, Ticket } from "lucide-react";
@@ -8,6 +9,7 @@ import { TransportCard } from "@/components/transportations/transport-card";
 import { StartsIn } from "@/components/activities/starts-in";
 import { RainNotice, WeatherNow } from "@/components/weather/today-weather";
 import { PlacePhoto } from "@/components/maps/place-photo";
+import { TravelGap } from "@/components/activities/travel-gap";
 import { FileRow, fileHref } from "@/components/files/file-row";
 import { TripClock } from "@/components/trips/trip-clock";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -29,6 +31,7 @@ import { clockParts, zoneCity } from "@/lib/trips/clock";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
 import { directionsUrl } from "@/lib/maps/directions";
+import { isTravelMode, travelPairs } from "@/lib/maps/travel";
 import { getDailyWeather, getNowWeather } from "@/lib/weather/open-meteo";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
@@ -136,6 +139,25 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
     : [null, null];
 
   const plan = buildDayPlan(todays, now);
+  // Travel time between consecutive plans (free-time rows don't break the chain).
+  const travelTo = new Map(
+    travelPairs(
+      plan.items.flatMap((i) =>
+        i.kind === "activity"
+          ? [
+              {
+                id: i.activity.id,
+                category: i.activity.category,
+                start: i.activity.startsAt,
+                end: new Date(i.activity.startsAt.getTime() + i.activity.duration_minutes * 60_000),
+                point: i.activity.lat !== null && i.activity.lng !== null ? { lat: i.activity.lat, lng: i.activity.lng } : null,
+                participantIds: i.activity.participantIds,
+              },
+            ]
+          : [],
+      ),
+    ).map((pair) => [pair.to.id, pair]),
+  );
   const peopleOf = (a: (typeof prepared)[number]) =>
     a.participantIds.length > 0 ? a.participantIds.flatMap((pid) => travelerById.get(pid) ?? []) : travelers;
   const base = `/viajes/${trip.id}`;
@@ -452,32 +474,47 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                   {people.length > 0 && <TravelerStack travelers={people} max={3} />}
                 </>
               );
+              const travel = done ? undefined : travelTo.get(a.id);
               return (
-                <li
-                  key={a.id}
-                  className={"flex items-center gap-2.5 rounded-xl py-2 " + (current || item.isNext ? "-mx-2 bg-secondary px-2" : "")}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={
-                      "relative flex size-3 shrink-0 items-center justify-center rounded-full " +
-                      (done ? "bg-success" : current ? "bg-primary ring-4 ring-primary/20" : "border-2 border-primary bg-card")
-                    }
-                  >
-                    {done && <Check className="size-2 text-white" strokeWidth={4} />}
-                  </span>
-                  <time dateTime={a.starts_at} className="w-11 shrink-0 font-mono text-xs font-semibold">
-                    {instantToZonedTime(a.startsAt, a.timezone).time}
-                  </time>
-                  <span className="sr-only">{done ? "Hecho." : current ? "En curso." : ""}</span>
-                  {editable ? (
-                    <Link href={`${base}/actividades/${a.id}`} className="flex min-w-0 flex-1 items-center gap-2 hover:underline">
-                      {row}
-                    </Link>
-                  ) : (
-                    <span className="flex min-w-0 flex-1 items-center gap-2">{row}</span>
+                <Fragment key={a.id}>
+                  {travel && (
+                    <TravelGap
+                      tripId={trip.id}
+                      toActivityId={a.id}
+                      toTitle={a.title}
+                      from={travel.from.point!}
+                      to={travel.to.point!}
+                      gapMinutes={travel.gapMinutes}
+                      departAt={travel.from.end.toISOString()}
+                      mode={isTravelMode(a.travel_mode) ? a.travel_mode : null}
+                      editable={editable}
+                    />
                   )}
-                </li>
+                  <li
+                    className={"flex items-center gap-2.5 rounded-xl py-2 " + (current || item.isNext ? "-mx-2 bg-secondary px-2" : "")}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={
+                        "relative flex size-3 shrink-0 items-center justify-center rounded-full " +
+                        (done ? "bg-success" : current ? "bg-primary ring-4 ring-primary/20" : "border-2 border-primary bg-card")
+                      }
+                    >
+                      {done && <Check className="size-2 text-white" strokeWidth={4} />}
+                    </span>
+                    <time dateTime={a.starts_at} className="w-11 shrink-0 font-mono text-xs font-semibold">
+                      {instantToZonedTime(a.startsAt, a.timezone).time}
+                    </time>
+                    <span className="sr-only">{done ? "Hecho." : current ? "En curso." : ""}</span>
+                    {editable ? (
+                      <Link href={`${base}/actividades/${a.id}`} className="flex min-w-0 flex-1 items-center gap-2 hover:underline">
+                        {row}
+                      </Link>
+                    ) : (
+                      <span className="flex min-w-0 flex-1 items-center gap-2">{row}</span>
+                    )}
+                  </li>
+                </Fragment>
               );
             })}
           </ol>

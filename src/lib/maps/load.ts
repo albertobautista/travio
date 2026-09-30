@@ -43,7 +43,7 @@ function loadScript(): Promise<void> {
   return loading;
 }
 
-export async function importMapsLibrary<K extends "maps" | "marker" | "places" | "core">(name: K) {
+export async function importMapsLibrary<K extends "maps" | "marker" | "places" | "routes" | "core">(name: K) {
   if (!mapsConfigured()) throw new Error("Falta NEXT_PUBLIC_GOOGLE_MAPS_API_KEY");
   await loadScript();
   return google.maps.importLibrary(name) as Promise<
@@ -53,6 +53,8 @@ export async function importMapsLibrary<K extends "maps" | "marker" | "places" |
         ? google.maps.MarkerLibrary
         : K extends "places"
           ? google.maps.PlacesLibrary
-          : google.maps.CoreLibrary
+          : K extends "routes"
+            ? google.maps.RoutesLibrary
+            : google.maps.CoreLibrary
   >;
 }
