@@ -141,6 +141,31 @@ isOneToOne: false
       referencedColumns: ["trip_id","id"]
     }
                   ]
+                },"ai_requests": {
+                  Row: {
+                    "created_at": string,"id": number,"trip_id": string,"user_id": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"id"?: never,"trip_id": string,"user_id"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: never,"trip_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "ai_requests_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "ai_requests_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"expense_shares": {
                   Row: {
                     "created_at": string,"expense_id": string,"share": number | null,"traveler_id": string,"trip_id": string
@@ -479,13 +504,13 @@ isOneToOne: false
                   ]
                 },"trips": {
                   Row: {
-                    "budget_amount": number | null,"cover_image_path": string | null,"created_at": string,"created_by": string | null,"currency": string,"description": string | null,"end_date": string | null,"id": string,"name": string,"start_date": string | null,"updated_at": string
+                    "ai_enabled": boolean,"budget_amount": number | null,"cover_image_path": string | null,"created_at": string,"created_by": string | null,"currency": string,"description": string | null,"end_date": string | null,"id": string,"name": string,"start_date": string | null,"updated_at": string
                   }
                   Insert: {
-                    "budget_amount"?: number | null,"cover_image_path"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name": string,"start_date"?: string | null,"updated_at"?: string
+                    "ai_enabled"?: boolean,"budget_amount"?: number | null,"cover_image_path"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name": string,"start_date"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "budget_amount"?: number | null,"cover_image_path"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name"?: string,"start_date"?: string | null,"updated_at"?: string
+                    "ai_enabled"?: boolean,"budget_amount"?: number | null,"cover_image_path"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name"?: string,"start_date"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -504,6 +529,9 @@ isOneToOne: false
           Functions: {
             "can_edit_trip":
 { Args: { "p_trip_id": string }; Returns: boolean
+                           },
+"claim_ai_request":
+{ Args: { "p_trip_id": string }; Returns: number
                            },
 "is_trip_member":
 { Args: { "p_trip_id": string }; Returns: boolean

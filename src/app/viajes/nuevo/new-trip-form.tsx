@@ -81,6 +81,8 @@ export function NewTripForm() {
       cancelHref="/viajes"
       onCreated={handleCreated}
       busyLabel={busyLabel}
+      // Whoever creates the trip is its owner.
+      showAiSwitch
     >
       {/* Tells the action to return the new id instead of redirecting. */}
       <input type="hidden" name="cover" value={file ? "pending" : ""} />

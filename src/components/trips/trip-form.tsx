@@ -23,6 +23,8 @@ type TripFormProps = {
   onCreated?: (tripId: string) => void;
   /** Work the parent is doing after the action (e.g. uploading); disables the form. */
   busyLabel?: string | null;
+  /** Show the AI switch (only owners may change it; the database enforces it too). */
+  showAiSwitch?: boolean;
 };
 
 export function TripForm({
@@ -34,6 +36,7 @@ export function TripForm({
   children,
   onCreated,
   busyLabel,
+  showAiSwitch = false,
 }: TripFormProps) {
   const [state, action, pending] = useActionState(serverAction, undefined);
   const errors = state?.fieldErrors ?? {};
@@ -148,6 +151,33 @@ export function TripForm({
           aria-describedby={errors.description ? "description-error" : undefined}
         />
       </FormField>
+
+      {showAiSwitch && (
+        <div className="flex flex-col gap-2 rounded-xl border p-3">
+          <input type="hidden" name="ai_enabled_field" value="1" />
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              name="ai_enabled"
+              defaultChecked={values?.ai_enabled === "on"}
+              aria-describedby="ai_enabled-hint"
+              className="peer sr-only"
+            />
+            {/* A switch drawn over the real checkbox (keyboard and screen readers use the checkbox). */}
+            <span
+              aria-hidden="true"
+              className="relative mt-0.5 h-6 w-10 shrink-0 rounded-full bg-muted transition-colors peer-checked:bg-primary peer-focus-visible:ring-3 peer-focus-visible:ring-ring/50 after:absolute after:top-0.5 after:left-0.5 after:size-5 after:rounded-full after:bg-white after:shadow after:transition-transform peer-checked:after:translate-x-4"
+            />
+            <span className="flex flex-col gap-0.5">
+              <span className="text-sm font-medium">Ideas con IA para los tiempos libres</span>
+              <span id="ai_enabled-hint" className="text-xs text-muted-foreground">
+                Con Claude (Anthropic). Cuando alguien pide ideas se envían la ciudad, los horarios y los lugares del viaje; nunca documentos
+                ni nombres. Apagado por defecto; solo el propietario puede cambiarlo.
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
 
       {state?.error && (
         <p role="alert" className="text-sm text-destructive">

@@ -290,6 +290,8 @@ Not required for the MVP. When it comes, it should be contextual, not a generic 
 
 **Do not make AI a dependency for basic trip planning.**
 
+**First version (decided 2026-10-01):** ideas for free gaps (≥ 60 min) in Hoy and the Itinerary ("¿Qué hago?"). Claude Sonnet 5.5 proposes up to 3 places (prioritizing saved ones) via a forced tool call; the browser verifies each in Google Places and checks going + staying + coming back fits the gap. Off by default per trip (`trips.ai_enabled`, only the owner can change it, enforced by a trigger); any member may ask, 30 requests per person per day (`claim_ai_request`). Only city, times, places and weather are sent; no names, documents or booking data. Code in `src/lib/ai/` and `src/app/viajes/[id]/ideas/`.
+
 ## 20. Main screens
 
 1. **My Trips**: upcoming, active, past; cover images, dates, cities, planning progress.

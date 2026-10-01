@@ -10,6 +10,8 @@ import { StartsIn } from "@/components/activities/starts-in";
 import { RainNotice, WeatherNow } from "@/components/weather/today-weather";
 import { PlacePhoto } from "@/components/maps/place-photo";
 import { LeaveBy } from "@/components/activities/leave-by";
+import { GapIdeas } from "@/components/ideas/gap-ideas";
+import { aiConfigured } from "@/lib/ai/gap-ideas";
 import { TravelGap } from "@/components/activities/travel-gap";
 import { FileRow, fileHref } from "@/components/files/file-row";
 import { TripClock } from "@/components/trips/trip-clock";
@@ -80,6 +82,8 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
 
   const now = new Date();
   const editable = canEdit(role);
+  // The owner's switch for the trip, and a key on the server.
+  const aiOn = trip.ai_enabled && aiConfigured();
   const { today, timeZone, stop } = resolveTripNow(stops, now);
   const status = getTripStatus(trip.start_date, trip.end_date, today);
   const dayNumber = getTripDayNumber(trip.start_date, trip.end_date, today);
@@ -472,6 +476,27 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
             <span aria-hidden="true" className="absolute top-5 bottom-5 left-[5px] w-0.5 bg-timeline" />
             {plan.items.map((item, i) => {
               if (item.kind === "free") {
+                // Ideas for it (AI on, an hour or more, not over yet).
+                const before = plan.items[i - 1];
+                const after = plan.items[i + 1];
+                if (
+                  aiOn &&
+                  item.minutes >= 60 &&
+                  before?.kind === "activity" &&
+                  after?.kind === "activity" &&
+                  after.activity.startsAt.getTime() > now.getTime()
+                ) {
+                  return (
+                    <GapIdeas
+                      key={`free-${i}`}
+                      tripId={trip.id}
+                      fromActivityId={before.activity.id}
+                      toActivityId={after.activity.id}
+                      gapMinutes={item.minutes}
+                      editable={editable}
+                    />
+                  );
+                }
                 return (
                   <li key={`free-${i}`} className="flex items-center gap-2.5 py-1 pl-6 text-xs text-muted-foreground">
                     Tiempo libre · {formatDuration(item.minutes)}

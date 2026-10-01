@@ -28,6 +28,8 @@ export async function updateTrip(tripId: string, _prev: TripFormState, formData:
 
   if (error) {
     console.error("updateTrip failed", error);
+    // 42501 from the trips_check_ai_enabled_change trigger.
+    if (error.code === "42501") return { error: "Solo el propietario puede cambiar las ideas con IA.", values: parsed.values };
     return { error: "No pudimos guardar los cambios. Inténtalo de nuevo.", values: parsed.values };
   }
   if (data.length === 0) {

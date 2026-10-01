@@ -25,6 +25,8 @@ import { WEATHER_ATTRIBUTION } from "@/lib/weather/types";
 import { resolveTripNow } from "@/lib/trips/today";
 import { instantToZonedTime } from "@/lib/zoned-time";
 import { TravelGap } from "@/components/activities/travel-gap";
+import { GapIdeas } from "@/components/ideas/gap-ideas";
+import { aiConfigured } from "@/lib/ai/gap-ideas";
 import { hotelStarts, isTravelMode, travelPairs } from "@/lib/maps/travel";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itinerario">): Promise<Metadata> {
@@ -163,6 +165,19 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     ),
     morningStay ? asHotel(morningStay) : null,
   );
+  // Free time worth ideas (AI on): an hour or more between two consecutive activities, still ahead.
+  const aiOn = trip.ai_enabled && aiConfigured();
+  const ideasBefore = new Map<string, { fromId: string; minutes: number }>();
+  if (aiOn) {
+    const nowMs = new Date().getTime();
+    dayRows.forEach((row, i) => {
+      const prev = dayRows[i - 1];
+      if (row.kind !== "activity" || prev?.kind !== "activity") return;
+      const end = prev.activity.startsAt.getTime() + prev.activity.duration_minutes * 60_000;
+      const minutes = Math.round((row.activity.startsAt.getTime() - end) / 60_000);
+      if (minutes >= 60 && row.activity.startsAt.getTime() > nowMs) ideasBefore.set(row.activity.id, { fromId: prev.activity.id, minutes });
+    });
+  }
   const dayStops = day ? stopsForDate(stops, day.date) : [];
   // Weather where the day ends up (the destination on a travel day).
   const weatherStop = [...dayStops].reverse().find((s) => s.lat !== null && s.lng !== null);
@@ -480,8 +495,18 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
 
                     const travel = travelTo.get(a.id);
                     const hotel = travel ? undefined : fromHotel.get(a.id);
+                    const gap = ideasBefore.get(a.id);
                     return (
                       <Fragment key={a.id}>
+                        {gap && (
+                          <GapIdeas
+                            tripId={trip.id}
+                            fromActivityId={gap.fromId}
+                            toActivityId={a.id}
+                            gapMinutes={gap.minutes}
+                            editable={editable}
+                          />
+                        )}
                         {travel && (
                           <TravelGap
                             tripId={trip.id}

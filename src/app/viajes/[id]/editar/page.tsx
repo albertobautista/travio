@@ -65,7 +65,9 @@ export default async function EditTripPage({ params, searchParams }: PageProps<"
             currency: trip.currency,
             budget_amount: trip.budget_amount === null ? "" : String(trip.budget_amount),
             description: trip.description ?? "",
+            ai_enabled: trip.ai_enabled ? "on" : "",
           }}
+          showAiSwitch={role === "owner"}
           submitLabel="Guardar cambios"
           pendingLabel="Guardando…"
           cancelHref={`/viajes/${trip.id}`}

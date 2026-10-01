@@ -8,7 +8,7 @@ import { DEFAULT_CURRENCY, isOfferedCurrency } from "./currencies";
  * so browser-side checks are only a convenience.
  */
 
-export type TripField = "name" | "start_date" | "end_date" | "currency" | "budget_amount" | "description";
+export type TripField = "name" | "start_date" | "end_date" | "currency" | "budget_amount" | "description" | "ai_enabled";
 export type TripFormValues = Record<TripField, string>;
 
 export type TripFormState =
@@ -32,6 +32,11 @@ export type TripFormData = {
   /** Total budget in the trip's currency; null = not set. */
   budget_amount: number | null;
   description: string | null;
+  /**
+   * Only when the form showed the switch (owners). Absent, the column is left
+   * alone, so an editor saving the form doesn't turn AI off.
+   */
+  ai_enabled?: boolean;
 };
 
 const MAX_NAME = 120;
@@ -56,7 +61,10 @@ export function parseTripForm(
     currency: String(formData.get("currency") ?? DEFAULT_CURRENCY),
     budget_amount: String(formData.get("budget_amount") ?? "").trim(),
     description: String(formData.get("description") ?? "").trim(),
+    ai_enabled: formData.get("ai_enabled") === "on" ? "on" : "",
   };
+  // The hidden marker says the switch was on the form (an unchecked checkbox sends nothing).
+  const hasAiSwitch = formData.get("ai_enabled_field") === "1";
 
   const fieldErrors: Partial<Record<TripField, string>> = {};
 
@@ -97,6 +105,7 @@ export function parseTripForm(
       currency: values.currency,
       budget_amount: budget,
       description: values.description || null,
+      ...(hasAiSwitch ? { ai_enabled: values.ai_enabled === "on" } : {}),
     },
   };
 }
