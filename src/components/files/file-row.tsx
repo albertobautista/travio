@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Download, FileText, ImageIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -18,9 +19,14 @@ export function fileHref(tripId: string, fileId: string, download = false) {
   return `/viajes/${tripId}/documentos/${fileId}${download ? "?descargar=1" : ""}`;
 }
 
+/** The document's page: what it's for, with the file previewed (see ticket/[fileId]). */
+export function ticketHref(tripId: string, fileId: string) {
+  return `/viajes/${tripId}/ticket/${fileId}`;
+}
+
 /**
- * One document: tap the name to open it, or download it. Plain <a> links, not
- * next/link: the target is a redirect to Storage, not a page to prefetch.
+ * One document: tap the name for its page (preview, details), or download it.
+ * The download is a plain <a>: it's a redirect to Storage, not a page.
  */
 export function FileRow({ tripId, file, meta, actions }: Props) {
   const isPdf = file.mime_type === "application/pdf";
@@ -31,14 +37,9 @@ export function FileRow({ tripId, file, meta, actions }: Props) {
         <Icon className="size-5" aria-hidden="true" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col py-1">
-        <a
-          href={fileHref(tripId, file.id)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="truncate text-sm font-medium hover:underline"
-        >
+        <Link href={ticketHref(tripId, file.id)} className="truncate text-sm font-medium hover:underline">
           {file.original_name}
-        </a>
+        </Link>
         <span className="truncate text-xs text-muted-foreground">
           {isPdf ? "PDF" : "Imagen"} · {formatFileSize(file.size_bytes)}
           {meta ? <> · {meta}</> : null}

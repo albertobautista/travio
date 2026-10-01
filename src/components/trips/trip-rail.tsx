@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { FileText, ImageIcon, Ticket } from "lucide-react";
 
-import { fileHref } from "@/components/files/file-row";
+import { ticketHref } from "@/components/files/file-row";
 import { RouteMiniMap } from "@/components/maps/route-mini-map";
 import { activityDate } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
@@ -90,10 +90,8 @@ export async function TripRail({ tripId }: { tripId: string }) {
               const of = f.activities?.title ?? (f.transportations ? `${f.transportations.origin_name} → ${f.transportations.destination_name}` : null);
               return (
                 <li key={f.id}>
-                  <a
-                    href={fileHref(trip.id, f.id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Link
+                    href={ticketHref(trip.id, f.id)}
                     className="-mx-2 flex min-h-11 items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-muted"
                   >
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-primary">
@@ -103,7 +101,7 @@ export async function TripRail({ tripId }: { tripId: string }) {
                       <span className="truncate text-sm font-medium">{f.original_name}</span>
                       {of && <span className="truncate text-xs text-muted-foreground">{of}</span>}
                     </span>
-                  </a>
+                  </Link>
                 </li>
               );
             })}

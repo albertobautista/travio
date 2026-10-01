@@ -13,7 +13,7 @@ import { LeaveBy } from "@/components/activities/leave-by";
 import { GapIdeas } from "@/components/ideas/gap-ideas";
 import { aiConfigured } from "@/lib/ai/gap-ideas";
 import { TravelGap } from "@/components/activities/travel-gap";
-import { FileRow, fileHref } from "@/components/files/file-row";
+import { FileRow, ticketHref } from "@/components/files/file-row";
 import { TripClock } from "@/components/trips/trip-clock";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
@@ -391,10 +391,10 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                   )}
                   {tickets.length > 0 ? (
                     <Button asChild size="lg" variant="outline" className="h-11">
-                      <a href={fileHref(trip.id, tickets[0].id)} target="_blank" rel="noopener noreferrer">
+                      <Link href={ticketHref(trip.id, tickets[0].id)}>
                         <Ticket aria-hidden="true" />
                         Mi ticket
-                      </a>
+                      </Link>
                     </Button>
                   ) : focus.external_url ? (
                     <Button asChild size="lg" variant="outline" className="h-11">
