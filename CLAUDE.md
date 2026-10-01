@@ -81,10 +81,10 @@ Shapes: cards radius 14–18px, buttons 10–12px, chips fully rounded; touch ta
 
 ### Mobile navigation (confirmed 2026-09-28)
 
-- Outside a trip: Trips / Map / Saved / More.
+- Outside a trip: Trips / Today (only when a trip is in progress) / More. Revised 2026-10-01: no link may point at a trip the user didn't pick.
 - Inside a trip: Today / Itinerary / Map / Documents / More.
 
-Desktop uses a left sidebar (My trips / Map / Documents / Budget / People) plus in-trip tabs instead of bottom navigation.
+Desktop (revised 2026-10-01, to stop repeating sections): the left sidebar only picks the trip (My trips, a shortcut to the trip in progress's Today, trips grouped by in progress / upcoming / undated / past, New trip, account). Inside a trip, tabs show Overview / Today / Itinerary / Map / Documents plus a "More" menu (Accommodations, Transportation, Saved, Budget, Travelers); the right rail stays.
 
 ## 3. Technology decisions
 
