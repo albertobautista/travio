@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, BedDouble, ChevronRight, LogIn, LogOut, MapPin, Plus } from "lucide-react";
+import { AlertTriangle, BedDouble, Bus, Car, ChevronRight, Footprints, LogIn, LogOut, MapPin, Plus, Ship, TrainFront } from "lucide-react";
 
 import { TravelerAvatar, TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
@@ -436,6 +436,46 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                       );
                     }
                     const a = row.activity;
+                    // Transfers ("Metro L2 a Sagrada Família") are the trip between plans,
+                    // not plans: a slim row on the rail instead of a full card.
+                    if (a.category === "transfer") {
+                      const overlaps = conflicts.get(a.id) ?? [];
+                      const TransferIcon = transferIcon(`${a.title} ${a.location_name ?? ""}`);
+                      const line = (
+                        <>
+                          <TransferIcon className="size-3.5 shrink-0" aria-hidden="true" />
+                          <span className="min-w-0 flex-1 truncate">
+                            <span className="font-medium text-foreground/80">{a.title}</span>
+                            {` · ${formatDuration(a.duration_minutes)}`}
+                            {a.location_name ? ` · ${a.location_name}` : ""}
+                          </span>
+                          {overlaps.length > 0 && (
+                            <span className="flex shrink-0 items-center gap-1 text-warning-foreground">
+                              <AlertTriangle className="size-3.5" aria-hidden="true" />
+                              <span className="sr-only sm:not-sr-only">Se solapa</span>
+                            </span>
+                          )}
+                        </>
+                      );
+                      const lineClass =
+                        "flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-muted-foreground " +
+                        (overlaps.length > 0 ? "bg-warning-soft" : "");
+                      return (
+                        <li key={a.id} className="flex items-center gap-2.5">
+                          <span aria-hidden="true" className="relative mx-[3px] size-1.5 shrink-0 rounded-full bg-primary/50" />
+                          <time dateTime={a.starts_at} className="w-11 shrink-0 font-mono text-[11px] text-muted-foreground">
+                            {instantToZonedTime(a.startsAt, a.timezone).time}
+                          </time>
+                          {editable ? (
+                            <Link href={`/viajes/${trip.id}/actividades/${a.id}`} className={lineClass + " hover:bg-muted"}>
+                              {line}
+                            </Link>
+                          ) : (
+                            <div className={lineClass}>{line}</div>
+                          )}
+                        </li>
+                      );
+                    }
                     const category = isCategory(a.category) ? CATEGORY_META[a.category] : CATEGORY_META.other;
                     const booking = isBookingStatus(a.booking_status) ? BOOKING_META[a.booking_status] : null;
                     const overlaps = conflicts.get(a.id) ?? [];
@@ -571,4 +611,13 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
       )}
     </main>
   );
+}
+
+/** An icon for how a transfer goes, guessed from its words ("Metro L2…", "Caminar a…"). */
+function transferIcon(text: string) {
+  if (/camin|a pie|paseo/i.test(text)) return Footprints;
+  if (/metro|tren|renfe|cercan|tranv|tram|funicular/i.test(text)) return TrainFront;
+  if (/bus|autob/i.test(text)) return Bus;
+  if (/barco|ferry/i.test(text)) return Ship;
+  return Car;
 }
