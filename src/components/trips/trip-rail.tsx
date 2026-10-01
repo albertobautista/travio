@@ -77,7 +77,7 @@ export async function TripRail({ tripId }: { tripId: string }) {
             </Link>
           }
         >
-          <RouteMiniMap cities={cities} current={active ? (stop?.id ?? null) : null} className="h-44 overflow-hidden rounded-xl bg-secondary" />
+          <RouteMiniMap cities={cities} current={active ? (stop?.id ?? null) : null} className="h-48 overflow-hidden rounded-xl bg-secondary 2xl:h-56" />
           <p className="text-xs text-muted-foreground">{cities.map((c) => c.name).join(" → ")}</p>
         </Card>
       )}
