@@ -5,6 +5,7 @@ import { FolderLock } from "lucide-react";
 
 import { EditFileButton } from "@/components/files/edit-file-button";
 import { FileRow } from "@/components/files/file-row";
+import { OfflineDocuments } from "@/components/offline/offline-documents";
 import { UploadForm } from "@/components/files/upload-form";
 import { getAttachTargets, getTripFiles } from "@/lib/files/queries";
 import { DOCUMENT_TYPES, isDocumentType, type DocumentType } from "@/lib/files/rules";
@@ -48,6 +49,8 @@ export default async function DocumentsPage({ params }: PageProps<"/viajes/[id]/
           </p>
         </div>
       </header>
+
+      <OfflineDocuments tripId={trip.id} files={files.map((f) => ({ id: f.id, name: f.original_name, size: f.size_bytes }))} />
 
       {editable && (
         <UploadForm tripId={trip.id} targets={targets} />

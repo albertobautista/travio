@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { OfflineHousekeeping } from "@/components/offline/offline-housekeeping";
 import { safeRedirectPath } from "@/lib/safe-redirect";
 
 import { LoginForm } from "./login-form";
@@ -20,6 +21,8 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-8 px-4 py-12">
+      {/* Signed out: whatever the last person kept offline on this device goes. */}
+      <OfflineHousekeeping />
       <div className="flex flex-col items-center gap-1 text-center">
         <h1 className="text-3xl font-bold tracking-tight">Travio</h1>
         <p className="text-muted-foreground">Tu viaje, todo en un lugar.</p>

@@ -2,12 +2,16 @@ import Link from "next/link";
 import { Pencil, Plus } from "lucide-react";
 
 import { TripNav, TripTabs } from "@/components/nav/app-nav";
+import { OfflineTripSync } from "@/components/offline/offline-trip-sync";
 import { RailSlot } from "@/components/trips/rail-slot";
 import { TripRail } from "@/components/trips/trip-rail";
 import { Button } from "@/components/ui/button";
+import { getTripFiles } from "@/lib/files/queries";
+import { offlineTripPages } from "@/lib/offline/trip-pages";
 import { getTravelers } from "@/lib/travelers/queries";
 import { formatTripDates, getTripLengthDays } from "@/lib/trips/dates";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
+import { resolveTripNow } from "@/lib/trips/today";
 
 /**
  * Every trip page gets the trip's navigation: the bottom bar on phones; on
@@ -16,8 +20,15 @@ import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
  */
 export default async function TripLayout({ children, params }: LayoutProps<"/viajes/[id]">) {
   const { id } = await params;
-  const [trip, role, stops, travelers] = await Promise.all([getTrip(id), getMyTripRole(id), getStops(id), getTravelers(id)]);
+  const [trip, role, stops, travelers, files] = await Promise.all([
+    getTrip(id),
+    getMyTripRole(id),
+    getStops(id),
+    getTravelers(id),
+    getTripFiles(id),
+  ]);
   if (!trip) return children;
+  const offlinePages = offlineTripPages(trip, resolveTripNow(stops).today, files.map((f) => f.id));
 
   const editable = canEdit(role);
   const base = `/viajes/${trip.id}`;
@@ -31,6 +42,7 @@ export default async function TripLayout({ children, params }: LayoutProps<"/via
 
   return (
     <>
+      {offlinePages.length > 0 && <OfflineTripSync tripId={trip.id} paths={offlinePages} />}
       <TripNav tripId={trip.id} tripName={trip.name} editable={editable} />
       <div className="flex flex-1">
         <div className="flex min-w-0 flex-1 flex-col">

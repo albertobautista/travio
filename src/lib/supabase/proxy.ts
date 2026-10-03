@@ -4,7 +4,9 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "./database.types";
 
 /** Routes that work without a session. Everything else requires sign-in. */
-const PUBLIC_PATHS = ["/", "/login"];
+// The PWA files must load signed out too: the browser fetches them on its own,
+// and /sin-conexion is stored by the service worker when it installs.
+const PUBLIC_PATHS = ["/", "/login", "/manifest.webmanifest", "/sw.js", "/sin-conexion"];
 // /invitacion/: the invitation page shows a preview before signing in.
 const PUBLIC_PREFIXES = ["/auth/", "/invitacion/"];
 

@@ -1,12 +1,10 @@
-import { LogOut } from "lucide-react";
-
 import { DesktopSidebar, GlobalNav, type SidebarTrip } from "@/components/nav/app-nav";
+import { OfflineHousekeeping } from "@/components/offline/offline-housekeeping";
+import { SignOutButton } from "@/components/offline/sign-out-button";
 import { createClient } from "@/lib/supabase/server";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { formatTripDates, getTripDayNumber, getTripStatus } from "@/lib/trips/dates";
 import { resolveTripNow } from "@/lib/trips/today";
-
-import { signOut } from "../login/actions";
 
 /**
  * Shell for everything under /viajes: the navigation (bottom bar on phones,
@@ -48,20 +46,11 @@ export default async function TripsLayout({ children }: LayoutProps<"/viajes">) 
   const active = sidebarTrips.find((t) => t.status === "active") ?? null;
   const name = profile?.display_name || (claims?.claims.email as string | undefined) || "Tu cuenta";
 
-  const signOutButton = (
-    <form action={signOut}>
-      <button
-        type="submit"
-        className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-muted"
-      >
-        <LogOut className="size-[18px]" aria-hidden="true" />
-        Cerrar sesión
-      </button>
-    </form>
-  );
+  const signOutButton = <SignOutButton />;
 
   return (
     <>
+      <OfflineHousekeeping tripIds={all.map((t) => t.id)} />
       <GlobalNav activeTrip={active ? { id: active.id, name: active.name } : null} signOut={signOutButton} />
       <DesktopSidebar trips={sidebarTrips} active={active} account={{ name }} signOut={signOutButton} />
       {/* Room for the bottom bar (phones) or the sidebar (desktop). */}
