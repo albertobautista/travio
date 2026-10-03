@@ -12,6 +12,8 @@ export type PlanActivity = {
   startsAt: Date;
   durationMinutes: number;
   participantIds: string[];
+  /** "transfer" (metro, walk, taxi…) is never "next" nor the hero card. */
+  category?: string;
 };
 
 export type PlanState = "done" | "now" | "upcoming";
@@ -37,11 +39,13 @@ export function buildDayPlan<A extends PlanActivity>(activities: A[], now: Date)
 
   // Several activities can be "now" or "next" at once (different travelers, or
   // an overlap), so these are lists. "Next" is every activity starting at the
-  // earliest upcoming start time.
+  // earliest upcoming start time, skipping transfers: after the museum, the
+  // next plan is the temple, not the metro that takes you there.
+  const isPlan = (a: A) => a.category !== "transfer";
   const current = sorted.filter((a) => stateOf(a) === "now");
-  const firstNext = sorted.find((a) => stateOf(a) === "upcoming");
+  const firstNext = sorted.find((a) => isPlan(a) && stateOf(a) === "upcoming");
   const next = firstNext
-    ? sorted.filter((a) => stateOf(a) === "upcoming" && a.startsAt.getTime() === firstNext.startsAt.getTime())
+    ? sorted.filter((a) => isPlan(a) && stateOf(a) === "upcoming" && a.startsAt.getTime() === firstNext.startsAt.getTime())
     : [];
 
   const items: PlanItem<A>[] = [];
@@ -62,8 +66,9 @@ export function buildDayPlan<A extends PlanActivity>(activities: A[], now: Date)
     latestEnd = latestEnd === null ? end : Math.max(latestEnd, end);
   }
 
-  /** The hero cards: what's happening now, else what's next. */
-  const focus = current.length > 0 ? current : next;
+  /** The hero cards: the plan happening now, else what's next (on the metro, the place you're going). */
+  const currentPlans = current.filter(isPlan);
+  const focus = currentPlans.length > 0 ? currentPlans : next;
   return { items, current, next, focus };
 }
 

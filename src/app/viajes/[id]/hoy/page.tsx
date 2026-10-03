@@ -515,8 +515,9 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                       {a.title}
                     </span>
                     <span className="truncate text-xs text-muted-foreground">
+                      {item.isNext && <span className="font-semibold text-primary">Siguiente · </span>}
                       {formatDuration(a.duration_minutes)}
-                      {current ? " · ahora" : item.isNext ? " · siguiente" : ""}
+                      {current ? " · ahora" : ""}
                       {a.location_name ? ` · ${a.location_name}` : ""}
                     </span>
                     {attached > 0 && (
@@ -555,7 +556,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                     />
                   )}
                   <li
-                    className={"flex items-center gap-2.5 rounded-xl py-2 " + (current || item.isNext ? "-mx-2 bg-secondary px-2" : "")}
+                    className={"flex items-center gap-2.5 rounded-xl py-2 " + (current ? "-mx-2 bg-secondary px-2" : "")}
                   >
                     <span
                       aria-hidden="true"
