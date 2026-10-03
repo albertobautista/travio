@@ -5,7 +5,8 @@ import type { Database } from "./database.types";
 
 /** Routes that work without a session. Everything else requires sign-in. */
 const PUBLIC_PATHS = ["/", "/login"];
-const PUBLIC_PREFIXES = ["/auth/"];
+// /invitacion/: the invitation page shows a preview before signing in.
+const PUBLIC_PREFIXES = ["/auth/", "/invitacion/"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));

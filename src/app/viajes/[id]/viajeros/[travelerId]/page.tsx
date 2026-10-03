@@ -3,10 +3,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
+import { InviteForm } from "@/components/access/invite-form";
 import { TravelerForm } from "@/components/travelers/traveler-form";
 import { getTravelers } from "@/lib/travelers/queries";
 import { canDelete, canEdit, getMembers, getMyTripRole, getTrip } from "@/lib/trips/queries";
 
+import { createInvitation } from "../access-actions";
 import { linkTravelerAccount, updateTraveler } from "../actions";
 import { DeleteTravelerButton } from "./delete-traveler-button";
 import { LinkAccountForm } from "./link-account-form";
@@ -56,17 +58,36 @@ export default async function EditTravelerPage({ params }: PageProps<"/viajes/[i
 
       {/* Managing access is owner-only (same rule as the database). canDelete = "is owner". */}
       {canDelete(role) && !traveler.user_id && (
-        <section aria-labelledby="link-account" className="flex flex-col gap-3 rounded-2xl border bg-card p-5">
-          <div>
-            <h2 id="link-account" className="font-semibold">
-              Vincular con una cuenta de Travio
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Si {traveler.name} ya tiene cuenta, escribe su correo. Le daremos acceso al viaje y aparecerá con su foto de perfil.
-            </p>
-          </div>
-          <LinkAccountForm action={linkTravelerAccount.bind(null, trip.id, traveler.id)} name={traveler.name} />
-        </section>
+        <>
+          <section aria-labelledby="invite-traveler" className="flex flex-col gap-3 rounded-2xl border bg-card p-5">
+            <div>
+              <h2 id="invite-traveler" className="font-semibold">
+                Invitar a {traveler.name}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Mándale un enlace. Al abrirlo inicia sesión o crea su cuenta, y queda vinculada a {traveler.name}.
+              </p>
+            </div>
+            <InviteForm
+              action={createInvitation.bind(null, trip.id)}
+              tripName={trip.name}
+              travelerId={traveler.id}
+              submitLabel={`Crear enlace para ${traveler.name}`}
+            />
+          </section>
+
+          <section aria-labelledby="link-account" className="flex flex-col gap-3 rounded-2xl border bg-card p-5">
+            <div>
+              <h2 id="link-account" className="font-semibold">
+                ¿Ya tiene cuenta de Travio?
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Escribe su correo y le daremos acceso al viaje en este momento, sin enlace.
+              </p>
+            </div>
+            <LinkAccountForm action={linkTravelerAccount.bind(null, trip.id, traveler.id)} name={traveler.name} />
+          </section>
+        </>
       )}
 
       <section aria-labelledby="remove-traveler" className="flex flex-col gap-3 rounded-2xl border border-destructive/30 bg-card p-5">

@@ -452,6 +452,43 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"trip_invitations": {
+                  Row: {
+                    "accepted_at": string | null,"accepted_by": string | null,"adds_traveler": boolean,"created_at": string,"created_by": string | null,"expires_at": string,"id": string,"role": string,"token_hash": string,"traveler_id": string | null,"trip_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "accepted_at"?: string | null,"accepted_by"?: string | null,"adds_traveler"?: boolean,"created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"id"?: string,"role": string,"token_hash": string,"traveler_id"?: string | null,"trip_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "accepted_at"?: string | null,"accepted_by"?: string | null,"adds_traveler"?: boolean,"created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"id"?: string,"role"?: string,"token_hash"?: string,"traveler_id"?: string | null,"trip_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "trip_invitations_accepted_by_fkey"
+      columns: ["accepted_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_invitations_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_invitations_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_invitations_trip_id_traveler_id_fkey"
+      columns: ["trip_id","traveler_id"]
+isOneToOne: false
+      referencedRelation: "travelers"
+      referencedColumns: ["trip_id","id"]
+    }
+                  ]
                 },"trip_members": {
                   Row: {
                     "created_at": string,"role": string,"trip_id": string,"updated_at": string,"user_id": string
@@ -527,11 +564,23 @@ isOneToOne: false
             [_ in never]: never
           }
           Functions: {
-            "can_edit_trip":
+            "accept_trip_invitation":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"can_edit_trip":
 { Args: { "p_trip_id": string }; Returns: boolean
                            },
 "claim_ai_request":
 { Args: { "p_trip_id": string }; Returns: number
+                           },
+"create_trip_invitation":
+{ Args: { "p_adds_traveler"?: boolean,"p_role": string,"p_traveler_id"?: string,"p_trip_id": string }; Returns: Json
+                           },
+"get_trip_invitation":
+{ Args: { "p_token": string }; Returns: Json
+                           },
+"invitation_token_hash":
+{ Args: { "p_token": string }; Returns: string
                            },
 "is_trip_member":
 { Args: { "p_trip_id": string }; Returns: boolean

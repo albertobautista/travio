@@ -303,7 +303,8 @@ $$;
 | table | select | insert / update / delete |
 | --- | --- | --- |
 | trips | member, or `created_by = auth.uid()` * | insert: any authenticated user as `created_by`; update: editor+; delete: owner |
-| trip_members | member | owner only (invitation flow still open) |
+| trip_members | member | owner only; members can delete their own row (leave); joining by invitation goes through `accept_trip_invitation` |
+| trip_invitations | owner | insert/delete: owner (no update; delete = revoke) |
 | travelers, trip_stops, activities, accommodations, transportations, saved_places, participants | member | editor+ |
 | files | member | insert: editor+ with `uploaded_by = auth.uid()`; update/delete: editor+ |
 | storage.objects (`trip-files`) | member of the path's trip | editor+ of the path's trip |
@@ -313,13 +314,13 @@ $$;
 Other rules:
 
 - The owner can't remove or demote themselves directly; ownership changes only through `transfer_trip_ownership`.
-- Every policy targets the `authenticated` role; `anon` gets nothing.
+- Every policy targets the `authenticated` role; `anon` gets nothing. The one exception is `get_trip_invitation`, a function `anon` may call for the invitation preview.
 - The bucket is **private**; files are opened via short-lived signed URLs created server-side.
 
 ## 5. Deferred (no tables yet)
 
 - ~~Expenses / budget detail~~ **Implemented (2026-09-30)**: `expenses` (category, description, amount, currency, `spent_on`, optional `paid_by` traveler, notes) and `trip_exchange_rates` (`1 currency = rate × trip currency`, one row per foreign currency). "Estimated" is summed from `cost_amount` on stays, legs and activities, mapped to the six budget categories in `src/lib/budget/categories.ts`; amounts without a rate are shown apart, never guessed. Splitting costs between travelers is deferred.
-- **Invitations**: depends on the invitation flow (open decision).
+- ~~Invitations~~ **Implemented (2026-10-03)**: `trip_invitations` (trip, role editor/viewer, `token_hash`, `expires_at` = 7 days, `accepted_by/at`, and who it's for: `traveler_id` for an existing traveler, `adds_traveler` for someone new who's travelling, or neither for someone who only follows the trip). The owner decides who it's for when creating it; the invitee doesn't pick, because adding a traveler changes everything that's "everyone" (participants, expense splits). The link `/invitacion/<token>` carries 32 random bytes (base64url); the table stores only `sha256(token)`, so the link is shown once. Owner only, link only (no email yet), single use. `get_trip_invitation` (security definer, callable signed out) returns a minimal preview: trip name and dates, inviter, role, who it's for. `accept_trip_invitation` (security definer) locks the row, adds the member and links or creates the traveler; existing members keep their role and don't use up the link. Joining needs an explicit click, since chat apps open links to build previews. Code: `src/lib/invitations/`, `src/app/invitacion/[token]/`, `src/app/viajes/[id]/viajeros/access-*`.
 - **Weather**: fetched live, not stored.
 - **Travel-time validation**: domain logic + Google APIs, no schema needed.
 
@@ -333,4 +334,4 @@ Other rules:
 
 Open, found while testing (2026-09-28): **what happens to a trip when its owner deletes their account?** Today the membership rows cascade away and `trips.created_by` becomes null, leaving a trip nobody can see. Options: block account deletion while owning trips with other members, auto-transfer to the oldest editor, or delete trips the user owns alone.
 
-Still open (from `CLAUDE.md`): invitation flow, whether editors can invite.
+Invitation flow decided 2026-10-03 (see section 5); editors can't invite for now.

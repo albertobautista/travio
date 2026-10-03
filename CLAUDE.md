@@ -376,8 +376,8 @@ Do not silently decide these. Discuss them with Alberto before implementation wh
 - [x] Exact Google Maps APIs enabled (Maps JavaScript API + Places API (New), browser key restricted by referrer and API; decided 2026-09-29. Routes API added 2026-10-01 for travel times between activities, called from the browser with the same key via Maps JS `Route.computeRoutes`; results are not stored in the database, only cached per session.)
 - [x] File size/type limits (10 MB; PDF, JPG, PNG, WebP, HEIC/HEIF; decided 2026-09-29, enforced by the `trip-files` bucket)
 - [ ] Image optimization strategy
-- [ ] Invitation flow
-- [ ] Whether editors can invite other members
+- [x] Invitation flow (single-use link, 7 days, token stored only as a hash; minimal preview before signing in; no email until hosting/SMTP are decided; `link_traveler_to_account` by email stays as a shortcut for existing accounts. Decided 2026-10-03, details in `docs/data-model.md` section 5.)
+- [x] Whether editors can invite other members (no, owner only for now; decided 2026-10-03)
 - [x] Exact budget/expense schema (estimated from entity costs + `expenses` for actual spending; per-trip exchange rates in `trip_exchange_rates`, suggested from ECB via Frankfurter but confirmed by the user. Decided 2026-09-30. Splitting expenses between travelers decided 2026-10-01: equal / exact amounts / percentages in `expense_shares` (no rows = everyone), balances with suggested payments, recorded `settlements`; planned costs are not split.)
 - [ ] Offline/PWA capabilities
 - [ ] Localization/i18n

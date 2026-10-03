@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMembers, getMyTripRole, getTrip } from "@/lib/trips/queries";
 
+import { AccessSection } from "./access-section";
 import { createTraveler } from "./actions";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/viajeros">): Promise<Metadata> {
@@ -41,7 +42,8 @@ export default async function TravelersPage({ params }: PageProps<"/viajes/[id]/
       </header>
 
       <p className="text-sm text-muted-foreground">
-        Quiénes van al viaje. No necesitan cuenta; si alguien tiene acceso al viaje, puedes vincularlo a su cuenta.
+        Quiénes van al viaje. No necesitan cuenta
+        {role === "owner" ? "; si quieres que alguien vea el viaje desde su teléfono, invítalo abajo." : "."}
       </p>
 
       <ul className="flex flex-col divide-y rounded-2xl border bg-card">
@@ -86,6 +88,8 @@ export default async function TravelersPage({ params }: PageProps<"/viajes/[id]/
           />
         </section>
       )}
+
+      <AccessSection trip={trip} role={role} travelers={travelers} />
     </main>
   );
 }
