@@ -37,7 +37,7 @@ export function FileRow({ tripId, file, meta, actions }: Props) {
         <Icon className="size-5" aria-hidden="true" />
       </span>
       <span className="flex min-w-0 flex-1 flex-col py-1">
-        <Link href={ticketHref(tripId, file.id)} className="truncate text-sm font-medium hover:underline">
+        <Link href={ticketHref(tripId, file.id)} className="line-clamp-2 text-sm font-medium break-words hover:underline">
           {file.original_name}
         </Link>
         <span className="truncate text-xs text-muted-foreground">

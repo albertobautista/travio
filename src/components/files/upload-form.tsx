@@ -40,6 +40,8 @@ type Props = {
   targets?: AttachTarget[];
   defaultType?: DocumentType;
   title?: string;
+  /** Inside a sheet that already has the title and the frame. */
+  bare?: boolean;
 };
 
 const DRAWABLE = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -62,6 +64,7 @@ export function UploadForm({
   targets,
   defaultType = "ticket",
   title = "Subir documentos",
+  bare = false,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const ids = useId();
@@ -179,8 +182,8 @@ export function UploadForm({
   const current = items.find((i) => i.status === "uploading" || i.status === "saving");
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-3 rounded-2xl border bg-card p-4" aria-busy={busy}>
-      <h2 className="font-semibold">{title}</h2>
+    <form onSubmit={submit} className={"flex flex-col gap-3 " + (bare ? "" : "rounded-2xl border bg-card p-4")} aria-busy={busy}>
+      {!bare && <h2 className="font-semibold">{title}</h2>}
 
       <input
         ref={inputRef}

@@ -13,6 +13,7 @@ import { getTransportations } from "@/lib/transportations/queries";
 import { legEndTitle, legRoute, transportMeta } from "@/lib/transportations/types";
 import { BOOKING_META, CATEGORY_META, isBookingStatus, isCategory } from "@/lib/activities/categories";
 import { activityDate, buildItineraryDays, pickDay } from "@/lib/activities/itinerary";
+import { DayStrip } from "@/components/activities/day-strip";
 import { getActivities } from "@/lib/activities/queries";
 import { findConflicts, formatDuration, formatTimeRange } from "@/lib/activities/schedule";
 import { getTravelers } from "@/lib/travelers/queries";
@@ -64,7 +65,8 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     .filter((a) => !person || a.participantIds.length === 0 || a.participantIds.includes(person.id));
   const days = buildItineraryDays(trip, withDates.map((a) => a.date));
   // "Today" where the travelers are (their current city's time zone).
-  const day = pickDay(days, typeof dia === "string" ? dia : undefined, resolveTripNow(stops).today);
+  const tripToday = resolveTripNow(stops).today;
+  const day = pickDay(days, typeof dia === "string" ? dia : undefined, tripToday);
 
   // Conflicts across the whole trip: an overnight activity can overlap the next
   // day. Only activities that share a traveler can clash.
@@ -91,6 +93,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     })),
   ]);
   const dayActivities = day ? withDates.filter((a) => a.date === day.date) : [];
+  const conflictDays = new Set(withDates.filter((a) => conflicts.has(a.id)).map((a) => a.date));
 
   // Stays: check-in/check-out are derived events in the timeline (not stored
   // as activities), and the day header says where the night is spent.
@@ -203,7 +206,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
   };
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
+    <main className="stagger mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
       <header className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold tracking-tight">Itinerario</h1>
@@ -268,31 +271,17 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
         </div>
       ) : (
         <>
-          <nav aria-label="Días del viaje" className="-mx-4 overflow-x-auto px-4 pb-1">
-            <ul className="flex w-max gap-2">
-              {days.map((d) => {
-                const active = d.date === day?.date;
-                return (
-                  <li key={d.date}>
-                    <Link
-                      href={itineraryHref({ dia: d.date })}
-                      aria-current={active ? "date" : undefined}
-                      className={
-                        "flex h-14 w-20 flex-col items-center justify-center rounded-xl border text-center " +
-                        (active ? "border-primary/40 bg-secondary text-secondary-foreground" : "bg-card hover:bg-muted")
-                      }
-                    >
-                      <span className={"text-[13px] " + (active ? "font-bold" : "font-semibold")}>
-                        {d.dayNumber ? `Día ${d.dayNumber}` : "Fuera"}
-                      </span>
-                      <span className={"text-[11px] " + (active ? "" : "text-muted-foreground")}>{d.label}</span>
-                      {d.activityCount > 0 && <span className="sr-only">, {d.activityCount} actividades</span>}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
+          <DayStrip
+            days={days.map((d) => ({
+              date: d.date,
+              dayNumber: d.dayNumber,
+              href: itineraryHref({ dia: d.date }),
+              activityCount: d.activityCount,
+              active: d.date === day?.date,
+              today: d.date === tripToday,
+              conflict: conflictDays.has(d.date),
+            }))}
+          />
 
           {day && (
             <section aria-labelledby="day-heading" className="flex flex-col gap-3">
@@ -488,7 +477,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                             <Icon className="size-5" aria-hidden="true" />
                           </span>
                           <span className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate font-semibold">{a.title}</span>
+                            <span className="line-clamp-2 leading-snug font-semibold">{a.title}</span>
                             <span className="truncate text-xs text-muted-foreground">
                               {formatTimeRange(a.startsAt, a.duration_minutes, a.timezone)} · {formatDuration(a.duration_minutes)}
                               {a.location_name ? ` · ${a.location_name}` : ""}
@@ -530,7 +519,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                       </>
                     );
                     const cardClass =
-                      "flex min-w-0 flex-1 flex-col gap-2 rounded-[14px] border px-2.5 py-2 " +
+                      "pressable flex min-w-0 flex-1 flex-col gap-2 rounded-[14px] border px-2.5 py-2 transition-shadow hover:shadow-[0_6px_20px_-12px_rgba(11,27,51,.25)] " +
                       (overlaps.length > 0 ? "border-warning-border bg-warning-soft" : "bg-card");
 
                     const travel = travelTo.get(a.id);

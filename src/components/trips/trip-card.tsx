@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plane } from "lucide-react";
+import { Plane, Sun } from "lucide-react";
 
 import { formatTripDates, getTripLengthDays, type TripStatus } from "@/lib/trips/dates";
 
@@ -28,7 +28,7 @@ export function TripCard({ trip }: { trip: TripCardData }) {
   return (
     <Link
       href={`/viajes/${trip.id}`}
-      className="flex gap-3 rounded-[18px] border bg-card p-2.5 shadow-xs transition-colors hover:border-primary/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      className="pressable flex gap-3 rounded-[18px] border bg-card p-2.5 shadow-xs transition-colors hover:border-primary/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
     >
       {trip.coverUrl ? (
         // Plain <img>: signed URLs change on every load, so the Next image optimizer adds nothing.
@@ -74,7 +74,7 @@ export function TripCard({ trip }: { trip: TripCardData }) {
           <span className="mt-auto flex items-center gap-2">
             <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
               <span
-                className={"block h-full rounded-full " + (trip.progress >= 60 ? "bg-success" : "bg-primary")}
+                className={"bar-fill block h-full rounded-full " + (trip.progress >= 60 ? "bg-success" : "bg-primary")}
                 style={{ width: `${trip.progress}%` }}
               />
             </span>
@@ -83,5 +83,92 @@ export function TripCard({ trip }: { trip: TripCardData }) {
         )}
       </span>
     </Link>
+  );
+}
+
+export type ActiveTripData = TripCardData & {
+  dayNumber: number;
+  days: number;
+  /** City the travelers are in today, if the stops say so. */
+  city: string | null;
+};
+
+/**
+ * The trip in progress, on top of Mis viajes: big cover, where it's at, and a
+ * straight way into Hoy.
+ */
+export function ActiveTripCard({ trip }: { trip: ActiveTripData }) {
+  const share = trip.days > 1 ? (trip.dayNumber - 1) / (trip.days - 1) : 1;
+  return (
+    <article className="overflow-hidden rounded-[20px] border bg-card shadow-[0_1px_2px_rgba(11,27,51,.06),0_12px_28px_-16px_rgba(11,27,51,.25)]">
+      <Link href={`/viajes/${trip.id}`} className="relative block h-44 bg-secondary">
+        {trip.coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={trip.coverUrl} alt="" className="size-full object-cover" />
+        ) : (
+          <span aria-hidden="true" className="flex size-full items-center justify-center text-primary">
+            <Plane className="size-10" />
+          </span>
+        )}
+        <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-4 pt-10 pb-3 text-white">
+          <span className="text-[22px] leading-tight font-bold">{trip.name}</span>
+          <span className="text-sm text-white/90">
+            Día {trip.dayNumber} de {trip.days}
+            {trip.city ? ` · hoy en ${trip.city}` : ""}
+          </span>
+        </span>
+      </Link>
+      <div className="flex flex-col gap-3 p-4">
+        <div className="flex flex-col gap-1.5">
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span>{formatTripDates(trip.start_date, null)}</span>
+            <span>{formatTripDates(trip.end_date, null)}</span>
+          </div>
+          <div
+            role="progressbar"
+            aria-label={`Día ${trip.dayNumber} de ${trip.days}`}
+            aria-valuemin={1}
+            aria-valuemax={trip.days}
+            aria-valuenow={trip.dayNumber}
+            className="relative h-1.5 rounded-full bg-border"
+          >
+            <div className="bar-fill h-full rounded-full bg-primary" style={{ width: `${share * 100}%` }} />
+            <span
+              aria-hidden="true"
+              className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 animate-pop rounded-full border-[3px] border-primary bg-card"
+              style={{ left: `${share * 100}%` }}
+            />
+          </div>
+        </div>
+        {trip.cities.length > 0 && (
+          <span className="flex gap-1.5 overflow-hidden">
+            {trip.cities.slice(0, 4).map((city, i) => (
+              <span
+                key={i}
+                className={
+                  "shrink-0 rounded-md px-2 py-0.5 text-xs " +
+                  (city === trip.city ? "bg-secondary font-semibold text-secondary-foreground" : "bg-muted text-foreground/80")
+                }
+              >
+                {city}
+              </span>
+            ))}
+            {trip.cities.length > 4 && <span className="shrink-0 rounded-md bg-muted px-2 py-0.5 text-xs text-foreground/80">+{trip.cities.length - 4}</span>}
+          </span>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <Link
+            href={`/viajes/${trip.id}/hoy`}
+            className="pressable flex h-11 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
+          >
+            <Sun className="size-4" aria-hidden="true" />
+            Abrir Hoy
+          </Link>
+          <Link href={`/viajes/${trip.id}`} className="pressable flex h-11 items-center justify-center rounded-xl border bg-card text-sm font-semibold hover:bg-muted">
+            Ver viaje
+          </Link>
+        </div>
+      </div>
+    </article>
   );
 }

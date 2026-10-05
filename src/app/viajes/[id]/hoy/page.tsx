@@ -6,6 +6,7 @@ import { AlertTriangle, BedDouble, CalendarDays, Check, ExternalLink, FolderLock
 
 import { StayCard } from "@/components/accommodations/stay-card";
 import { TransportCard } from "@/components/transportations/transport-card";
+import { EndsIn } from "@/components/activities/ends-in";
 import { StartsIn } from "@/components/activities/starts-in";
 import { RainNotice, WeatherNow } from "@/components/weather/today-weather";
 import { PlacePhoto } from "@/components/maps/place-photo";
@@ -216,14 +217,70 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
     );
   };
 
+  // While a plan is under way, what comes after it gets a small card of its
+  // own, with when to leave. (Transfers are never "next": see buildDayPlan.)
+  const nextPlan = plan.focus.some((f) => plan.current.includes(f)) ? plan.next[0] : undefined;
+  const nextCard =
+    nextPlan &&
+    (() => {
+      const category = isCategory(nextPlan.category) ? CATEGORY_META[nextPlan.category] : CATEGORY_META.other;
+      const Icon = category.icon;
+      const origin = nextPlan.lat === null || nextPlan.lng === null ? null : originOf(nextPlan);
+      const directions = directionsUrl({ ...nextPlan, name: nextPlan.location_name });
+      return (
+        <section aria-labelledby="next-plan" className="flex flex-col gap-3 rounded-[20px] border bg-card p-4 sm:col-span-2">
+          <div className="flex items-start gap-3">
+            <span className={`flex size-11 shrink-0 items-center justify-center rounded-xl ${category.className}`} aria-hidden="true">
+              <Icon className="size-5" />
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <p className="text-xs font-semibold text-primary">
+                Siguiente · <StartsIn startsAt={nextPlan.starts_at} initial={formatStartsIn(nextPlan.startsAt, now)} />
+              </p>
+              <h2 id="next-plan" className="leading-snug font-semibold text-balance">
+                {nextPlan.title}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-mono">{formatTimeRange(nextPlan.startsAt, nextPlan.duration_minutes, nextPlan.timezone)}</span>
+                {nextPlan.location_name ? ` · ${nextPlan.location_name}` : ""}
+              </p>
+            </div>
+            {directions && (
+              <Button asChild size="icon" variant="secondary" className="size-11 shrink-0 rounded-xl">
+                <a href={directions} target="_blank" rel="noopener noreferrer" aria-label={`Cómo llegar a ${nextPlan.title}`}>
+                  <Navigation aria-hidden="true" />
+                </a>
+              </Button>
+            )}
+          </div>
+          {origin && (
+            <LeaveBy
+              from={origin.point}
+              to={{ lat: nextPlan.lat!, lng: nextPlan.lng! }}
+              mode={isTravelMode(nextPlan.travel_mode) ? nextPlan.travel_mode : null}
+              fromLabel={origin.label}
+              departAt={origin.departAt}
+              arriveAt={nextPlan.starts_at}
+              timeZone={nextPlan.timezone}
+              now={now.toISOString()}
+            />
+          )}
+        </section>
+      );
+    })();
+
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
-      <header className="flex items-start gap-2">
+    <main className="stagger mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-4 py-6">
+      <header className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-bold tracking-tight text-balance">Hoy{stop ? ` · ${stop.name}` : ""}</h1>
+          <p className="truncate text-sm text-muted-foreground lg:hidden">
+            {trip.name}
+            {dayNumber && tripDays ? ` · día ${dayNumber} de ${tripDays}` : ""}
+          </p>
+          <h1 className="text-[28px] leading-tight font-bold tracking-tight text-balance">{stop ? `Hoy en ${stop.name}` : "Hoy"}</h1>
           <p className="text-sm text-muted-foreground">
             {formatLongDate(today)}
-            {dayNumber && tripDays ? ` · día ${dayNumber} de ${tripDays}` : ""}
+            <span className="hidden lg:inline">{dayNumber && tripDays ? ` · día ${dayNumber} de ${tripDays}` : ""}</span>
           </p>
           <TripClock timeZone={timeZone} place={stop?.name ?? zoneCity(timeZone)} initial={clockParts(now, timeZone)} />
         </div>
@@ -295,7 +352,8 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
           </section>
         )
       ) : plan.focus.length > 0 ? (
-        plan.focus.map((focus) => {
+        <div className={"grid gap-4 " + (nextPlan ? "sm:grid-cols-5" : "")}>
+        {plan.focus.map((focus) => {
           const category = isCategory(focus.category) ? CATEGORY_META[focus.category] : CATEGORY_META.other;
           const Icon = category.icon;
           const happening = plan.current.includes(focus);
@@ -306,7 +364,14 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
           const tickets = filesByActivity.get(focus.id) ?? [];
           const origin = happening || focus.lat === null || focus.lng === null ? null : originOf(focus);
           return (
-            <section key={focus.id} aria-labelledby={titleId} className="flex flex-col overflow-hidden rounded-[20px] border bg-card">
+            <section
+              key={focus.id}
+              aria-labelledby={titleId}
+              className={
+                "flex flex-col overflow-hidden rounded-[20px] border bg-card shadow-[0_1px_2px_rgba(11,27,51,.06),0_8px_24px_-12px_rgba(11,27,51,.18)] " +
+                (nextPlan ? "sm:col-span-3" : "")
+              }
+            >
               <PlacePhoto
                 name={focus.location_name ?? focus.title}
                 query={focus.location_name ? [focus.location_name, focus.address].filter(Boolean).join(", ") : ""}
@@ -330,7 +395,8 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                     <span className="text-xs font-medium text-white/85">
                       {happening ? "Ahora" : showAll ? "Próximo plan" : "Tu próximo plan"}
                     </span>
-                    <span className="rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
+                    <span className="flex items-center gap-1.5 rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground">
+                      {happening && <span aria-hidden="true" className="size-1.5 animate-now-pulse rounded-full bg-white text-white" />}
                       {happening ? "En curso" : <StartsIn startsAt={focus.starts_at} initial={formatStartsIn(focus.startsAt, now)} />}
                     </span>
                   </div>
@@ -344,6 +410,13 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                 </div>
               </PlacePhoto>
               <div className="flex flex-col gap-3 p-4">
+                {happening && (
+                  <EndsIn
+                    startsAt={focus.starts_at}
+                    endsAt={new Date(focus.startsAt.getTime() + focus.duration_minutes * 60_000).toISOString()}
+                    now={now.toISOString()}
+                  />
+                )}
                 {people.length > 0 && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <TravelerStack travelers={people} max={4} />
@@ -375,9 +448,9 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                     Referencia: <strong className="font-mono">{focus.reservation_ref}</strong>
                   </p>
                 )}
-                <div className="grid grid-cols-2 gap-2">
+                <div className={"grid grid-cols-2 gap-2 " + (happening && tickets.length > 0 ? "[&>:first-child]:order-2" : "")}>
                   {directions ? (
-                    <Button asChild size="lg" className="h-11">
+                    <Button asChild size="lg" variant={happening && tickets.length > 0 ? "outline" : "default"} className="h-11">
                       <a href={directions} target="_blank" rel="noopener noreferrer">
                         <Navigation aria-hidden="true" />
                         Ir ahora
@@ -390,7 +463,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                     </Button>
                   )}
                   {tickets.length > 0 ? (
-                    <Button asChild size="lg" variant="outline" className="h-11">
+                    <Button asChild size="lg" variant={happening ? "default" : "outline"} className="h-11">
                       <Link href={ticketHref(trip.id, tickets[0].id)}>
                         <Ticket aria-hidden="true" />
                         Mi ticket
@@ -430,7 +503,9 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
               </div>
             </section>
           );
-        })
+        })}
+        {nextCard}
+        </div>
       ) : (
         <section className="flex flex-col gap-1 rounded-2xl border bg-card p-4">
           <p className="font-semibold">Terminaste los planes de hoy</p>
@@ -506,15 +581,24 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
               const a = item.activity;
               const done = item.state === "done";
               const current = item.state === "now";
+              // Transfers (metro, walk, taxi) are slim rows, like in the itinerary.
+              const slim = a.category === "transfer" && !current;
               const people = peopleOf(a);
               const attached = filesByActivity.get(a.id)?.length ?? 0;
               const row = (
                 <>
                   <span className="flex min-w-0 flex-1 flex-col">
-                    <span className={"truncate text-sm " + (done ? "text-muted-foreground line-through" : "font-semibold")}>
+                    <span
+                      className={
+                        "line-clamp-2 " +
+                        (slim ? "text-xs text-muted-foreground" : "text-sm ") +
+                        (done ? " text-muted-foreground line-through" : slim ? "" : " font-semibold")
+                      }
+                    >
                       {a.title}
+                      {slim && ` · ${formatDuration(a.duration_minutes)}`}
                     </span>
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className={slim ? "hidden" : "truncate text-xs text-muted-foreground"}>
                       {item.isNext && <span className="font-semibold text-primary">Siguiente · </span>}
                       {formatDuration(a.duration_minutes)}
                       {current ? " · ahora" : ""}
@@ -533,7 +617,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                       </span>
                     )}
                   </span>
-                  {people.length > 0 && <TravelerStack travelers={people} max={3} />}
+                  {people.length > 0 && !slim && <TravelerStack travelers={people} max={3} />}
                 </>
               );
               const origin = done ? null : originOf(a);
@@ -556,13 +640,15 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                     />
                   )}
                   <li
-                    className={"flex items-center gap-2.5 rounded-xl py-2 " + (current ? "-mx-2 bg-secondary px-2" : "")}
+                    className={"flex items-center gap-2.5 rounded-xl " + (slim ? "py-1" : "py-2") + (current ? " -mx-2 bg-secondary px-2" : "")}
                   >
                     <span
                       aria-hidden="true"
                       className={
-                        "relative flex size-3 shrink-0 items-center justify-center rounded-full " +
-                        (done ? "bg-success" : current ? "bg-primary ring-4 ring-primary/20" : "border-2 border-primary bg-card")
+                        "relative flex shrink-0 items-center justify-center rounded-full " +
+                        (slim
+                          ? "mx-[3px] size-1.5 bg-primary/40"
+                          : "size-3 " + (done ? "animate-pop bg-success" : current ? "animate-now-pulse bg-primary text-primary" : "border-2 border-primary bg-card"))
                       }
                     >
                       {done && <Check className="size-2 text-white" strokeWidth={4} />}

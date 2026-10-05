@@ -147,3 +147,100 @@
     @apply font-sans;
   }
 }
+/* ---------------------------------------------------------------------------
+ * Motion (design review, 2026-10-05). Short, one curve, only where it explains
+ * something. Everything here turns off with the system's "reduce motion".
+ * ------------------------------------------------------------------------- */
+@theme {
+  --ease-out-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-rise: rise 450ms var(--ease-out-soft) both;
+  --animate-now-pulse: now-pulse 2s ease-out infinite;
+  --animate-fill: fill 700ms var(--ease-out-soft) both;
+  --animate-shimmer: shimmer 1.4s linear infinite;
+  --animate-pop: pop 400ms var(--ease-out-soft) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* A soft ring around what's happening now (current activity, "En curso"). */
+  @keyframes now-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in oklab, currentColor 45%, transparent);
+    }
+    70% {
+      box-shadow: 0 0 0 8px transparent;
+    }
+    100% {
+      box-shadow: 0 0 0 0 transparent;
+    }
+  }
+  /* Progress bars fill from zero; the final width is the element's own. */
+  @keyframes fill {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: -400px 0;
+    }
+    to {
+      background-position: 400px 0;
+    }
+  }
+  @keyframes pop {
+    0% {
+      transform: scale(0.6);
+      opacity: 0;
+    }
+    100% {
+      transform: none;
+      opacity: 1;
+    }
+  }
+}
+
+@layer utilities {
+  /* Staggered entrance: children rise one after another (60 ms apart). */
+  .stagger > * {
+    animation: var(--animate-rise);
+  }
+  .stagger > :nth-child(2) { animation-delay: 60ms; }
+  .stagger > :nth-child(3) { animation-delay: 120ms; }
+  .stagger > :nth-child(4) { animation-delay: 180ms; }
+  .stagger > :nth-child(5) { animation-delay: 240ms; }
+  .stagger > :nth-child(n + 6) { animation-delay: 300ms; }
+
+  /* Press feedback for tappable cards and buttons. */
+  .pressable {
+    transition: transform 120ms var(--ease-out-soft);
+  }
+  .pressable:active {
+    transform: scale(0.97);
+  }
+
+  .bar-fill {
+    transform-origin: left;
+    animation: var(--animate-fill);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -30,17 +30,19 @@ export function MoreSheet({ title, links, footer, active }: Props) {
         <button
           type="button"
           className={
-            "flex min-h-12 flex-col items-center justify-center gap-0.5 text-[11px] " +
+            "flex min-h-12 flex-col items-center gap-0.5 pt-1.5 pb-1 text-[11px] transition-colors " +
             (active ? "font-semibold text-primary" : "font-medium text-muted-foreground")
           }
         >
-          <MoreHorizontal className="size-[22px]" aria-hidden="true" />
+          <span className="flex h-8 w-14 items-center justify-center">
+            <MoreHorizontal className="size-[22px]" aria-hidden="true" />
+          </span>
           Más
         </button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-foreground/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col gap-2 rounded-t-3xl bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom">
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-foreground/40 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:duration-300" />
+        <Dialog.Content className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col gap-2 rounded-t-3xl bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl ease-(--ease-out-soft) data-[state=closed]:animate-out data-[state=closed]:slide-out-to-bottom data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom data-[state=open]:duration-300">
           <div className="flex items-center justify-between">
             <Dialog.Title className="text-lg font-semibold">{title}</Dialog.Title>
             <Dialog.Close className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" aria-label="Cerrar">

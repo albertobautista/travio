@@ -1,4 +1,4 @@
-import { Umbrella } from "lucide-react";
+import { ChevronDown, Umbrella } from "lucide-react";
 
 import { WEATHER_ATTRIBUTION, weatherMeta, type DayWeather, type NowWeather } from "@/lib/weather/types";
 
@@ -24,7 +24,7 @@ export function WeatherNow({ city, now, today }: { city: string; now: NowWeather
   const Icon = meta.icon;
   return (
     <div
-      className="flex shrink-0 flex-col items-end gap-0.5"
+      className="flex shrink-0 flex-col items-end gap-0.5 rounded-2xl border bg-card px-3 py-2"
       role="group"
       aria-label={`Clima en ${city}: ${now.temperature}°, ${meta.label}, sensación ${now.feelsLike}°${today ? `, máxima ${today.max}°, mínima ${today.min}°` : ""}`}
     >
@@ -53,20 +53,29 @@ export function WeatherNow({ city, now, today }: { city: string; now: NowWeather
 }
 
 /**
- * Rain later today, and which plans it hits. Nothing when it isn't expected
- * to rain.
+ * Rain later today, and which plans it hits. One line; the details (every
+ * window and the plans affected) open on tap. Nothing when it won't rain.
  */
 export function RainNotice({ now, plans }: { now: NowWeather; plans: { title: string; time: string }[] }) {
   const windows = rainWindows(now.rainyHours);
   if (windows.length === 0) return null;
   const hit = plans.filter((p) => windows.some((w) => p.time >= w.from && p.time < w.to));
+  const first = windows[0];
   return (
-    <p className="flex items-start gap-2 rounded-xl bg-secondary p-3 text-sm text-secondary-foreground">
-      <Umbrella className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-      <span>
-        Lluvia probable {windows.map((w) => `${w.from}–${w.to} (hasta ${w.peak}%)`).join(", ")}
-        {hit.length > 0 && <> · coincide con {hit.map((p) => `${p.title} (${p.time})`).join(", ")}</>}
-      </span>
-    </p>
+    <details className="group rounded-2xl bg-secondary text-sm text-secondary-foreground">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-3 py-2 [&::-webkit-details-marker]:hidden">
+        <Umbrella className="size-4 shrink-0" aria-hidden="true" />
+        <span className="flex-1">
+          <strong className="font-semibold">Lluvia probable {first.from}–{first.to}</strong> ({first.peak}%)
+          {windows.length > 1 && ` y ${windows.length - 1} ${windows.length === 2 ? "rato" : "ratos"} más`}
+          {hit.length > 0 && ` · afecta ${hit.length === 1 ? "1 plan" : `${hit.length} planes`}`}
+        </span>
+        <ChevronDown className="size-4 shrink-0 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+      </summary>
+      <div className="flex flex-col gap-1 px-3 pb-3 pl-9">
+        <p>{windows.map((w) => `${w.from}–${w.to} (hasta ${w.peak}%)`).join(" · ")}</p>
+        {hit.length > 0 && <p className="text-secondary-foreground/80">Coincide con {hit.map((p) => `${p.title} (${p.time})`).join(", ")}.</p>}
+      </div>
+    </details>
   );
 }

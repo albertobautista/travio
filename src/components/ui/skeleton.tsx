@@ -1,6 +1,14 @@
 /** A grey placeholder shaped like the content that's loading. */
 export function Skeleton({ className = "" }: { className?: string }) {
-  return <div aria-hidden="true" className={"animate-pulse rounded-md bg-muted " + className} />;
+  // A light sweeps across (globals.css, shimmer) so the page never looks frozen.
+  return (
+    <div
+      aria-hidden="true"
+      className={
+        "animate-shimmer rounded-md bg-[linear-gradient(90deg,var(--muted)_0,#f8fafc_50%,var(--muted)_100%)] bg-size-[800px_100%] " + className
+      }
+    />
+  );
 }
 
 /**

@@ -38,34 +38,48 @@ type Item = { href: string; label: string; icon: LucideIcon; match: (path: strin
 
 const TRIP_ROUTE = /^\/viajes\/([0-9a-f-]{36})(\/|$)/i;
 
-function BottomBar({ items, more }: { items: Item[]; more: React.ReactNode }) {
+function BottomBar({ items, more, moreActive }: { items: Item[]; more: React.ReactNode; moreActive: boolean }) {
   const pathname = usePathname();
+  const columns = items.length + 1;
+  const activeIndex = moreActive ? items.length : items.findIndex((item) => item.match(pathname));
   return (
     <nav
       aria-label="Principal"
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
-      <ul className="mx-auto grid max-w-2xl" style={{ gridTemplateColumns: `repeat(${items.length + 1}, minmax(0, 1fr))` }}>
+      <ul className="relative mx-auto grid max-w-2xl" style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}>
+        {/* The active tab's pill. One element that slides between tabs (transform only). */}
+        {activeIndex >= 0 && (
+          <li
+            aria-hidden="true"
+            className="pointer-events-none absolute top-1.5 left-0 flex justify-center transition-transform duration-250 ease-(--ease-out-soft)"
+            style={{ width: `${100 / columns}%`, transform: `translateX(${activeIndex * 100}%)` }}
+          >
+            <span className="h-8 w-14 rounded-full bg-secondary" />
+          </li>
+        )}
         {items.map((item) => {
           const active = item.match(pathname);
           const Icon = item.icon;
           return (
-            <li key={item.href}>
+            <li key={item.href} className="relative">
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={
-                  "flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px] " +
+                  "flex min-h-14 flex-col items-center gap-0.5 pt-1.5 pb-1 text-[11px] transition-colors " +
                   (active ? "font-semibold text-primary" : "font-medium text-muted-foreground hover:text-foreground")
                 }
               >
-                <Icon className="size-[22px]" aria-hidden="true" />
+                <span className="flex h-8 w-14 items-center justify-center">
+                  <Icon className="size-[22px]" aria-hidden="true" />
+                </span>
                 {item.label}
               </Link>
             </li>
           );
         })}
-        <li className="flex items-stretch justify-center [&>button]:min-h-14 [&>button]:w-full">{more}</li>
+        <li className="relative flex items-stretch justify-center [&>button]:min-h-14 [&>button]:w-full">{more}</li>
       </ul>
     </nav>
   );
@@ -338,7 +352,7 @@ export function TripNav({ tripId, tripName, editable }: { tripId: string; tripNa
 
   return (
     <>
-      <BottomBar items={bar} more={<MoreSheet title={tripName} links={rest} active={inMore} />} />
+      <BottomBar items={bar} moreActive={inMore} more={<MoreSheet title={tripName} links={rest} active={inMore} />} />
     </>
   );
 }
@@ -365,6 +379,7 @@ export function GlobalNav({ activeTrip, signOut }: { activeTrip: { id: string; n
   return (
     <BottomBar
       items={bar}
+      moreActive={pathname === "/viajes/nuevo"}
       more={<MoreSheet title="Travio" links={more} active={pathname === "/viajes/nuevo"} footer={signOut} />}
     />
   );

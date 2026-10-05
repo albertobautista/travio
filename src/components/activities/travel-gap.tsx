@@ -92,14 +92,14 @@ export function TravelGap({
       ? "border-warning-border bg-warning-soft text-warning-foreground"
       : verdict === "tight"
         ? "border-warning-border/60 bg-card text-warning-foreground"
-        : "border-transparent text-muted-foreground";
+        : "border-transparent bg-muted text-foreground/70";
 
   return (
     <li ref={row} className="flex items-center gap-2.5" aria-live="polite">
       {/* Same columns as the timeline rows: dot, time, then content. */}
       <span className="w-3 shrink-0" aria-hidden="true" />
       <span className="w-11 shrink-0" aria-hidden="true" />
-      <div className={"flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-1.5 py-1 text-xs " + tone}>
+      <div className={"flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border px-1.5 py-1 text-xs " + tone}>
         {editable ? (
           // The mode chip: a native <select> laid invisibly over the icon, so it's
           // compact but still a real, accessible select (and the phone's picker).

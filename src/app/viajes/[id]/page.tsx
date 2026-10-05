@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertCircle, ChevronLeft, ChevronRight, Pencil, Sun } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
 import { PlacePhoto } from "@/components/maps/place-photo";
 import { TripRoute } from "@/components/trips/trip-route";
@@ -24,6 +24,7 @@ import { getTravelers } from "@/lib/travelers/queries";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus } from "@/lib/trips/dates";
 import { canEdit, getStops, getTrip, toTripRole } from "@/lib/trips/queries";
+import { planningProgress } from "@/lib/trips/progress";
 import { resolveTripNow } from "@/lib/trips/today";
 
 import { rememberStopPlace } from "./ciudades/actions";
@@ -45,8 +46,9 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]">): P
  * next, what's still missing, budget, route and people. Sections themselves
  * are one tap away in the navigation.
  */
-export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
+export default async function TripPage({ params, searchParams }: PageProps<"/viajes/[id]">) {
   const { id } = await params;
+  const sorting = (await searchParams).ordenar === "1";
   const trip = await getTrip(id);
 
   // RLS returns nothing both when the trip doesn't exist and when the user
@@ -77,7 +79,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   const editable = canEdit(myRole);
   const base = `/viajes/${trip.id}`;
 
-  const today = resolveTripNow(stops).today;
+  const { today, stop: todayStop } = resolveTripNow(stops);
   const status = getTripStatus(trip.start_date, trip.end_date, today);
   const days = getTripLengthDays(trip.start_date, trip.end_date);
   const dayNumber = getTripDayNumber(trip.start_date, trip.end_date, today);
@@ -92,6 +94,10 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   // What's next: the first activity that hasn't started (transfers aren't "plans").
   const now = new Date();
   const next = activities.find((a) => a.category !== "transfer" && new Date(a.starts_at) > now);
+  const current = activities.find(
+    (a) => a.category !== "transfer" && Date.parse(a.starts_at) <= now.getTime() && now.getTime() < Date.parse(a.starts_at) + a.duration_minutes * 60_000,
+  );
+  const progress = planningProgress({ start: trip.start_date, end: trip.end_date, activities, legs, stays });
   const stopName = new Map(stops.map((s) => [s.id, s.name]));
 
   // Gaps worth a nudge while planning (editors only).
@@ -117,7 +123,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
   const spentPct = budget.budget ? Math.round((budget.spent / budget.budget) * 100) : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-6">
+    <main className="stagger mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-6">
       {/* Hero: the cover with the trip's name on it (a solid band keeps text readable on any photo). */}
       <header className={"relative overflow-hidden rounded-[20px] " + (coverUrl ? "" : "bg-primary")}>
         {coverUrl ? (
@@ -156,16 +162,36 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
       {status === "active" && (
         <Link
           href={`${base}/hoy`}
-          className="flex min-h-14 items-center gap-3 rounded-2xl bg-primary p-4 text-primary-foreground hover:bg-primary-hover"
+          className="pressable flex flex-col gap-2.5 rounded-[18px] border border-primary/30 bg-card p-4 hover:border-primary/60"
         >
-          <span className="flex size-10 items-center justify-center rounded-xl bg-white/15">
-            <Sun className="size-5" aria-hidden="true" />
+          <span className="flex items-center justify-between gap-2 text-xs font-semibold text-primary">
+            <span>
+              Hoy{dayNumber && days ? ` · día ${dayNumber} de ${days}` : ""}
+              {todayStop ? ` · ${todayStop.name}` : ""}
+            </span>
+            <span className="flex items-center gap-1">
+              Abrir Hoy
+              <ChevronRight className="size-3.5" aria-hidden="true" />
+            </span>
           </span>
-          <span className="flex flex-1 flex-col">
-            <span className="font-semibold">Hoy{dayNumber && days ? ` · día ${dayNumber} de ${days}` : ""}</span>
-            <span className="text-sm text-white/85">Qué sigue, cómo llegar y tus reservas</span>
-          </span>
-          <ChevronRight className="size-4" aria-hidden="true" />
+          {current && (
+            <span className="flex items-center gap-2.5">
+              <span aria-hidden="true" className="size-2.5 shrink-0 animate-now-pulse rounded-full bg-primary text-primary" />
+              <span className="min-w-0 flex-1 truncate font-semibold">{current.title}</span>
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">
+                hasta {instantToZonedTime(new Date(Date.parse(current.starts_at) + current.duration_minutes * 60_000).toISOString(), current.timezone).time}
+              </span>
+            </span>
+          )}
+          {next && activityDate(next) === today ? (
+            <span className="flex items-center gap-2.5 text-foreground/80">
+              <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full border-2 border-primary" />
+              <span className="min-w-0 flex-1 truncate text-sm">{next.title}</span>
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">{instantToZonedTime(next.starts_at, next.timezone).time}</span>
+            </span>
+          ) : (
+            !current && <span className="text-sm text-muted-foreground">Qué sigue, cómo llegar y tus reservas</span>
+          )}
         </Link>
       )}
 
@@ -177,17 +203,36 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
       </dl>
 
       {todo.length > 0 && (
-        <section aria-labelledby="todo" className="flex flex-col gap-2 rounded-2xl border border-warning-border bg-warning-soft p-4">
-          <h2 id="todo" className="flex items-center gap-2 font-semibold text-warning-foreground">
-            <AlertCircle className="size-4" aria-hidden="true" />
-            Por completar
-          </h2>
-          <ul className="flex flex-col">
+        <section aria-labelledby="todo" className="flex flex-col gap-3 rounded-[18px] border bg-card p-4">
+          <div className="flex items-center gap-3">
+            {progress !== null && (
+              <span
+                aria-hidden="true"
+                className="flex size-11 shrink-0 items-center justify-center rounded-full"
+                style={{ background: `conic-gradient(var(--success) 0 ${progress}%, var(--border) ${progress}% 100%)` }}
+              >
+                <span className="flex size-[34px] items-center justify-center rounded-full bg-card text-[11px] font-bold text-success-foreground">
+                  {progress}%
+                </span>
+              </span>
+            )}
+            <div className="flex flex-col">
+              <h2 id="todo" className="font-semibold">
+                {progress !== null && progress >= 90 ? "Casi todo listo" : "Por completar"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {todo.length === 1 ? "Queda 1 pendiente" : `Quedan ${todo.length} pendientes`}
+                {progress !== null && <span className="sr-only"> · {progress}% planificado</span>}
+              </p>
+            </div>
+          </div>
+          <ul className="flex flex-col gap-1.5">
             {todo.map((t) => (
               <li key={t.text}>
-                <Link href={t.href} className="flex min-h-11 items-center justify-between gap-2 text-sm text-warning-foreground hover:underline">
-                  {t.text}
-                  <ChevronRight className="size-4 shrink-0" aria-hidden="true" />
+                <Link href={t.href} className="pressable flex min-h-11 items-center gap-3 rounded-xl bg-background px-3 text-sm hover:bg-muted">
+                  <span aria-hidden="true" className="size-[18px] shrink-0 rounded-md border-2 border-primary/30" />
+                  <span className="flex-1">{t.text}</span>
+                  <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 </Link>
               </li>
             ))}
@@ -195,7 +240,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
         </section>
       )}
 
-      {next && (
+      {next && !(status === "active" && activityDate(next) === today) && (
         <section aria-labelledby="next" className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
             <h2 id="next" className="font-semibold">
@@ -272,7 +317,10 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
         </section>
       )}
 
-      <TripRoute tripId={trip.id} stops={stops} editable={editable} />
+      <TripRoute tripId={trip.id} stops={stops} editable={editable} sorting={sorting}
+        today={status === "active" ? today : null}
+        currentStopId={status === "active" ? (todayStop?.id ?? null) : null}
+      />
 
       {(budget.budget !== null || budget.spent > 0) && (
         <Link href={`${base}/presupuesto`} className="flex flex-col gap-2 rounded-2xl border bg-card p-4 hover:border-primary/40">
@@ -286,7 +334,7 @@ export default async function TripPage({ params }: PageProps<"/viajes/[id]">) {
           {spentPct !== null && (
             <span className="h-2 overflow-hidden rounded-full bg-muted" aria-hidden="true">
               <span
-                className={"block h-full rounded-full " + (spentPct > 100 ? "bg-destructive" : "bg-success")}
+                className={"bar-fill block h-full rounded-full " + (spentPct > 100 ? "bg-destructive" : "bg-success")}
                 style={{ width: `${Math.min(100, spentPct)}%` }}
               />
             </span>

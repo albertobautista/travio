@@ -20,8 +20,8 @@ export function LoginForm({ next, initialError }: LoginFormProps) {
   const [signUpState, signUpAction, signingUp] = useActionState(signUp, undefined);
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardContent className="flex flex-col gap-5">
+    <Card className="w-full max-w-sm animate-rise border-0 bg-transparent py-0 shadow-none ring-0 [animation-delay:80ms]">
+      <CardContent className="flex flex-col gap-5 px-0">
         {/* A plain POST (not a Server Action): see app/auth/google/route.ts. */}
         <form method="post" action="/auth/google">
           <input type="hidden" name="next" value={next} />
