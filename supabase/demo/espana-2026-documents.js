@@ -96,7 +96,13 @@
   }
 
   // ---- Drive the real upload form ----
-  const form = [...document.querySelectorAll("form")].find((f) => f.querySelector("input[type=file]"));
+  const findForm = () => [...document.querySelectorAll("form")].find((f) => f.querySelector("input[type=file]"));
+  let form = findForm();
+  if (!form) {
+    // Since the redesign (2026-10-05) the form lives in the "Subir" sheet: open it.
+    [...document.querySelectorAll("button")].find((b) => b.textContent.trim() === "Subir")?.click();
+    for (let i = 0; i < 30 && !(form = findForm()); i++) await new Promise((r) => setTimeout(r, 100));
+  }
   if (!form) throw new Error("Open the trip's Documentos page as an owner or editor first.");
   const input = form.querySelector("input[type=file]");
   const [typeSelect, targetSelect] = form.querySelectorAll("select");
