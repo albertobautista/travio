@@ -8,7 +8,8 @@ import type { Database } from "./database.types";
 // and /sin-conexion is stored by the service worker when it installs.
 const PUBLIC_PATHS = ["/", "/login", "/manifest.webmanifest", "/sw.js", "/sin-conexion"];
 // /invitacion/: the invitation page shows a preview before signing in.
-const PUBLIC_PREFIXES = ["/auth/", "/invitacion/"];
+// /avisos/: unsubscribing from emails works from the link, without signing in.
+const PUBLIC_PREFIXES = ["/auth/", "/invitacion/", "/avisos/"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));

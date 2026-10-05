@@ -2,8 +2,14 @@
 
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
+import InvitationEmail from "@/emails/invitation";
+import { appUrl } from "@/lib/email/app-url";
+import { sendEmail } from "@/lib/email/send";
+import { notifyMemberChange } from "@/lib/notifications/members";
 import { createClient } from "@/lib/supabase/server";
+import { formatTripDates } from "@/lib/trips/dates";
 import { isUuid } from "@/lib/uuid";
 
 // Who can see and change the trip. Every rule lives in the database (RLS on
@@ -16,7 +22,19 @@ const denied = { error: "Solo el propietario del viaje puede gestionar el acceso
 
 const isRole = (role: string): role is "editor" | "viewer" => role === "editor" || role === "viewer";
 
-export type CreateInvitationState = { error?: string; token?: string; expiresAt?: string } | undefined;
+export type CreateInvitationState =
+  | {
+      error?: string;
+      token?: string;
+      expiresAt?: string;
+      /** Set when an email was asked for: whether it went out. */
+      emailedTo?: string;
+      emailFailed?: boolean;
+    }
+  | undefined;
+
+const EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const expiryFormat = new Intl.DateTimeFormat("es-MX", { day: "numeric", month: "long" });
 
 /**
  * Creates a single-use invitation and returns its token. This is the only
@@ -32,6 +50,9 @@ export async function createInvitation(
   // "for": an existing traveler's id, "new" (someone new who's travelling) or
   // "follow" (just follows the trip, no traveler).
   const target = String(formData.get("for") ?? "");
+  // Optional: send the link to this address too.
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (email && (email.length > 254 || !EMAIL.test(email))) return { error: "Revisa el correo: no parece válido." };
   if (!isUuid(tripId)) return { error: "Este viaje no existe." };
   if (!isRole(role)) return { error: "Elige un tipo de acceso." };
   if (target !== "new" && target !== "follow" && !isUuid(target)) return { error: "Elige para quién es la invitación." };
@@ -42,6 +63,7 @@ export async function createInvitation(
     p_role: role,
     p_traveler_id: isUuid(target) ? target : undefined,
     p_adds_traveler: target === "new",
+    p_email: email || undefined,
   });
 
   if (error) {
@@ -52,6 +74,8 @@ export async function createInvitation(
         return { error: "Esa persona ya tiene cuenta vinculada en este viaje." };
       case "23503":
         return { error: "Esa persona ya no está en el viaje." };
+      case "53400":
+        return { error: "Ya enviaste muchas invitaciones por correo hoy. Copia el enlace o inténtalo mañana." };
       default:
         console.error("createInvitation failed", error);
         return { error: "No pudimos crear la invitación. Inténtalo de nuevo." };
@@ -60,7 +84,33 @@ export async function createInvitation(
 
   const result = data as { token: string; expires_at: string };
   refresh(); // the pending list shows the new invitation
-  return { token: result.token, expiresAt: result.expires_at };
+  if (!email) return { token: result.token, expiresAt: result.expires_at };
+
+  // Sent now (not after the response) so the form can say whether it went out.
+  const { data: claims } = await supabase.auth.getClaims();
+  const [{ data: trip }, { data: me }, { data: traveler }] = await Promise.all([
+    supabase.from("trips").select("name, start_date, end_date").eq("id", tripId).maybeSingle(),
+    supabase.from("profiles").select("display_name").eq("id", claims?.claims.sub ?? "").maybeSingle(),
+    isUuid(target)
+      ? supabase.from("travelers").select("name").eq("id", target).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const inviterName = me?.display_name?.trim() || "Alguien";
+  const tripName = trip?.name ?? "un viaje";
+  const { sent } = await sendEmail({
+    to: email,
+    subject: `${inviterName} te invitó a ${tripName}`,
+    email: InvitationEmail({
+      inviterName,
+      tripName,
+      dates: trip?.start_date ? formatTripDates(trip.start_date, trip.end_date) : null,
+      role,
+      travelerName: traveler?.name ?? null,
+      url: `${await appUrl()}/invitacion/${result.token}`,
+      expires: expiryFormat.format(new Date(result.expires_at)),
+    }),
+  });
+  return { token: result.token, expiresAt: result.expires_at, emailedTo: email, emailFailed: !sent };
 }
 
 export type AccessActionState = { error?: string } | undefined;
@@ -138,6 +188,7 @@ export async function leaveTrip(tripId: string): Promise<AccessActionState> {
     return { error: "No pudimos sacarte del viaje. Inténtalo de nuevo." };
   }
   if (data.length === 0) return { error: "El propietario no puede salir del viaje. Primero pasa la propiedad a otra persona." };
+  after(() => notifyMemberChange({ tripId, memberId: userId, kind: "left" }));
   redirect("/viajes");
 }
 

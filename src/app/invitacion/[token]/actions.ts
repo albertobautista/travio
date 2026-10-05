@@ -1,6 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+
+import { notifyMemberChange } from "@/lib/notifications/members";
 
 import { isInvitationToken } from "@/lib/invitations/queries";
 import { createClient } from "@/lib/supabase/server";
@@ -24,7 +27,14 @@ export async function acceptInvitation(token: string): Promise<AcceptInvitationS
     return { error: "No pudimos unirte al viaje. Inténtalo de nuevo." };
   }
 
-  const result = data as { status: string; trip_id?: string };
+  const result = data as { status: string; trip_id?: string; role?: "editor" | "viewer"; invited_by?: string | null };
+  if (result.status === "joined" && result.trip_id) {
+    const { data: claims } = await supabase.auth.getClaims();
+    const memberId = claims?.claims.sub;
+    const tripId = result.trip_id;
+    // After the response: joining never waits for email.
+    if (memberId) after(() => notifyMemberChange({ tripId, memberId, kind: "joined", role: result.role, inviterId: result.invited_by }));
+  }
   switch (result.status) {
     case "joined":
     case "member":

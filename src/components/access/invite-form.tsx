@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Link2 } from "lucide-react";
+import { Link2, MailCheck, MailWarning } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { CreateInvitationState } from "@/app/viajes/[id]/viajeros/access-actions";
 
@@ -75,6 +76,25 @@ export function InviteForm({ action: serverAction, tripName, travelers = [], tra
           </div>
         )}
 
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="invite-email">
+            Correo <span className="font-normal text-muted-foreground">(opcional)</span>
+          </Label>
+          <Input
+            id="invite-email"
+            name="email"
+            type="email"
+            inputMode="email"
+            autoComplete="off"
+            placeholder="nombre@correo.com"
+            aria-describedby="invite-email-hint"
+            className="h-11"
+          />
+          <p id="invite-email-hint" className="text-xs text-muted-foreground">
+            Le enviamos el enlace por correo. Si lo dejas vacío, solo lo copias y lo compartes tú.
+          </p>
+        </div>
+
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2 text-sm font-medium">Acceso al viaje</legend>
           {ROLE_OPTIONS.map((option) => (
@@ -105,9 +125,24 @@ export function InviteForm({ action: serverAction, tripName, travelers = [], tra
 
         <Button type="submit" size="lg" variant={state?.token ? "outline" : "default"} disabled={pending}>
           <Link2 aria-hidden="true" />
-          {pending ? "Creando…" : state?.token ? "Crear otro enlace" : submitLabel}
+          {pending ? "Creando…" : state?.token ? "Crear otra invitación" : submitLabel}
         </Button>
       </form>
+
+      {state?.emailedTo && (
+        <p
+          role="status"
+          className={
+            "flex items-start gap-2 rounded-xl p-3 text-sm " +
+            (state.emailFailed ? "bg-warning-soft text-warning-foreground" : "bg-success-soft text-success-foreground")
+          }
+        >
+          {state.emailFailed ? <MailWarning className="mt-0.5 size-4 shrink-0" aria-hidden="true" /> : <MailCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />}
+          {state.emailFailed
+            ? `No pudimos enviar el correo a ${state.emailedTo}. Copia el enlace y compártelo tú.`
+            : `Le enviamos la invitación a ${state.emailedTo}. También puedes compartir el enlace.`}
+        </p>
+      )}
 
       {state?.token && state.expiresAt && (
         // key: a new link resets the "Copiado" state.

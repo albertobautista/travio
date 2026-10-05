@@ -106,6 +106,7 @@ export async function AccessSection({
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-medium">{who}</span>
                     <span className={"text-xs " + (inv.expired ? "text-warning-foreground" : "text-muted-foreground")}>
+                      {inv.email ? `Enviada a ${inv.email} · ` : ""}
                       {ROLE_LABELS[inv.role]} ·{" "}
                       {inv.expired
                         ? "caducó, crea un enlace nuevo"

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
 import {
   BedDouble,
+  Bell,
   ChevronDown,
   Bookmark,
   CalendarDays,
@@ -234,6 +235,13 @@ export function DesktopSidebar({
           </span>
           <span className="truncate text-sm font-medium">{account.name}</span>
         </div>
+        <Link
+          href="/cuenta/avisos"
+          className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-muted"
+        >
+          <Bell className="size-[18px]" aria-hidden="true" />
+          Avisos por correo
+        </Link>
         {signOut}
       </div>
     </aside>
@@ -374,7 +382,10 @@ export function GlobalNav({ activeTrip, signOut }: { activeTrip: { id: string; n
     { href: "/viajes", label: "Viajes", icon: Navigation, match: (p) => p === "/viajes" },
     ...(activeTrip ? [{ href: `/viajes/${activeTrip.id}/hoy`, label: "Hoy", icon: Sun, match: () => false }] : []),
   ];
-  const more: SheetLink[] = [{ href: "/viajes/nuevo", label: "Nuevo viaje", icon: Plus }];
+  const more: SheetLink[] = [
+    { href: "/viajes/nuevo", label: "Nuevo viaje", icon: Plus },
+    { href: "/cuenta/avisos", label: "Avisos por correo", icon: Bell },
+  ];
 
   return (
     <BottomBar

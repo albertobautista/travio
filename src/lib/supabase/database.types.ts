@@ -265,6 +265,25 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"notification_preferences": {
+                  Row: {
+                    "changes": string,"created_at": string,"members": boolean,"reminders": boolean,"unsubscribe_token": string,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "changes"?: string,"created_at"?: string,"members"?: boolean,"reminders"?: boolean,"unsubscribe_token"?: string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "changes"?: string,"created_at"?: string,"members"?: boolean,"reminders"?: boolean,"unsubscribe_token"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "notification_preferences_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: true
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"profiles": {
                   Row: {
                     "avatar_url": string | null,"created_at": string,"display_name": string | null,"id": string,"updated_at": string
@@ -454,13 +473,13 @@ isOneToOne: false
                   ]
                 },"trip_invitations": {
                   Row: {
-                    "accepted_at": string | null,"accepted_by": string | null,"adds_traveler": boolean,"created_at": string,"created_by": string | null,"expires_at": string,"id": string,"role": string,"token_hash": string,"traveler_id": string | null,"trip_id": string,"updated_at": string
+                    "accepted_at": string | null,"accepted_by": string | null,"adds_traveler": boolean,"created_at": string,"created_by": string | null,"email": string | null,"expires_at": string,"id": string,"role": string,"token_hash": string,"traveler_id": string | null,"trip_id": string,"updated_at": string
                   }
                   Insert: {
-                    "accepted_at"?: string | null,"accepted_by"?: string | null,"adds_traveler"?: boolean,"created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"id"?: string,"role": string,"token_hash": string,"traveler_id"?: string | null,"trip_id": string,"updated_at"?: string
+                    "accepted_at"?: string | null,"accepted_by"?: string | null,"adds_traveler"?: boolean,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"expires_at"?: string,"id"?: string,"role": string,"token_hash": string,"traveler_id"?: string | null,"trip_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "accepted_at"?: string | null,"accepted_by"?: string | null,"adds_traveler"?: boolean,"created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"id"?: string,"role"?: string,"token_hash"?: string,"traveler_id"?: string | null,"trip_id"?: string,"updated_at"?: string
+                    "accepted_at"?: string | null,"accepted_by"?: string | null,"adds_traveler"?: boolean,"created_at"?: string,"created_by"?: string | null,"email"?: string | null,"expires_at"?: string,"id"?: string,"role"?: string,"token_hash"?: string,"traveler_id"?: string | null,"trip_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -574,7 +593,7 @@ isOneToOne: false
 { Args: { "p_trip_id": string }; Returns: number
                            },
 "create_trip_invitation":
-{ Args: { "p_adds_traveler"?: boolean,"p_role": string,"p_traveler_id"?: string,"p_trip_id": string }; Returns: Json
+{ Args: { "p_adds_traveler"?: boolean,"p_email"?: string,"p_role": string,"p_traveler_id"?: string,"p_trip_id": string }; Returns: Json
                            },
 "get_trip_invitation":
 { Args: { "p_token": string }; Returns: Json

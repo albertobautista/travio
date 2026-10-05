@@ -56,6 +56,8 @@ export type PendingInvitation = {
   created_at: string;
   traveler_name: string | null;
   adds_traveler: boolean;
+  /** Where the link was emailed, if it was. */
+  email: string | null;
   expired: boolean;
 };
 
@@ -65,7 +67,7 @@ export const getPendingInvitations = cache(async (tripId: string): Promise<Pendi
   const supabase = await createClient();
   const { data } = await supabase
     .from("trip_invitations")
-    .select("id, role, expires_at, created_at, adds_traveler, traveler:travelers (name)")
+    .select("id, role, expires_at, created_at, adds_traveler, email, traveler:travelers (name)")
     .eq("trip_id", tripId)
     .is("accepted_at", null)
     .order("created_at", { ascending: false });
