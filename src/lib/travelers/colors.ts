@@ -4,12 +4,12 @@ export type TravelerColor = (typeof TRAVELER_COLORS)[number];
 
 /** Avatar fill and text. Dark text on light fills keeps contrast above 4.5:1. */
 export const TRAVELER_COLOR_CLASSES: Record<TravelerColor, string> = {
-  blue: "bg-sky-100 text-sky-900",
-  green: "bg-emerald-100 text-emerald-900",
-  orange: "bg-orange-100 text-orange-900",
-  purple: "bg-violet-100 text-violet-900",
-  pink: "bg-pink-100 text-pink-900",
-  teal: "bg-teal-100 text-teal-900",
+  blue: "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300",
+  green: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
+  orange: "bg-orange-100 text-orange-900 dark:bg-orange-950 dark:text-orange-300",
+  purple: "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-300",
+  pink: "bg-pink-100 text-pink-900 dark:bg-pink-950 dark:text-pink-300",
+  teal: "bg-teal-100 text-teal-900 dark:bg-teal-950 dark:text-teal-300",
 };
 
 export function isTravelerColor(value: string): value is TravelerColor {

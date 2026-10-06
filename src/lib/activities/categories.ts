@@ -19,7 +19,7 @@ export const CATEGORY_META: Record<ActivityCategory, { label: string; icon: Luci
   sightseeing: { label: "Turismo", icon: Camera, className: "bg-success-soft text-success-foreground" },
   tour: { label: "Tour", icon: Flag, className: "bg-secondary text-secondary-foreground" },
   food: { label: "Comida", icon: Utensils, className: "bg-warning-soft text-warning-foreground ring-1 ring-warning-border ring-inset" },
-  transfer: { label: "Traslado", icon: Car, className: "bg-violet-100 text-violet-900" },
+  transfer: { label: "Traslado", icon: Car, className: "bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-300" },
   free_time: { label: "Tiempo libre", icon: Sun, className: "bg-muted text-foreground/80" },
   nightlife: { label: "Vida nocturna", icon: Moon, className: "bg-muted text-foreground/80" },
   shopping: { label: "Compras", icon: ShoppingBag, className: "bg-muted text-foreground/80" },

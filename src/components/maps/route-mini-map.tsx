@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { importMapsLibrary, MAPS_MAP_ID, mapsConfigured } from "@/lib/maps/load";
+import { mapColorScheme } from "@/lib/theme";
 
 type City = { id: string; name: string; lat: number; lng: number };
 
@@ -28,6 +29,7 @@ export function RouteMiniMap({ cities, current, className = "" }: { cities: City
         if (cancelled || !container.current) return;
         const map = new Map(container.current, {
           mapId: MAPS_MAP_ID,
+          colorScheme: mapColorScheme(),
           center: list[0],
           zoom: 5,
           disableDefaultUI: true,

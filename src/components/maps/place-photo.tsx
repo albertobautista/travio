@@ -117,7 +117,7 @@ export function PlacePhoto({
               target="_blank"
               rel="noopener noreferrer"
               className={
-                "absolute max-w-full truncate bg-foreground/55 px-1.5 py-0.5 text-[9px] text-white hover:underline " +
+                "absolute max-w-full truncate bg-black/55 px-1.5 py-0.5 text-[9px] text-white hover:underline " +
                 (creditAt === "top" ? "top-0 right-0 rounded-bl-md" : "right-0 bottom-0 left-0")
               }
             >

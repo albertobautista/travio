@@ -5,7 +5,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
     <div
       aria-hidden="true"
       className={
-        "animate-shimmer rounded-md bg-[linear-gradient(90deg,var(--muted)_0,#f8fafc_50%,var(--muted)_100%)] bg-size-[800px_100%] " + className
+        "animate-shimmer rounded-md bg-[linear-gradient(90deg,var(--muted)_0,color-mix(in_oklab,var(--muted),var(--foreground)_7%)_50%,var(--muted)_100%)] bg-size-[800px_100%] " + className
       }
     />
   );

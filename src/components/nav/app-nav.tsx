@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { DropdownMenu } from "radix-ui";
 import {
   BedDouble,
-  Bell,
   ChevronDown,
   Bookmark,
   CalendarDays,
@@ -18,6 +17,7 @@ import {
   Plane,
   Plus,
   Sun,
+  UserRound,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -236,11 +236,12 @@ export function DesktopSidebar({
           <span className="truncate text-sm font-medium">{account.name}</span>
         </div>
         <Link
-          href="/cuenta/avisos"
+          href="/cuenta"
+          aria-current={pathname.startsWith("/cuenta") ? "page" : undefined}
           className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm text-muted-foreground hover:bg-muted"
         >
-          <Bell className="size-[18px]" aria-hidden="true" />
-          Avisos por correo
+          <UserRound className="size-[18px]" aria-hidden="true" />
+          Tu cuenta
         </Link>
         {signOut}
       </div>
@@ -384,7 +385,7 @@ export function GlobalNav({ activeTrip, signOut }: { activeTrip: { id: string; n
   ];
   const more: SheetLink[] = [
     { href: "/viajes/nuevo", label: "Nuevo viaje", icon: Plus },
-    { href: "/cuenta/avisos", label: "Avisos por correo", icon: Bell },
+    { href: "/cuenta", label: "Tu cuenta", icon: UserRound, hint: "Apariencia y avisos" },
   ];
 
   return (

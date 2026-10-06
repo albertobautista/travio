@@ -150,7 +150,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
             Editar
           </Link>
         )}
-        <div className={"absolute inset-x-0 bottom-0 flex flex-col gap-1 px-4 py-3 text-white " + (coverUrl ? "bg-foreground/75" : "")}>
+        <div className={"absolute inset-x-0 bottom-0 flex flex-col gap-1 px-4 py-3 text-white " + (coverUrl ? "bg-black/70" : "")}>
           <div className="flex items-start justify-between gap-3">
             <h1 className="text-2xl font-bold tracking-tight">{trip.name}</h1>
             <TripStatusBadge status={status} className="mt-1" />

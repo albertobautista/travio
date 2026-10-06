@@ -25,9 +25,9 @@ export default async function NotificationPreferencesPage() {
   return (
     <main className="stagger mx-auto flex w-full max-w-lg flex-1 flex-col gap-5 px-4 py-6">
       <header className="flex flex-col gap-2">
-        <Link href="/viajes" className="-ml-2 inline-flex min-h-11 w-fit items-center gap-1 px-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/cuenta" className="-ml-2 inline-flex min-h-11 w-fit items-center gap-1 px-2 text-sm text-muted-foreground hover:text-foreground">
           <ChevronLeft className="size-4" aria-hidden="true" />
-          Mis viajes
+          Tu cuenta
         </Link>
         <h1 className="text-[28px] leading-tight font-bold tracking-tight">Avisos por correo</h1>
         {email && <p className="text-sm text-muted-foreground">Te llegan a {email}.</p>}

@@ -74,7 +74,7 @@ export function CoverUploader({ tripId, coverUrl }: Props) {
           </div>
         )}
         {busy && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-foreground/60 text-sm font-medium text-white">
+          <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 text-sm font-medium text-white">
             <Loader2 className="size-5 animate-spin" aria-hidden="true" />
             {uploading ? "Subiendo…" : "Guardando…"}
           </div>

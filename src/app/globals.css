@@ -58,6 +58,7 @@
 }
 
 :root {
+  color-scheme: light;
   /* Travio palette, taken from the mockups (see CLAUDE.md, "Mockup screens and visual tokens") */
   --background: #f7f9fc;
   --foreground: #0b1b33;
@@ -68,6 +69,8 @@
   --primary: #1f5edb;
   --primary-hover: #1846a8;
   --primary-foreground: #ffffff;
+  /* Blue text and icons; the same as --primary in light mode (see .dark). */
+  --primary-text: #1f5edb;
   --secondary: #e8f0fe;
   --secondary-foreground: #1846a8;
   --muted: #f1f4f8;
@@ -102,38 +105,55 @@
   --sidebar-ring: #1f5edb;
 }
 
+/* Dark mode (decided 2026-10-06, mockup "Travio · Modo oscuro"): deep navy
+ * instead of grey, cards a step lighter. Every text/background pair meets
+ * WCAG AA. The brand blue splits in two: --primary for filled buttons (white
+ * text, 4.6:1) and --primary-text, lighter, for blue text and icons on the
+ * dark background (6.9:1). Toggled by the .dark class on <html> (see
+ * src/lib/theme.ts). */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  color-scheme: dark;
+  --background: #0a1220;
+  --foreground: #e8eef8;
+  --card: #111c2e;
+  --card-foreground: #e8eef8;
+  --popover: #111c2e;
+  --popover-foreground: #e8eef8;
+  --primary: #356ee6;
+  --primary-hover: #4a7ff0;
+  --primary-foreground: #ffffff;
+  --primary-text: #6e9bff;
+  --secondary: #172a4f;
+  --secondary-foreground: #a9c4ff;
+  --muted: #18243a;
+  --muted-foreground: #8c9bb2;
+  --accent: #18243a;
+  --accent-foreground: #e8eef8;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --border: #1f2c44;
+  --input: #2a3a57;
+  --ring: #6e9bff;
+  --success: #22c27e;
+  --success-soft: #0e2e22;
+  --success-foreground: #6ee7b0;
+  --warning: #f08a3c;
+  --warning-soft: #2a1a0b;
+  --warning-border: #6b3b12;
+  --warning-foreground: #fdba74;
+  --timeline: #24344f;
+  --chart-1: #6e9bff;
+  --chart-2: #22c27e;
+  --chart-3: #f08a3c;
+  --chart-4: #a78bfa;
+  --chart-5: #8c9bb2;
+  --sidebar: #111c2e;
+  --sidebar-foreground: #e8eef8;
+  --sidebar-primary: #356ee6;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #172a4f;
+  --sidebar-accent-foreground: #a9c4ff;
+  --sidebar-border: #1f2c44;
+  --sidebar-ring: #6e9bff;
 }
 
 @layer base {
@@ -238,6 +258,13 @@
   }
   .pressable:active {
     transform: scale(0.97);
+  }
+
+  /* In dark mode blue text/icons use the lighter --primary-text (buttons keep
+   * --primary). Two classes: beats the plain .text-primary utility. */
+  .dark .text-primary,
+  .dark .hover\:text-primary:hover {
+    color: var(--primary-text);
   }
 
   .bar-fill {

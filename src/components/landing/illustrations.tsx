@@ -93,9 +93,9 @@ export function PhoneToday() {
 }
 
 const avatar = {
-  A: "bg-sky-100 text-sky-900",
-  L: "bg-pink-100 text-pink-900",
-  S: "bg-emerald-100 text-emerald-900",
+  A: "bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-300",
+  L: "bg-pink-100 text-pink-900 dark:bg-pink-950 dark:text-pink-300",
+  S: "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
 } as const;
 
 function Avatar({ letter, className = "" }: { letter: keyof typeof avatar; className?: string }) {
@@ -236,7 +236,7 @@ export function NowNext() {
 export function DocumentsCard() {
   const file = (Icon: typeof Ticket, name: string, meta: string) => (
     <div className="flex items-center gap-2.5 rounded-xl border p-2.5">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-800">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300">
         <Icon className="size-[18px]" />
       </span>
       <span className="flex-1">

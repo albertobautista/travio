@@ -117,7 +117,7 @@ export default async function Home() {
                   {city}
                 </span>
                 {i < ROUTE.length - 1 && (
-                  <span aria-hidden="true" className="text-[#BCD0F7]">
+                  <span aria-hidden="true" className="text-timeline">
                     →
                   </span>
                 )}

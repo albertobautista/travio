@@ -8,6 +8,7 @@ import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
 import { directionsUrl } from "@/lib/maps/directions";
 import type { MapCity, MapDay, MapRow } from "@/lib/maps/days";
 import { importMapsLibrary, MAPS_MAP_ID, mapsConfigured } from "@/lib/maps/load";
+import { mapColorScheme } from "@/lib/theme";
 import type { MapPoint } from "@/lib/maps/points";
 import { transportMeta } from "@/lib/transportations/types";
 import { WeatherChip } from "@/components/weather/weather-chip";
@@ -134,6 +135,7 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
         if (cancelled || !container.current) return;
         map.current = new Map(container.current, {
           mapId: MAPS_MAP_ID,
+          colorScheme: mapColorScheme(),
           center: { lat: 40.4168, lng: -3.7038 },
           zoom: 5,
           disableDefaultUI: true,
