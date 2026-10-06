@@ -6,7 +6,8 @@ import type { Database } from "./database.types";
 /** Routes that work without a session. Everything else requires sign-in. */
 // The PWA files must load signed out too: the browser fetches them on its own,
 // and /sin-conexion is stored by the service worker when it installs.
-const PUBLIC_PATHS = ["/", "/login", "/manifest.webmanifest", "/sw.js", "/sin-conexion"];
+// /opengraph-image: the link preview picture, fetched by WhatsApp & co. with no session.
+const PUBLIC_PATHS = ["/", "/login", "/manifest.webmanifest", "/sw.js", "/sin-conexion", "/opengraph-image"];
 // /invitacion/: the invitation page shows a preview before signing in.
 // /avisos/: unsubscribing from emails works from the link, without signing in.
 // /api/avisos/: the notification job, called by pg_cron (checks its own secret).
