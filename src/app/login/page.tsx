@@ -38,7 +38,7 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
         </div>
       </section>
       <section className="relative -mt-6 flex flex-1 flex-col items-center rounded-t-3xl bg-card px-4 pt-6 pb-10 lg:mt-0 lg:max-w-xl lg:justify-center lg:rounded-none lg:px-12">
-        <LoginForm next={next} initialError={errorKey ? ERROR_MESSAGES[errorKey] : undefined} />
+        <LoginForm next={next} initialError={errorKey ? ERROR_MESSAGES[errorKey] : undefined} openSignUp={params.registro === "1"} />
       </section>
     </main>
   );

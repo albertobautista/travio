@@ -12,10 +12,12 @@ import { signIn, signUp, type AuthFormState } from "./actions";
 
 type LoginFormProps = {
   next: string;
+  /** Open on "Crear cuenta" (the landing's "Empieza gratis"). */
+  openSignUp?: boolean;
   initialError?: string;
 };
 
-export function LoginForm({ next, initialError }: LoginFormProps) {
+export function LoginForm({ next, initialError, openSignUp = false }: LoginFormProps) {
   const [signInState, signInAction, signingIn] = useActionState(signIn, undefined);
   const [signUpState, signUpAction, signingUp] = useActionState(signUp, undefined);
 
@@ -36,7 +38,7 @@ export function LoginForm({ next, initialError }: LoginFormProps) {
           <span className="h-px flex-1 bg-border" />
         </div>
 
-        <Tabs defaultValue="sign-in">
+        <Tabs defaultValue={openSignUp ? "sign-up" : "sign-in"}>
           <TabsList className="w-full">
             <TabsTrigger value="sign-in">Iniciar sesión</TabsTrigger>
             <TabsTrigger value="sign-up">Crear cuenta</TabsTrigger>

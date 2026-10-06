@@ -158,6 +158,7 @@
   --animate-fill: fill 700ms var(--ease-out-soft) both;
   --animate-shimmer: shimmer 1.4s linear infinite;
   --animate-pop: pop 400ms var(--ease-out-soft) both;
+  --animate-float: float 5s ease-in-out infinite;
 
   @keyframes rise {
     from {
@@ -196,6 +197,16 @@
     }
     to {
       background-position: 400px 0;
+    }
+  }
+  /* Landing page: cards that drift up and down a little. */
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
     }
   }
   @keyframes pop {
