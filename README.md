@@ -46,3 +46,35 @@ Disabled until you have OAuth credentials:
    ```
 
 4. Set `enabled = true` under `[auth.external.google]` in `supabase/config.toml` and restart: `supabase stop && supabase start`.
+
+## Avisos por correo
+
+Emails go out through [Resend](https://resend.com) (`src/lib/email/send.ts`,
+templates in `src/emails/`). Without `RESEND_API_KEY` they're only logged.
+Without a verified domain Resend only delivers to the account owner's address.
+
+What sends what:
+
+- **Invitations** and **"X se unió / salió"**: right away, from the server actions.
+- **Change summaries** (hourly or daily, per person) and the **reminder the day
+  before a trip**: a job at `POST /api/avisos/enviar`, called every 10 minutes by
+  `pg_cron` in Supabase (migration `20261005150000_trip_events_and_cron.sql`).
+  Changes are recorded by triggers in `trip_events`.
+
+Each environment needs:
+
+1. Env vars (`.env.local` locally, Vercel in production): `SUPABASE_SECRET_KEY`,
+   `RESEND_API_KEY`, `EMAIL_FROM`, `CRON_SECRET` (see `.env.example`).
+2. Two Vault secrets in that environment's database, so `pg_cron` knows where to
+   call and with what (run in the SQL editor, or with psql locally):
+
+   ```sql
+   select vault.create_secret('<app url>/api/avisos/enviar', 'notifications_url');
+   select vault.create_secret('<same value as CRON_SECRET>', 'notifications_secret');
+   ```
+
+   Locally the URL is `http://host.docker.internal:3000/api/avisos/enviar` (the
+   database runs in Docker). Without these secrets the job simply doesn't run.
+
+To run the job right away instead of waiting for the clock:
+`select public.request_notification_run();` and check `net._http_response`.

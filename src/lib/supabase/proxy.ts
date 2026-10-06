@@ -9,7 +9,8 @@ import type { Database } from "./database.types";
 const PUBLIC_PATHS = ["/", "/login", "/manifest.webmanifest", "/sw.js", "/sin-conexion"];
 // /invitacion/: the invitation page shows a preview before signing in.
 // /avisos/: unsubscribing from emails works from the link, without signing in.
-const PUBLIC_PREFIXES = ["/auth/", "/invitacion/", "/avisos/"];
+// /api/avisos/: the notification job, called by pg_cron (checks its own secret).
+const PUBLIC_PREFIXES = ["/auth/", "/invitacion/", "/avisos/", "/api/avisos/"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));

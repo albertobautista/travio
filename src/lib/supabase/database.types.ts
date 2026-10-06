@@ -267,13 +267,13 @@ isOneToOne: false
                   ]
                 },"notification_preferences": {
                   Row: {
-                    "changes": string,"created_at": string,"members": boolean,"reminders": boolean,"unsubscribe_token": string,"updated_at": string,"user_id": string
+                    "changes": string,"changes_sent_until": string | null,"created_at": string,"members": boolean,"reminders": boolean,"unsubscribe_token": string,"updated_at": string,"user_id": string
                   }
                   Insert: {
-                    "changes"?: string,"created_at"?: string,"members"?: boolean,"reminders"?: boolean,"unsubscribe_token"?: string,"updated_at"?: string,"user_id": string
+                    "changes"?: string,"changes_sent_until"?: string | null,"created_at"?: string,"members"?: boolean,"reminders"?: boolean,"unsubscribe_token"?: string,"updated_at"?: string,"user_id": string
                   }
                   Update: {
-                    "changes"?: string,"created_at"?: string,"members"?: boolean,"reminders"?: boolean,"unsubscribe_token"?: string,"updated_at"?: string,"user_id"?: string
+                    "changes"?: string,"changes_sent_until"?: string | null,"created_at"?: string,"members"?: boolean,"reminders"?: boolean,"unsubscribe_token"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -446,6 +446,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"trip_events": {
+                  Row: {
+                    "action": string,"actor_id": string,"created_at": string,"detail": NonNullable<Json>,"entity": string,"entity_id": string,"id": number,"trip_id": string
+                  }
+                  Insert: {
+                    "action": string,"actor_id": string,"created_at"?: string,"detail"?: NonNullable<Json>,"entity": string,"entity_id": string,"id"?: never,"trip_id": string
+                  }
+                  Update: {
+                    "action"?: string,"actor_id"?: string,"created_at"?: string,"detail"?: NonNullable<Json>,"entity"?: string,"entity_id"?: string,"id"?: never,"trip_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "trip_events_actor_id_fkey"
+      columns: ["actor_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_events_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"trip_exchange_rates": {
                   Row: {
                     "created_at": string,"currency": string,"rate": number,"trip_id": string,"updated_at": string,"updated_by": string | null
@@ -533,6 +558,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"trip_reminders_sent": {
+                  Row: {
+                    "sent_at": string,"start_date": string,"trip_id": string,"user_id": string
+                  }
+                  Insert: {
+                    "sent_at"?: string,"start_date": string,"trip_id": string,"user_id": string
+                  }
+                  Update: {
+                    "sent_at"?: string,"start_date"?: string,"trip_id"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "trip_reminders_sent_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_reminders_sent_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"trip_stops": {
                   Row: {
                     "arrives_on": string | null,"created_at": string,"created_by": string | null,"departs_on": string | null,"google_place_id": string | null,"id": string,"lat": number | null,"lng": number | null,"name": string,"notes": string | null,"position": number,"timezone": string,"trip_id": string,"updated_at": string
@@ -612,6 +662,9 @@ isOneToOne: false
                            },
 "move_trip_stop":
 { Args: { "p_direction": number,"p_stop_id": string }; Returns: undefined
+                           },
+"request_notification_run":
+{ Args: Record<PropertyKey, never>; Returns: undefined
                            },
 "set_accommodation_participants":
 { Args: { "p_accommodation_id": string,"p_traveler_ids": (string)[] }; Returns: undefined
