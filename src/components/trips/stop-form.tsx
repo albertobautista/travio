@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
+import { PlaceFields } from "@/components/maps/place-fields";
+import { TimeZoneField } from "@/components/time-zone-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { TimeZoneOption } from "@/lib/time-zones";
-import type { StopFormState, StopFormValues } from "@/lib/trips/stop-form";
+import type { StopField, StopFormState, StopFormValues } from "@/lib/trips/stop-form";
 
 type StopFormProps = {
   action: (prev: StopFormState, formData: FormData) => Promise<StopFormState>;
@@ -35,24 +37,36 @@ export function StopForm({
   const [state, action, pending] = useActionState(serverAction, undefined);
   const errors = state?.fieldErrors ?? {};
   const values = state?.values ?? initialValues;
+  // Filled by the city search; editable for places Google doesn't know.
+  const [timezone, setTimezone] = useState(values?.timezone ?? "");
+  const [cityName, setCityName] = useState(values?.name ?? "");
 
-  const describedBy = (field: keyof StopFormValues, hint?: boolean) =>
+  const describedBy = (field: StopField, hint?: boolean) =>
     [errors[field] ? `${field}-error` : null, hint ? `${field}-hint` : null].filter(Boolean).join(" ") || undefined;
 
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
-      <Field id="name" label="Ciudad" error={errors.name}>
-        <Input
-          id="name"
-          name="name"
-          maxLength={120}
-          placeholder="Londres"
-          defaultValue={values?.name}
-          aria-invalid={Boolean(errors.name)}
-          aria-describedby={describedBy("name")}
-          className="h-11"
-        />
-      </Field>
+      {/* Picking the city from Google saves where it is (for the map) and its time zone. */}
+      <PlaceFields
+        nameField="name"
+        nameLabel="Ciudad"
+        namePlaceholder="Londres"
+        maxNameLength={120}
+        initial={{
+          name: values?.name ?? "",
+          address: "",
+          placeId: values?.google_place_id ?? "",
+          lat: values?.lat ?? "",
+          lng: values?.lng ?? "",
+        }}
+        errors={{ name: errors.name }}
+        showAddress={false}
+        includedPrimaryTypes={["(cities)"]}
+        onPicked={({ name, timeZone }) => {
+          setCityName(name);
+          if (timeZone) setTimezone(timeZone);
+        }}
+      />
 
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">Estancia</legend>
@@ -88,29 +102,19 @@ export function StopForm({
       </fieldset>
 
       <Field id="timezone" label="Zona horaria" error={errors.timezone}>
-        {/* A text input with suggestions: ~400 zones are too many for a plain select. */}
-        <Input
+        <TimeZoneField
           id="timezone"
           name="timezone"
-          list="timezone-options"
-          autoComplete="off"
-          spellCheck={false}
-          placeholder="Europe/London"
-          defaultValue={values?.timezone}
-          aria-invalid={Boolean(errors.timezone)}
-          aria-describedby={describedBy("timezone", true)}
-          className="h-11"
+          value={timezone}
+          onChange={setTimezone}
+          options={timeZones}
+          placeName={cityName}
+          invalid={Boolean(errors.timezone)}
+          describedBy={describedBy("timezone", true)}
         />
-        <datalist id="timezone-options">
-          {timeZones.map((tz) => (
-            <option key={tz.id} value={tz.id}>
-              {tz.offset}
-            </option>
-          ))}
-        </datalist>
         <p id="timezone-hint" className="text-xs text-muted-foreground">
-          Escribe el continente o la ciudad en inglés: “Europe/London”, “Europe/Madrid”, “America/New_York”. Las
-          horas de las actividades en esta ciudad se mostrarán en esta zona.
+          Se llena sola al elegir la ciudad de la lista. Las horas de las actividades en esta ciudad se mostrarán en esta
+          zona.
         </p>
       </Field>
 

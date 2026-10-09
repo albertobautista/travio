@@ -32,10 +32,29 @@ const BOOKMARK_SVG =
 const LEAVE_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>';
 
-/** Marker content: plain DOM styled with the app's Tailwind tokens. */
 /** Zoom at which a city's hotels and activities appear in the whole-trip view. */
 const CITY_ZOOM = 11;
 
+type LatLng = { lat: number; lng: number };
+
+/** Nothing in the trip has a place yet: the whole world, not some default country. */
+const WORLD = { center: { lat: 20, lng: 0 }, zoom: 2 };
+
+/** Center on one place or fit several; false if there is nothing to frame. */
+function frame(m: google.maps.Map, places: LatLng[], zoomForOne: number, padding: number) {
+  if (places.length === 0) return false;
+  if (places.length === 1) {
+    m.setCenter(places[0]);
+    m.setZoom(zoomForOne);
+  } else {
+    const bounds = new google.maps.LatLngBounds();
+    places.forEach((pl) => bounds.extend(pl));
+    m.fitBounds(bounds, padding);
+  }
+  return true;
+}
+
+/** Marker content: plain DOM styled with the app's Tailwind tokens. */
 function markerElement(point: MapPoint, label: string | null, leaving: boolean) {
   const el = document.createElement("div");
   if (point.kind === "saved") {
@@ -95,6 +114,12 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
   // Bumped when the map finishes loading, so the drawing effect runs then.
   const [mapReady, setMapReady] = useState(0);
   const dayInfo = days.find((d) => d.date === day) ?? null;
+  // Where the trip is: its cities, or failing that anything with a place.
+  const locatedCities = useMemo(
+    () => cities.flatMap((c) => (c.lat !== null && c.lng !== null ? [{ id: c.id, lat: c.lat, lng: c.lng }] : [])),
+    [cities],
+  );
+  const home: LatLng[] = locatedCities.length > 0 ? locatedCities : points;
 
   // What's pinned: a day's stays (nights) and activities in time order, or the whole trip.
   const visible = useMemo(() => {
@@ -136,8 +161,9 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
         map.current = new Map(container.current, {
           mapId: MAPS_MAP_ID,
           colorScheme: mapColorScheme(),
-          center: { lat: 40.4168, lng: -3.7038 },
-          zoom: 5,
+          // Start where the trip is (the drawing effect frames it precisely).
+          center: home[0] ? { lat: home[0].lat, lng: home[0].lng } : WORLD.center,
+          zoom: home[0] ? 10 : WORLD.zoom,
           disableDefaultUI: true,
           zoomControl: true,
           fullscreenControl: true,
@@ -153,6 +179,8 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
     return () => {
       cancelled = true;
     };
+    // `home` only sets the first view; later framing happens when drawing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configured]);
 
   // Redraw markers and the day's route whenever the selection changes.
@@ -175,7 +203,6 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
       if (!day) {
         // Whole trip: cities numbered in route order, joined by how you travel.
         // Hotels and activities only appear once you zoom into a city.
-        const bounds = new google.maps.LatLngBounds();
         const detail: google.maps.marker.AdvancedMarkerElement[] = [];
         overlays.current.markers = points.map((p) => {
           const marker = new AdvancedMarkerElement({
@@ -187,13 +214,13 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
             gmpClickable: true,
           });
           marker.addListener("click", () => (p.kind === "stop" ? focusCity(p.id) : setSelected(p.id)));
-          if (p.kind === "stop") bounds.extend(marker.position!);
-          else detail.push(marker);
+          if (p.kind !== "stop") detail.push(marker);
           return marker;
         });
         const cityLabels = overlays.current.markers.filter((mk) => !detail.includes(mk));
         const applyZoom = () => {
-          const show = (m.getZoom() ?? 0) >= CITY_ZOOM;
+          // No city has a place: its hotels and activities are all there is to show.
+          const show = (m.getZoom() ?? 0) >= CITY_ZOOM || locatedCities.length === 0;
           detail.forEach((mk) => (mk.map = show ? m : null));
           // Zoomed into a city, its label goes under the places instead of covering them.
           cityLabels.forEach((mk) => (mk.zIndex = show ? 0 : 3));
@@ -201,6 +228,7 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
         overlays.current.zoomListener = m.addListener("zoom_changed", applyZoom);
 
         const located = cities.filter((c) => c.lat !== null && c.lng !== null);
+        applyZoom();
         overlays.current.lines = located.slice(1).map((c, i) => {
           const from = located[i];
           // Flights: dashed arcs (geodesic). Trains, buses, ferries: solid lines.
@@ -221,18 +249,15 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
           });
         });
 
-        if (located.length === 1) {
-          m.setCenter(bounds.getCenter());
-          m.setZoom(12);
-        } else if (located.length > 1) {
-          m.fitBounds(bounds, 64);
+        if (!frame(m, home, located.length > 0 ? 12 : 14, 64)) {
+          m.setCenter(WORLD.center);
+          m.setZoom(WORLD.zoom);
         }
         return;
       }
 
       // Frame the day's plans; the stay being left only counts if nothing else has a place.
       const framed = visible.length > 0 ? visible : leaving;
-      const bounds = new google.maps.LatLngBounds();
       const savedShown = showSaved ? nearbySaved : [];
       overlays.current.markers = [...savedShown, ...leaving, ...visible].map((p) => {
         const isLeaving = leaving.includes(p);
@@ -245,8 +270,6 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
           gmpClickable: true,
         });
         marker.addListener("click", () => setSelected(p.id));
-        // Saved places are ideas nearby: they don't pull the frame away from the day's plans.
-        if (framed.includes(p)) bounds.extend(marker.position!);
         return marker;
       });
 
@@ -262,11 +285,12 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
         ];
       }
 
-      if (framed.length === 1) {
-        m.setCenter(bounds.getCenter());
-        m.setZoom(15);
-      } else if (framed.length > 1) {
-        m.fitBounds(bounds, 48);
+      // Saved places are ideas nearby: they don't pull the frame away from the day's plans.
+      // Nothing placed that day: show the day's city, else the trip, never a default country.
+      const dayCities = locatedCities.filter((c) => dayInfo?.stopIds.includes(c.id));
+      if (!frame(m, framed, 15, 48) && !frame(m, dayCities, 12, 64) && !frame(m, home, 12, 64)) {
+        m.setCenter(WORLD.center);
+        m.setZoom(WORLD.zoom);
       }
     })();
     return () => {

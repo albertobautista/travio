@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { Clock } from "lucide-react";
 
 import { Field, selectClass } from "@/components/form-field";
+import { TimeZoneField } from "@/components/time-zone-field";
 import { ParticipantsField } from "@/components/travelers/participants-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { BOOKING_META, BOOKING_STATUSES } from "@/lib/activities/categories";
 import { formatDuration } from "@/lib/activities/schedule";
-import type { TimeZoneOption } from "@/lib/time-zones";
+import { guessTimeZone, type TimeZoneOption } from "@/lib/time-zones";
 import type { TransportField, TransportFormState, TransportFormValues } from "@/lib/transportations/transport-form";
 import { TRANSPORT_META, TRANSPORT_TYPES, transportMeta } from "@/lib/transportations/types";
 import { CURRENCIES } from "@/lib/trips/currencies";
@@ -52,8 +53,9 @@ export function TransportForm({
   const values = state?.values ?? initialValues;
 
   const [type, setType] = useState(values.type);
-  const [origin, setOrigin] = useState({ name: values.origin_name, zone: values.departs_timezone });
-  const [destination, setDestination] = useState({ name: values.destination_name, zone: values.arrives_timezone });
+  // `guessed`: the zone came from the place's name, so retyping the name may change it.
+  const [origin, setOrigin] = useState({ name: values.origin_name, zone: values.departs_timezone, guessed: false });
+  const [destination, setDestination] = useState({ name: values.destination_name, zone: values.arrives_timezone, guessed: false });
   const [departsDate, setDepartsDate] = useState(values.departs_date);
   const [departsTime, setDepartsTime] = useState(values.departs_time);
   const [arrivesDate, setArrivesDate] = useState(values.arrives_date);
@@ -72,6 +74,13 @@ export function TransportForm({
             60_000,
         )
       : null;
+
+  /** Typing "Miami (MIA)" fills in Miami's zone, unless one was chosen by hand. */
+  function typeName(place: typeof origin, name: string) {
+    const guess = !place.zone || place.guessed ? guessTimeZone(name) : null;
+    return guess ? { name, zone: guess, guessed: true } : { ...place, name };
+  }
+  const tripZones = stops.map((s) => s.timezone);
 
   const describedBy = (field: TransportField, extra?: string) =>
     [errors[field] ? `${field}-error` : null, extra].filter(Boolean).join(" ") || undefined;
@@ -128,14 +137,6 @@ export function TransportForm({
         {errors.type && <p className="text-sm text-destructive">{errors.type}</p>}
       </fieldset>
 
-      <datalist id="transport-timezones">
-        {timeZones.map((tz) => (
-          <option key={tz.id} value={tz.id}>
-            {tz.offset}
-          </option>
-        ))}
-      </datalist>
-
       {/* Each end: place, local date/time, its time zone and details. */}
       {(
         [
@@ -190,13 +191,13 @@ export function TransportForm({
               maxLength={160}
               placeholder={end.side === "departs" ? "Londres Heathrow (LHR)" : "Cracovia (KRK)"}
               value={end.place.name}
-              onChange={(e) => end.setPlace({ ...end.place, name: e.target.value })}
+              onChange={(e) => end.setPlace(typeName(end.place, e.target.value))}
               aria-invalid={Boolean(errors[end.nameField])}
               aria-describedby={describedBy(end.nameField)}
               className="h-11"
             />
             {cityShortcuts(
-              (s) => end.setPlace({ name: s.name, zone: s.timezone }),
+              (s) => end.setPlace({ name: s.name, zone: s.timezone, guessed: false }),
               end.place.name,
               `Ciudades del viaje para ${end.side === "departs" ? "la salida" : "la llegada"}`,
             )}
@@ -230,18 +231,16 @@ export function TransportForm({
             </Field>
           </div>
           <Field id={end.zoneField} label="Zona horaria" error={errors[end.zoneField]}>
-            <Input
+            <TimeZoneField
               id={end.zoneField}
               name={end.zoneField}
-              list="transport-timezones"
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="Europe/London"
               value={end.place.zone}
-              onChange={(e) => end.setPlace({ ...end.place, zone: e.target.value.trim() })}
-              aria-invalid={Boolean(errors[end.zoneField])}
-              aria-describedby={describedBy(end.zoneField)}
-              className="h-11"
+              onChange={(zone) => end.setPlace({ ...end.place, zone, guessed: false })}
+              options={timeZones}
+              suggested={tripZones}
+              placeName={end.place.name}
+              invalid={Boolean(errors[end.zoneField])}
+              describedBy={describedBy(end.zoneField)}
             />
           </Field>
           <Field id={end.detailField} label="Terminal, andén o punto de encuentro" error={errors[end.detailField]}>

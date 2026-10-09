@@ -130,7 +130,7 @@ export function parseTransportForm(
 
   const zone = (value: string, field: "departs_timezone" | "arrives_timezone") => {
     if (!value) errors[field] = "Elige la zona horaria (o una ciudad del viaje).";
-    else if (!isKnownTimeZone(value)) errors[field] = "Elige una zona de la lista, por ejemplo Europe/London.";
+    else if (!isKnownTimeZone(value)) errors[field] = "Elige una zona de la lista: busca la ciudad, por ejemplo “Miami”.";
   };
   zone(values.departs_timezone, "departs_timezone");
   zone(values.arrives_timezone, "arrives_timezone");

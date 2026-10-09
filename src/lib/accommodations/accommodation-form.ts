@@ -121,7 +121,7 @@ export function parseAccommodationForm(
   } else if (!values.timezone) {
     errors.timezone = "Elige la zona horaria (o una ciudad del viaje).";
   } else if (!isKnownTimeZone(values.timezone)) {
-    errors.timezone = "Elige una zona de la lista, por ejemplo Europe/London.";
+    errors.timezone = "Elige una zona de la lista: busca la ciudad, por ejemplo “Miami”.";
   } else {
     timezone = values.timezone;
   }

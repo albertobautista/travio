@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 
 import { Field, selectClass } from "@/components/form-field";
 import { PlaceFields } from "@/components/maps/place-fields";
+import { TimeZoneField } from "@/components/time-zone-field";
 import { ParticipantsField } from "@/components/travelers/participants-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -317,30 +318,21 @@ export function ActivityForm({
 
       {!stopId && (
         <Field id="timezone" label="Zona horaria" error={errors.timezone}>
-          <Input
+          <TimeZoneField
             id="timezone"
             name="timezone"
-            list="activity-timezones"
-            autoComplete="off"
-            spellCheck={false}
-            placeholder="Europe/London"
             value={timezone}
-            onChange={(e) => setTimezone(e.target.value.trim())}
-            aria-invalid={Boolean(errors.timezone)}
-            aria-describedby={describedBy("timezone")}
-            className="h-11"
+            onChange={setTimezone}
+            options={timeZones}
+            suggested={stops.map((s) => s.timezone)}
+            invalid={Boolean(errors.timezone)}
+            describedBy={describedBy("timezone")}
           />
-          <datalist id="activity-timezones">
-            {timeZones.map((tz) => (
-              <option key={tz.id} value={tz.id}>
-                {tz.offset}
-              </option>
-            ))}
-          </datalist>
         </Field>
       )}
 
       <PlaceFields
+        onPicked={({ timeZone }) => timeZone && setTimezone(timeZone)}
         nameField="location_name"
         nameLabel="Lugar"
         namePlaceholder="Borough Market"

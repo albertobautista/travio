@@ -45,6 +45,9 @@ export default async function EditStopPage({ params }: PageProps<"/viajes/[id]/c
             departs_on: stop.departs_on ?? "",
             timezone: stop.timezone,
             notes: stop.notes ?? "",
+            google_place_id: stop.google_place_id ?? "",
+            lat: stop.lat?.toString() ?? "",
+            lng: stop.lng?.toString() ?? "",
           }}
           timeZones={listTimeZones()}
           minDate={trip.start_date ?? undefined}

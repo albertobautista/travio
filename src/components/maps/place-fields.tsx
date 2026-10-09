@@ -22,6 +22,12 @@ type Props = {
   nearLat?: number | null;
   nearLng?: number | null;
   maxNameLength?: number;
+  /** False for a city: just its name, no address field. */
+  showAddress?: boolean;
+  /** Narrow suggestions, e.g. ["(cities)"] for a trip's stops. */
+  includedPrimaryTypes?: string[];
+  /** Called with the picked place's time zone, so the form can fill it in. */
+  onPicked?: (place: { name: string; timeZone: string | null }) => void;
 };
 
 /**
@@ -44,6 +50,9 @@ export function PlaceFields({
   nearLat = null,
   nearLng = null,
   maxNameLength = 200,
+  showAddress = true,
+  includedPrimaryTypes,
+  onPicked,
 }: Props) {
   const ids = useId();
   const listId = `${ids}-list`;
@@ -77,6 +86,7 @@ export function PlaceFields({
           input: query,
           sessionToken: token.current,
           language: "es",
+          ...(includedPrimaryTypes ? { includedPrimaryTypes } : {}),
           ...(nearLat !== null && nearLng !== null
             ? { locationBias: { center: { lat: nearLat, lng: nearLng }, radius: 20_000 } }
             : {}),
@@ -107,6 +117,8 @@ export function PlaceFields({
       }
     }, 250);
     return () => clearTimeout(timer);
+    // includedPrimaryTypes is a constant per form.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, searching, nearLat, nearLng]);
 
   // A short or cleared query hides old suggestions without an extra render.
@@ -117,13 +129,15 @@ export function PlaceFields({
     setLoading(true);
     try {
       const p = s.prediction.toPlace();
-      await p.fetchFields({ fields: ["displayName", "formattedAddress", "location"] });
+      // timeZone is billed in the same tier as displayName (Place Details Pro): no extra cost.
+      await p.fetchFields({ fields: ["displayName", "formattedAddress", "location", "timeZone"] });
       token.current = null; // the session ends with the details request
       setName((p.displayName ?? s.main).slice(0, maxNameLength));
       setAddress((p.formattedAddress ?? s.secondary).slice(0, 300));
       if (p.location) {
         setPlace({ placeId: p.id, lat: p.location.lat().toFixed(7), lng: p.location.lng().toFixed(7) });
       }
+      onPicked?.({ name: p.displayName ?? s.main, timeZone: p.timeZone?.id ?? null });
     } catch (e) {
       console.error("Place details failed", e);
       setFailed(true);
@@ -216,19 +230,21 @@ export function PlaceFields({
         {failed && <p className="text-xs text-warning-foreground">No pudimos buscar en Google Maps. Puedes escribirlo a mano.</p>}
       </Field>
 
-      <Field id="address" label="Dirección" error={errors.address}>
-        <Input
-          id="address"
-          name="address"
-          maxLength={300}
-          value={address}
-          onChange={(e) => {
-            setAddress(e.target.value);
-            setPlace(null); // a typed address no longer matches the stored coordinates
-          }}
-          className="h-11"
-        />
-      </Field>
+      {showAddress && (
+        <Field id="address" label="Dirección" error={errors.address}>
+          <Input
+            id="address"
+            name="address"
+            maxLength={300}
+            value={address}
+            onChange={(e) => {
+              setAddress(e.target.value);
+              setPlace(null); // a typed address no longer matches the stored coordinates
+            }}
+            className="h-11"
+          />
+        </Field>
+      )}
 
       {place && (
         <p className="flex items-center gap-2 text-xs text-success-foreground">
