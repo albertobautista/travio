@@ -36,7 +36,7 @@ npm run test:db     # pgTAP against the local database: RLS and invitations (sup
 
 The database tests run inside a transaction that is rolled back, so they leave no data behind. The first `npm run test:db` downloads the pg_prove image and can take a few minutes.
 
-GitHub Actions runs all of this on every push (`.github/workflows/ci.yml`). In Vercel, **Settings → Deployment Checks** requires the "App" and "Database" jobs, so a red build is never promoted to production.
+GitHub Actions runs all of this on every push (`.github/workflows/ci.yml`). In Vercel, **Settings → Deployment Checks** requires the "Travio CI" commit status (posted by the last CI job once "App" and "Database" pass), so a red build is never promoted to production.
 
 ## Authentication
 

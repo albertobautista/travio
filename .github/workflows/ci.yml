@@ -38,3 +38,24 @@ jobs:
       # checks that they still run in order on an empty project.
       - run: supabase db start
       - run: supabase test db
+
+  # Vercel's Deployment Checks read commit statuses, not job results: this
+  # job sums up the two above into a single "Travio CI" status on the commit.
+  # That is the check required in Vercel → Settings → Deployment Checks.
+  vercel-status:
+    name: Vercel status
+    needs: [app, database]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ needs.app.result == 'success' && needs.database.result == 'success' && 'success' || 'failure' }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state="$STATE" \
+            -f context="Travio CI" \
+            -f description="App: ${{ needs.app.result }} · Database: ${{ needs.database.result }}" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
