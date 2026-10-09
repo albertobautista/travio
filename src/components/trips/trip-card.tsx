@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { Plane, Sun } from "lucide-react";
+import { Hourglass, Plane, Sun } from "lucide-react";
 
+import type { CountdownTarget } from "@/lib/trips/countdown";
 import { formatTripDates, getTripLengthDays, type TripStatus } from "@/lib/trips/dates";
 
+import { TripCountdown } from "./trip-countdown";
 import { TripStatusBadge } from "./trip-status-badge";
 
 export type TripCardData = {
@@ -18,6 +20,8 @@ export type TripCardData = {
   travelerCount: number;
   /** 0–100, or null for undated trips (see lib/trips/progress). */
   progress: number | null;
+  /** Upcoming trips: "Faltan 35 días". */
+  daysLeft?: string | null;
 };
 
 const MAX_CITY_CHIPS = 3;
@@ -56,6 +60,12 @@ export function TripCard({ trip }: { trip: TripCardData }) {
             .filter(Boolean)
             .join(" · ")}
         </span>
+        {trip.daysLeft && (
+          <span className="flex w-fit items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+            <Hourglass className="size-3" aria-hidden="true" />
+            {trip.daysLeft}
+          </span>
+        )}
         {trip.cities.length > 0 && (
           <span className="flex gap-1 overflow-hidden">
             {trip.cities.slice(0, MAX_CITY_CHIPS).map((city, i) => (
@@ -170,5 +180,38 @@ export function ActiveTripCard({ trip }: { trip: ActiveTripData }) {
         </div>
       </div>
     </article>
+  );
+}
+
+/**
+ * The next trip, on top of the upcoming ones: its cover and a live countdown
+ * to the first departure (or the first day).
+ */
+export function NextTripCard({ trip, target, serverNow }: { trip: TripCardData; target: CountdownTarget; serverNow: number }) {
+  return (
+    <Link
+      href={`/viajes/${trip.id}`}
+      className="pressable block overflow-hidden rounded-[20px] border bg-card shadow-[0_1px_2px_rgba(11,27,51,.06),0_12px_28px_-16px_rgba(11,27,51,.25)] transition-colors hover:border-primary/40 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+    >
+      <span className="relative block h-36 bg-secondary">
+        {trip.coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={trip.coverUrl} alt="" className="size-full object-cover" />
+        ) : (
+          <span aria-hidden="true" className="flex size-full items-center justify-center text-primary">
+            <Plane className="size-10" />
+          </span>
+        )}
+        <span className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-4 pt-10 pb-3 text-white">
+          <span className="text-xl leading-tight font-bold">{trip.name}</span>
+          <span className="text-sm text-white/90">
+            {[formatTripDates(trip.start_date, trip.end_date), trip.travelerCount === 1 ? "1 viajero" : `${trip.travelerCount} viajeros`].join(" · ")}
+          </span>
+        </span>
+      </span>
+      <span className="block p-4">
+        <TripCountdown target={target} serverNow={serverNow} />
+      </span>
+    </Link>
   );
 }

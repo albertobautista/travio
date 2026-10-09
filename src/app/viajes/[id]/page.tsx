@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
 
 import { PlacePhoto } from "@/components/maps/place-photo";
+import { TripCountdown } from "@/components/trips/trip-countdown";
 import { TripRoute } from "@/components/trips/trip-route";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
@@ -21,6 +22,7 @@ import { getSavedPlaces } from "@/lib/saved-places/queries";
 import { createClient } from "@/lib/supabase/server";
 import { getTransportations } from "@/lib/transportations/queries";
 import { getTravelers } from "@/lib/travelers/queries";
+import { tripCountdownTarget } from "@/lib/trips/countdown";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus } from "@/lib/trips/dates";
 import { canEdit, getStops, getTrip, toTripRole } from "@/lib/trips/queries";
@@ -97,6 +99,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
   const current = activities.find(
     (a) => a.category !== "transfer" && Date.parse(a.starts_at) <= now.getTime() && now.getTime() < Date.parse(a.starts_at) + a.duration_minutes * 60_000,
   );
+  const countdown = status === "upcoming" ? tripCountdownTarget(trip.start_date, stops, legs) : null;
   const progress = planningProgress({ start: trip.start_date, end: trip.end_date, activities, legs, stays });
   const stopName = new Map(stops.map((s) => [s.id, s.name]));
 
@@ -193,6 +196,12 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
             !current && <span className="text-sm text-muted-foreground">Qué sigue, cómo llegar y tus reservas</span>
           )}
         </Link>
+      )}
+
+      {countdown && (
+        <section aria-label="Cuenta regresiva" className="rounded-[18px] border border-primary/30 bg-card p-4">
+          <TripCountdown target={countdown} serverNow={now.getTime()} />
+        </section>
       )}
 
       <dl className="grid grid-cols-4 gap-2">

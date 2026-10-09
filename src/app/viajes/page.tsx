@@ -3,8 +3,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus } from "lucide-react";
 
-import { ActiveTripCard, TripCard, type ActiveTripData, type TripCardData } from "@/components/trips/trip-card";
+import { ActiveTripCard, NextTripCard, TripCard, type ActiveTripData, type TripCardData } from "@/components/trips/trip-card";
 import { Button } from "@/components/ui/button";
+import { daysLeftLabel, tripCountdownTarget, type CountdownTarget } from "@/lib/trips/countdown";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { getTripDayNumber, getTripLengthDays, getTripStatus, type TripStatus } from "@/lib/trips/dates";
 import { planningProgress } from "@/lib/trips/progress";
@@ -49,22 +50,24 @@ export default async function TripsPage() {
   const { data: rows, error } = await supabase
     .from("trips")
     .select(
-      "id, name, start_date, end_date, cover_image_path, trip_stops (name, position, timezone, arrives_on, departs_on), travelers (count), activities (starts_at, timezone), transportations (departs_at, departs_timezone), accommodations (check_in_at, check_out_at, timezone)",
+      "id, name, start_date, end_date, cover_image_path, trip_stops (name, position, timezone, arrives_on, departs_on), travelers (count), activities (starts_at, timezone), transportations (type, carrier, service_number, origin_name, destination_name, departs_at, departs_timezone), accommodations (check_in_at, check_out_at, timezone)",
     );
 
   // One batch request signs every cover on the page.
   const coverUrls = await getCoverUrls((rows ?? []).map((t) => t.cover_image_path));
 
-  const allTrips: (TripCardData & { today: string; city: string | null })[] = (rows ?? [])
+  const allTrips: (TripCardData & { today: string; city: string | null; countdown: CountdownTarget | null })[] = (rows ?? [])
     .map((t) => {
       // Each trip's "today" is local to where its travelers are.
       const tripNow = resolveTripNow(t.trip_stops);
+      const status = getTripStatus(t.start_date, t.end_date, tripNow.today);
+      const upcoming = status === "upcoming" && t.start_date !== null;
       return {
         id: t.id,
         name: t.name,
         start_date: t.start_date,
         end_date: t.end_date,
-        status: getTripStatus(t.start_date, t.end_date, tripNow.today),
+        status,
         coverUrl: t.cover_image_path ? (coverUrls.get(t.cover_image_path) ?? null) : null,
         cities: [...t.trip_stops].sort((a, b) => a.position - b.position).map((s) => s.name),
         travelerCount: t.travelers[0]?.count ?? 0,
@@ -77,6 +80,8 @@ export default async function TripsPage() {
         }),
         today: tripNow.today,
         city: tripNow.stop?.name ?? null,
+        daysLeft: upcoming ? daysLeftLabel(t.start_date!, tripNow.today) : null,
+        countdown: upcoming ? tripCountdownTarget(t.start_date, t.trip_stops, t.transportations) : null,
       };
     })
     .sort(compareTrips);
@@ -91,6 +96,10 @@ export default async function TripsPage() {
     }));
   const sections = SECTIONS.map((s) => ({ ...s, trips: allTrips.filter((t) => t.status === s.status) }));
   const hasUpcoming = sections[0].trips.length > 0;
+  // The soonest upcoming trip gets the big countdown; the rest, "Faltan 35 días".
+  const nextTrip = sections[0].trips[0];
+  // Server render time: the countdown starts from it, so the first paint matches.
+  const serverNow = new Date().getTime();
   const heading = "text-xs font-semibold tracking-wide text-muted-foreground uppercase";
 
   return (
@@ -148,7 +157,11 @@ export default async function TripsPage() {
                 <ul className="flex flex-col gap-3">
                   {section.trips.map((trip) => (
                     <li key={trip.id}>
-                      <TripCard trip={trip} />
+                      {trip === nextTrip && trip.countdown ? (
+                        <NextTripCard trip={trip} target={trip.countdown} serverNow={serverNow} />
+                      ) : (
+                        <TripCard trip={trip} />
+                      )}
                     </li>
                   ))}
                 </ul>
