@@ -26,6 +26,18 @@ Open http://localhost:3000.
 - New migration: `supabase migration new <name>`; rebuild the local database from the migrations: `supabase db reset`.
 - After changing the schema, regenerate the TypeScript types: `npm run db:types`.
 
+## Tests
+
+```bash
+npm test            # Vitest: schedule, conflicts, dates, Today, budget split… (src/lib/**/*.test.ts)
+npm run typecheck   # route types + tsc
+npm run test:db     # pgTAP against the local database: RLS and invitations (supabase/tests/)
+```
+
+The database tests run inside a transaction that is rolled back, so they leave no data behind. The first `npm run test:db` downloads the pg_prove image and can take a few minutes.
+
+GitHub Actions runs all of this on every push (`.github/workflows/ci.yml`). In Vercel, **Settings → Deployment Checks** requires the "App" and "Database" jobs, so a red build is never promoted to production.
+
 ## Authentication
 
 Supabase Auth with email/password and Google. Sessions live in cookies (`@supabase/ssr`); `src/proxy.ts` refreshes them on each request and redirects signed-out users to `/login`. Authorization itself is RLS in the database.
