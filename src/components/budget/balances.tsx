@@ -22,6 +22,7 @@ export function Balances({
   settlements,
   withoutPayer,
   unconverted,
+  alsoIn,
   editable,
 }: {
   tripId: string;
@@ -32,6 +33,8 @@ export function Balances({
   settlements: (Settlement & { paid_on: string })[];
   withoutPayer: number;
   unconverted: string[];
+  /** The amount in "Tu moneda" ("≈ $1,200 MXN"), or null when it doesn't apply. */
+  alsoIn: (cents: number) => string | null;
   editable: boolean;
 }) {
   const money = (cents: number) => formatMoney(cents, currency);
@@ -63,14 +66,19 @@ export function Balances({
                   )}
                 </span>
               </span>
-              <span
-                className={
-                  "shrink-0 font-mono text-sm font-semibold " +
-                  (b.balance > 0 ? "text-success-foreground" : b.balance < 0 ? "text-destructive" : "text-muted-foreground")
-                }
-              >
-                {b.balance > 0 ? "+" : b.balance < 0 ? "−" : ""}
-                {money(Math.abs(b.balance))}
+              <span className="flex shrink-0 flex-col items-end">
+                <span
+                  className={
+                    "font-mono text-sm font-semibold " +
+                    (b.balance > 0 ? "text-success-foreground" : b.balance < 0 ? "text-destructive" : "text-muted-foreground")
+                  }
+                >
+                  {b.balance > 0 ? "+" : b.balance < 0 ? "−" : ""}
+                  {money(Math.abs(b.balance))}
+                </span>
+                {b.balance !== 0 && alsoIn(Math.abs(b.balance)) && (
+                  <span className="font-mono text-xs text-muted-foreground">{alsoIn(Math.abs(b.balance))}</span>
+                )}
               </span>
             </li>
           );
@@ -98,6 +106,7 @@ export function Balances({
                   <ArrowRight className="size-3.5 text-muted-foreground" aria-label="le paga a" />
                   <span className="font-medium">{first(t.to)}</span>
                   <span className="font-mono font-semibold">{money(t.amount)}</span>
+                  {alsoIn(t.amount) && <span className="font-mono text-xs text-muted-foreground">({alsoIn(t.amount)})</span>}
                 </span>
                 {editable && (
                   <SettleButton

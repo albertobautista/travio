@@ -360,9 +360,18 @@ export default async function BudgetPage({ params, searchParams }: PageProps<"/v
                           </span>
                         </span>
                         <span className="flex shrink-0 flex-col items-end">
-                          <span className="font-mono text-sm font-semibold">{formatMoney(cents, e.currency)}</span>
+                          <span className="font-mono text-sm font-semibold">
+                            {formatMoney(cents, e.currency)}
+                            {/* With two "$" currencies around, say which one. */}
+                            {home && e.currency !== cur && ` ${e.currency}`}
+                          </span>
                           {e.currency !== cur && (
-                            <span className="font-mono text-xs text-muted-foreground">{inTrip === null ? "sin tipo de cambio" : `≈ ${money(inTrip)}`}</span>
+                            <span className="font-mono text-xs text-muted-foreground">
+                              {inTrip === null ? "sin tipo de cambio" : `≈ ${money(inTrip)}${home ? ` ${cur}` : ""}`}
+                            </span>
+                          )}
+                          {e.currency !== home && inTrip !== null && alsoIn(inTrip) && (
+                            <span className="font-mono text-xs text-muted-foreground">{alsoIn(inTrip)}</span>
                           )}
                         </span>
                       </>
@@ -419,6 +428,7 @@ export default async function BudgetPage({ params, searchParams }: PageProps<"/v
             settlements={settlements}
             withoutPayer={split.withoutPayer}
             unconverted={split.unconverted}
+            alsoIn={alsoIn}
             editable={editable}
           />
         ) : (
