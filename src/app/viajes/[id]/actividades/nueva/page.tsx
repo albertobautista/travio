@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 export default async function NewActivityPage({ params, searchParams }: PageProps<"/viajes/[id]/actividades/nueva">) {
   const { id } = await params;
   const query = await searchParams;
-  const { dia, guardado } = query;
+  const { dia, guardado, desde } = query;
   // From an AI idea (or any link): optional prefill, each value checked. The
   // form is still reviewed and validated on save.
   const param = (key: string, max = 200) => {
@@ -75,7 +75,9 @@ export default async function NewActivityPage({ params, searchParams }: PageProp
           Itinerario
         </Link>
         <h1 className="text-3xl font-bold tracking-tight">Nueva actividad</h1>
-        {idea.title ? (
+        {desde === "hotel" ? (
+          <p className="text-sm text-muted-foreground">Regreso al hotel: el tiempo es aproximado, ajústalo si hace falta.</p>
+        ) : idea.title ? (
           <p className="text-sm text-muted-foreground">Desde una idea con IA: revisa los datos antes de guardar.</p>
         ) : (
           saved && <p className="text-sm text-muted-foreground">Desde tus guardados: elige el día y la hora.</p>

@@ -28,7 +28,7 @@ import { instantToZonedTime } from "@/lib/zoned-time";
 import { TravelGap } from "@/components/activities/travel-gap";
 import { GapIdeas } from "@/components/ideas/gap-ideas";
 import { aiConfigured } from "@/lib/ai/gap-ideas";
-import { hotelStarts, isTravelMode, travelPairs } from "@/lib/maps/travel";
+import { hotelReturn, hotelStarts, isTravelMode, travelPairs } from "@/lib/maps/travel";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itinerario">): Promise<Metadata> {
   const trip = await getTrip((await params).id);
@@ -168,6 +168,32 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     ),
     morningStay ? asHotel(morningStay) : null,
   );
+  // "Regreso al hotel": after the day's last activity, a shortcut to add the way
+  // back to tonight's hotel as a transfer, prefilled in the usual form.
+  const lastRow = dayRows.at(-1);
+  const backToHotel = (() => {
+    if (!editable || !tonight || lastRow?.kind !== "activity") return null;
+    const last = lastRow.activity;
+    const back = hotelReturn(pairStop(last), asHotel(tonight));
+    if (!back) return null;
+    const leaves = instantToZonedTime(new Date(last.startsAt.getTime() + last.duration_minutes * 60_000), last.timezone);
+    const q = new URLSearchParams({
+      dia: leaves.date,
+      desde: "hotel",
+      titulo: `Regreso a ${tonight.name}`,
+      categoria: "transfer",
+      hora: leaves.time,
+      duracion: String(back.minutes),
+      lugar: tonight.name,
+    });
+    if (tonight.address) q.set("direccion", tonight.address);
+    if (tonight.google_place_id) q.set("place_id", tonight.google_place_id);
+    if (tonight.lat !== null && tonight.lng !== null) {
+      q.set("lat", String(tonight.lat));
+      q.set("lng", String(tonight.lng));
+    }
+    return { href: `/viajes/${trip.id}/actividades/nueva?${q}`, time: leaves.time, minutes: back.minutes };
+  })();
   // Free time worth ideas (AI on): an hour or more between two consecutive activities, still ahead.
   const aiOn = trip.ai_enabled && aiConfigured();
   const ideasBefore = new Map<string, { fromId: string; minutes: number }>();
@@ -592,6 +618,22 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                       </Fragment>
                     );
                   })}
+                  {backToHotel && tonight && (
+                    <li className="flex items-center gap-2.5">
+                      <span aria-hidden="true" className="relative mx-[3px] size-1.5 shrink-0 rounded-full bg-primary/50" />
+                      <span className="w-11 shrink-0 font-mono text-[11px] text-muted-foreground">{backToHotel.time}</span>
+                      <Link
+                        href={backToHotel.href}
+                        className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-lg border border-dashed px-2 py-1.5 text-xs text-muted-foreground hover:border-primary/40 hover:bg-muted"
+                      >
+                        <Plus className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className="font-medium text-foreground/80">Regreso a {tonight.name}</span>
+                          {` · ~${formatDuration(backToHotel.minutes)}`}
+                        </span>
+                      </Link>
+                    </li>
+                  )}
                 </ol>
               )}
             </section>

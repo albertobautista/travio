@@ -130,3 +130,17 @@ export function hotelStarts<S extends PairStop, H extends { point: Point | null 
   }
   return starts;
 }
+
+/**
+ * The "Regreso al hotel" shortcut after the day's last activity, with a rough
+ * time (rounded up to 5 min) to prefill the transfer; you can change it before
+ * saving. Null when there's nothing to go back from: the day ends with a
+ * transfer (likely the way back already) or at the hotel itself.
+ */
+export function hotelReturn(last: { category: string; point: Point | null }, hotel: { point: Point | null }) {
+  if (last.category === "transfer") return null;
+  if (!last.point || !hotel.point) return { minutes: 30 };
+  if (distanceMeters(last.point, hotel.point) < SAME_PLACE_METERS) return null;
+  const minutes = estimateMinutes(last.point, hotel.point, autoMode(last.point, hotel.point));
+  return { minutes: Math.ceil(minutes / 5) * 5 };
+}
