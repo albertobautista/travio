@@ -4,13 +4,14 @@ import { BedDouble, MoreHorizontal, Plane, Ticket, TrainFront, Utensils, type Lu
 export const BUDGET_CATEGORIES = ["flights", "accommodation", "transportation", "activities", "food", "other"] as const;
 export type BudgetCategory = (typeof BUDGET_CATEGORIES)[number];
 
-export const BUDGET_META: Record<BudgetCategory, { label: string; icon: LucideIcon }> = {
-  flights: { label: "Vuelos", icon: Plane },
-  accommodation: { label: "Hospedaje", icon: BedDouble },
-  transportation: { label: "Transporte", icon: TrainFront },
-  activities: { label: "Actividades", icon: Ticket },
-  food: { label: "Comida", icon: Utensils },
-  other: { label: "Otros", icon: MoreHorizontal },
+/** `dot` and `stroke` are the category's chart color (theme tokens, so dark mode follows). */
+export const BUDGET_META: Record<BudgetCategory, { label: string; icon: LucideIcon; dot: string; stroke: string }> = {
+  flights: { label: "Vuelos", icon: Plane, dot: "bg-chart-1", stroke: "stroke-chart-1" },
+  accommodation: { label: "Hospedaje", icon: BedDouble, dot: "bg-chart-2", stroke: "stroke-chart-2" },
+  transportation: { label: "Transporte", icon: TrainFront, dot: "bg-chart-4", stroke: "stroke-chart-4" },
+  activities: { label: "Actividades", icon: Ticket, dot: "bg-chart-3", stroke: "stroke-chart-3" },
+  food: { label: "Comida", icon: Utensils, dot: "bg-chart-6", stroke: "stroke-chart-6" },
+  other: { label: "Otros", icon: MoreHorizontal, dot: "bg-chart-5", stroke: "stroke-chart-5" },
 };
 
 export function isBudgetCategory(value: string): value is BudgetCategory {
