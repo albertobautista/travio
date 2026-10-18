@@ -121,8 +121,14 @@ export function PlacePhoto({
       {photo ? (
         <>
           {/* Plain <img>: Google's photo URLs are short-lived and can't be cached by us. */}
+          {/* Explicit referrerPolicy: Google checks the Referer against the key's allowed sites. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo.src} alt={`Foto de ${name}`} className="size-full object-cover" />
+          <img
+            src={photo.src}
+            alt={`Foto de ${name}`}
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="size-full object-cover"
+          />
           {photo.author && (
             <a
               href={photo.authorUrl ?? undefined}
