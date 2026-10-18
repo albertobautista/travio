@@ -6,6 +6,7 @@ import { isIsoDate } from "@/lib/trips/trip-form";
 import { isUuid } from "@/lib/uuid";
 import { zonedTimeToInstant } from "@/lib/zoned-time";
 
+import { parseRepeatDates } from "./repeat";
 import { isBookingStatus, isCategory, type ActivityCategory, type BookingStatus } from "./categories";
 
 /**
@@ -43,6 +44,8 @@ export type ActivityFormValues = Record<Exclude<ActivityField, "duration" | "par
   duration_minutes: string;
   /** Checked traveler ids. All of them checked means "everyone". */
   participants: string[];
+  /** Other trip days to repeat it on ("Repetir otros días"). */
+  repeat_dates?: string[];
 };
 
 export type ActivityFormState =
@@ -87,10 +90,19 @@ export function parseActivityForm(
   formData: FormData,
   { trip, stops, travelerIds }: Context,
 ):
-  | { ok: true; data: ActivityData; participantIds: string[]; savedPlaceId: string | null; values: ActivityFormValues }
+  | {
+      ok: true;
+      data: ActivityData;
+      participantIds: string[];
+      savedPlaceId: string | null;
+      /** Validated extra days, see repeat.ts. */
+      repeatDates: string[];
+      values: ActivityFormValues;
+    }
   | { ok: false; fieldErrors: Partial<Record<ActivityField, string>>; values: ActivityFormValues } {
   const values: ActivityFormValues = {
     participants: formData.getAll("participants").map(String),
+    repeat_dates: formData.getAll("repeat_dates").map(String),
     title: text(formData, "title"),
     category: text(formData, "category") || "other",
     trip_stop_id: text(formData, "trip_stop_id"),
@@ -198,6 +210,7 @@ export function parseActivityForm(
     values,
     participantIds,
     savedPlaceId: isUuid(savedPlaceId) ? savedPlaceId : null,
+    repeatDates: parseRepeatDates(values.repeat_dates ?? [], trip, values.date),
     data: {
       title: values.title,
       category: values.category as ActivityCategory,

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, LogIn, LogOut, Pencil } from "lucide-react";
 
 import { PlacePhoto } from "@/components/maps/place-photo";
 import { TripCountdown } from "@/components/trips/trip-countdown";
@@ -12,7 +12,7 @@ import { WeatherChip } from "@/components/weather/weather-chip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
-import { activityDate, formatDayLabel } from "@/lib/activities/itinerary";
+import { formatDayLabel } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
 import { formatMoney } from "@/lib/budget/money";
 import { plannedItems, spentItems } from "@/lib/budget/planned";
@@ -22,11 +22,13 @@ import { initials } from "@/lib/initials";
 import { getSavedPlaces } from "@/lib/saved-places/queries";
 import { createClient } from "@/lib/supabase/server";
 import { getTransportations } from "@/lib/transportations/queries";
+import { legEndTitle, transportMeta } from "@/lib/transportations/types";
 import { getTravelers } from "@/lib/travelers/queries";
 import { tripCountdownTarget } from "@/lib/trips/countdown";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus, todayIn } from "@/lib/trips/dates";
 import { canEdit, getStops, getTrip, toTripRole } from "@/lib/trips/queries";
+import { findNextUp } from "@/lib/trips/next-up";
 import { planningProgress } from "@/lib/trips/progress";
 import { resolveTripNow } from "@/lib/trips/today";
 import { getDailyWeather } from "@/lib/weather/open-meteo";
@@ -85,6 +87,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
   const base = `/viajes/${trip.id}`;
 
   const { today, stop: todayStop } = resolveTripNow(stops);
+  const stopName = new Map(stops.map((s) => [s.id, s.name]));
   const status = getTripStatus(trip.start_date, trip.end_date, today);
   const days = getTripLengthDays(trip.start_date, trip.end_date);
   const dayNumber = getTripDayNumber(trip.start_date, trip.end_date, today);
@@ -96,15 +99,39 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
     .filter(Boolean)
     .join(" · ");
 
-  // What's next: the first activity that hasn't started (transfers aren't "plans").
+  // What's next: the first activity, departure, check-in or check-out that
+  // hasn't started (transfers aren't "plans").
   const now = new Date();
-  const next = activities.find((a) => a.category !== "transfer" && new Date(a.starts_at) > now);
+  const nextUp = findNextUp(activities, legs, stays, now);
+  const next = nextUp && {
+    ...nextUp,
+    date: instantToZonedTime(nextUp.at, nextUp.timezone).date,
+    time: instantToZonedTime(nextUp.at, nextUp.timezone).time,
+    ...(nextUp.kind === "activity"
+      ? (() => {
+          const cat = isCategory(nextUp.item.category) ? CATEGORY_META[nextUp.item.category] : CATEGORY_META.other;
+          const where = nextUp.item.trip_stop_id ? stopName.get(nextUp.item.trip_stop_id) : undefined;
+          return { title: nextUp.item.title, icon: cat.icon, iconClass: cat.className, where };
+        })()
+      : nextUp.kind === "leg"
+        ? {
+            title: legEndTitle(nextUp.item, "departs"),
+            icon: transportMeta(nextUp.item.type).icon,
+            iconClass: "bg-secondary text-primary",
+            where: transportMeta(nextUp.item.type).label,
+          }
+        : {
+            title: `${nextUp.kind === "check_in" ? "Check-in" : "Check-out"} · ${nextUp.item.name}`,
+            icon: nextUp.kind === "check_in" ? LogIn : LogOut,
+            iconClass: "bg-secondary text-primary",
+            where: nextUp.item.trip_stop_id ? stopName.get(nextUp.item.trip_stop_id) : undefined,
+          }),
+  };
   const current = activities.find(
     (a) => a.category !== "transfer" && Date.parse(a.starts_at) <= now.getTime() && now.getTime() < Date.parse(a.starts_at) + a.duration_minutes * 60_000,
   );
   const countdown = status === "upcoming" ? tripCountdownTarget(trip.start_date, stops, legs) : null;
   const progress = planningProgress({ start: trip.start_date, end: trip.end_date, activities, legs, stays });
-  const stopName = new Map(stops.map((s) => [s.id, s.name]));
 
   // Weather for each city over its stay (forecast, or typical for the dates
   // when it's further out). A trip with a single city and no dates on it
@@ -207,11 +234,11 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
               </span>
             </span>
           )}
-          {next && activityDate(next) === today ? (
+          {next && next.date === today ? (
             <span className="flex items-center gap-2.5 text-foreground/80">
               <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full border-2 border-primary" />
               <span className="min-w-0 flex-1 truncate text-sm">{next.title}</span>
-              <span className="shrink-0 font-mono text-xs text-muted-foreground">{instantToZonedTime(next.starts_at, next.timezone).time}</span>
+              <span className="shrink-0 font-mono text-xs text-muted-foreground">{next.time}</span>
             </span>
           ) : (
             !current && <span className="text-sm text-muted-foreground">Qué sigue, cómo llegar y tus reservas</span>
@@ -270,39 +297,32 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
         </section>
       )}
 
-      {next && !(status === "active" && activityDate(next) === today) && (
+      {next && !(status === "active" && next.date === today) && (
         <section aria-labelledby="next" className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
             <h2 id="next" className="font-semibold">
-              Próxima actividad
+              Lo próximo
             </h2>
             <Link href={`${base}/itinerario`} className="text-sm text-primary hover:underline">
               Ver itinerario
             </Link>
           </div>
-          {(() => {
-            const cat = isCategory(next.category) ? CATEGORY_META[next.category] : CATEGORY_META.other;
-            const Icon = cat.icon;
-            const date = activityDate(next);
-            return (
-              <Link
-                href={`${base}/itinerario?dia=${date}`}
-                className="flex items-center gap-3 rounded-2xl border bg-card p-3 hover:border-primary/40"
-              >
-                <span className={`flex size-14 shrink-0 items-center justify-center rounded-xl ${cat.className}`}>
-                  <Icon className="size-6" aria-hidden="true" />
-                </span>
-                <span className="flex min-w-0 flex-1 flex-col">
-                  <span className="truncate font-semibold">{next.title}</span>
-                  <span className="truncate text-sm text-muted-foreground">
-                    {date === today ? "Hoy" : formatDayLabel(date)} · {instantToZonedTime(next.starts_at, next.timezone).time}
-                    {next.trip_stop_id ? ` · ${stopName.get(next.trip_stop_id)}` : ""}
-                  </span>
-                </span>
-                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-              </Link>
-            );
-          })()}
+          <Link
+            href={`${base}/itinerario?dia=${next.date}`}
+            className="flex items-center gap-3 rounded-2xl border bg-card p-3 hover:border-primary/40"
+          >
+            <span className={`flex size-14 shrink-0 items-center justify-center rounded-xl ${next.iconClass}`}>
+              <next.icon className="size-6" aria-hidden="true" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate font-semibold">{next.title}</span>
+              <span className="truncate text-sm text-muted-foreground">
+                {next.date === today ? "Hoy" : formatDayLabel(next.date)} · {next.time}
+                {next.where ? ` · ${next.where}` : ""}
+              </span>
+            </span>
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </Link>
         </section>
       )}
 

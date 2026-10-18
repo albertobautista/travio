@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { parseActivityForm, type ActivityFormState } from "@/lib/activities/activity-form";
+import { buildRepeats } from "@/lib/activities/repeat";
 import { isTravelMode } from "@/lib/maps/travel";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/uuid";
@@ -11,12 +12,12 @@ import { isUuid } from "@/lib/uuid";
 // Ids arrive via .bind() and can be tampered with; RLS decides what the user
 // may change. Blocked writes return zero rows, so every write asks for them.
 
-/** What the form parser needs from the database: trip dates/currency, stops' time zones and travelers. */
+/** What the form parser needs from the database: trip dates/currency, stops (time zones, stays) and travelers. */
 async function loadContext(tripId: string) {
   const supabase = await createClient();
   const [{ data: trip }, { data: stops }, { data: travelers }] = await Promise.all([
     supabase.from("trips").select("start_date, end_date, currency").eq("id", tripId).maybeSingle(),
-    supabase.from("trip_stops").select("id, timezone").eq("trip_id", tripId),
+    supabase.from("trip_stops").select("id, timezone, arrives_on, departs_on").eq("trip_id", tripId),
     supabase.from("travelers").select("id").eq("trip_id", tripId),
   ]);
   return trip ? { trip, stops: stops ?? [], travelerIds: (travelers ?? []).map((t) => t.id) } : null;
@@ -29,15 +30,17 @@ async function loadContext(tripId: string) {
  * don't return to the form (a resubmit would create a duplicate); we open the
  * activity with a notice instead.
  */
-async function saveParticipants(tripId: string, activityId: string, participantIds: string[]) {
+async function saveParticipants(tripId: string, activityIds: string[], participantIds: string[]) {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("set_activity_participants", {
-    p_activity_id: activityId,
-    p_traveler_ids: participantIds,
-  });
+  const results = await Promise.all(
+    activityIds.map((id) =>
+      supabase.rpc("set_activity_participants", { p_activity_id: id, p_traveler_ids: participantIds }),
+    ),
+  );
+  const error = results.find((r) => r.error)?.error;
   if (error) {
     console.error("set_activity_participants failed", error);
-    redirect(`/viajes/${tripId}/actividades/${activityId}?participantes=error`);
+    redirect(`/viajes/${tripId}/actividades/${activityIds[0]}?participantes=error`);
   }
 }
 
@@ -54,10 +57,15 @@ export async function createActivity(
   const parsed = parseActivityForm(formData, context);
   if (!parsed.ok) return { fieldErrors: parsed.fieldErrors, values: parsed.values };
 
+  // The activity and its repeats go in one insert: all saved or none.
+  const repeats = buildRepeats(parsed.data, parsed.values.start_time, parsed.repeatDates, context.stops);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("activities")
-    .insert({ ...parsed.data, trip_id: tripId, saved_place_id: parsed.savedPlaceId })
+    .insert([
+      { ...parsed.data, trip_id: tripId, saved_place_id: parsed.savedPlaceId },
+      ...repeats.map((r) => ({ ...r, trip_id: tripId })),
+    ])
     .select("id");
 
   if (error) {
@@ -70,7 +78,11 @@ export async function createActivity(
   }
   if (data.length === 0) return { error: "No tienes permiso para editar este viaje.", values: parsed.values };
 
-  await saveParticipants(tripId, data[0].id, parsed.participantIds);
+  await saveParticipants(
+    tripId,
+    data.map((row) => row.id),
+    parsed.participantIds,
+  );
   redirect(itineraryUrl(tripId, parsed.values.date));
 }
 
@@ -100,7 +112,25 @@ export async function updateActivity(
   }
   if (data.length === 0) return { error: "No tienes permiso para editar este viaje.", values: parsed.values };
 
-  await saveParticipants(tripId, activityId, parsed.participantIds);
+  // Repeating from the edit form adds copies of the saved version; the ones
+  // made earlier stay as they are (each day is its own activity).
+  const ids = [activityId];
+  if (parsed.repeatDates.length > 0) {
+    const repeats = buildRepeats(parsed.data, parsed.values.start_time, parsed.repeatDates, context.stops);
+    const { data: copies, error: copyError } = await supabase
+      .from("activities")
+      .insert(repeats.map((r) => ({ ...r, trip_id: tripId })))
+      .select("id");
+    if (copyError) {
+      // The activity itself is saved, so don't return to the form with an
+      // error as if nothing was; reopen it with a notice instead.
+      console.error("updateActivity repeats failed", copyError);
+      redirect(`/viajes/${tripId}/actividades/${activityId}?repetir=error`);
+    }
+    ids.push(...copies.map((row) => row.id));
+  }
+
+  await saveParticipants(tripId, ids, parsed.participantIds);
   redirect(itineraryUrl(tripId, parsed.values.date));
 }
 
