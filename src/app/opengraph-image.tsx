@@ -60,7 +60,7 @@ export default async function OpenGraphImage() {
             </span>
           </div>
 
-          <span style={{ fontSize: 24, fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>travio-silk.vercel.app</span>
+          <span style={{ fontSize: 24, fontWeight: 600, color: "rgba(255,255,255,0.75)" }}>travio.com.mx</span>
         </div>
 
         {/* The Hoy screen in a phone, cut off at the bottom like it's rising. */}
