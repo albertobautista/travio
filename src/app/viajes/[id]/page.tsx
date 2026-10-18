@@ -8,6 +8,7 @@ import { TripCountdown } from "@/components/trips/trip-countdown";
 import { TripRoute } from "@/components/trips/trip-route";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
 import { TravelerStack } from "@/components/travelers/traveler-avatar";
+import { WeatherChip } from "@/components/weather/weather-chip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
@@ -24,10 +25,12 @@ import { getTransportations } from "@/lib/transportations/queries";
 import { getTravelers } from "@/lib/travelers/queries";
 import { tripCountdownTarget } from "@/lib/trips/countdown";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
-import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus } from "@/lib/trips/dates";
+import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus, todayIn } from "@/lib/trips/dates";
 import { canEdit, getStops, getTrip, toTripRole } from "@/lib/trips/queries";
 import { planningProgress } from "@/lib/trips/progress";
 import { resolveTripNow } from "@/lib/trips/today";
+import { getDailyWeather } from "@/lib/weather/open-meteo";
+import { summarize, WEATHER_ATTRIBUTION } from "@/lib/weather/types";
 
 import { rememberStopPlace } from "./ciudades/actions";
 import { instantToZonedTime } from "@/lib/zoned-time";
@@ -102,6 +105,24 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
   const countdown = status === "upcoming" ? tripCountdownTarget(trip.start_date, stops, legs) : null;
   const progress = planningProgress({ start: trip.start_date, end: trip.end_date, activities, legs, stays });
   const stopName = new Map(stops.map((s) => [s.id, s.name]));
+
+  // Weather for each city over its stay (forecast, or typical for the dates
+  // when it's further out). A trip with a single city and no dates on it
+  // uses the trip's dates. Needs the city's location: see rememberStopPlace.
+  const weatherByStop = new Map(
+    (
+      await Promise.all(
+        stops.map(async (s) => {
+          const from = s.arrives_on ?? (stops.length === 1 ? trip.start_date : null);
+          const to = s.arrives_on ? (s.departs_on ?? s.arrives_on) : stops.length === 1 ? trip.end_date : null;
+          if (s.lat === null || s.lng === null || !from || !to) return null;
+          const days = await getDailyWeather({ lat: s.lat, lng: s.lng, timezone: s.timezone }, from, to, todayIn(s.timezone));
+          const summary = summarize([...days.values()]);
+          return summary ? ([s.id, summary] as const) : null;
+        }),
+      )
+    ).filter((e) => e !== null),
+  );
 
   // Gaps worth a nudge while planning (editors only).
   const citiesWithoutStay = stops.filter((s) => !stays.some((a) => a.trip_stop_id === s.id));
@@ -307,6 +328,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
                   lat={s.lat}
                   lng={s.lng}
                   remember={editable ? rememberStopPlace.bind(null, trip.id, s.id) : undefined}
+                  rememberLocation
                   className="h-20 w-28 rounded-xl"
                 />
                 <Link
@@ -320,9 +342,23 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
                     </span>
                   )}
                 </Link>
+                {(() => {
+                  const w = weatherByStop.get(s.id);
+                  return w ? <WeatherChip code={w.code} max={w.max} min={w.min} typical={w.kind === "typical"} /> : null;
+                })()}
               </li>
             ))}
           </ol>
+          {weatherByStop.size > 0 && (
+            <a
+              href={WEATHER_ATTRIBUTION.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="self-end text-[10px] text-muted-foreground hover:underline"
+            >
+              {WEATHER_ATTRIBUTION.label}
+            </a>
+          )}
         </section>
       )}
 
