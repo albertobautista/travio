@@ -112,16 +112,18 @@ export type ExpenseValues = {
   shares: Record<string, string>;
 };
 
-/** Add or edit an expense. Resets itself after adding one. */
+/** Add or edit an expense. Resets itself after adding one; `onSaved` runs after a save. */
 export function ExpenseForm({
   action,
   onDelete,
+  onSaved,
   initial,
   travelers,
   submitLabel,
 }: {
   action: Action<State>;
   onDelete?: () => Promise<State>;
+  onSaved?: () => void;
   initial: ExpenseValues;
   travelers: Traveler[];
   submitLabel: string;
@@ -146,6 +148,7 @@ export function ExpenseForm({
       setAmount("");
       setShares({});
     }
+    if (result?.ok) onSaved?.();
     return result;
   }, undefined);
 
