@@ -8,6 +8,7 @@ import { Balances } from "@/components/budget/balances";
 import { BudgetAmountForm, ExpenseForm, RateForm } from "@/components/budget/budget-forms";
 import { CategoryDonut } from "@/components/budget/category-donut";
 import { ExpenseSheet } from "@/components/budget/expense-sheet";
+import { ShareButton } from "@/components/budget/share-button";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { formatDayLabel } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
@@ -16,6 +17,7 @@ import { suggestRates } from "@/lib/budget/ecb-rates";
 import { convert, formatMoney, toCents } from "@/lib/budget/money";
 import { HOME_CURRENCY_COOKIE, parseHomeCurrency, toHomeCurrency } from "@/lib/budget/home-currency";
 import { budgetPace } from "@/lib/budget/pace";
+import { settleUpText } from "@/lib/budget/share-text";
 import { getExchangeRates, getExpenses, getSettlements } from "@/lib/budget/queries";
 import { plannedItems, spentItems } from "@/lib/budget/planned";
 import { computeBalances, isSplitMode } from "@/lib/budget/split";
@@ -419,18 +421,33 @@ export default async function BudgetPage({ params, searchParams }: PageProps<"/v
 
       {tab === "cuentas" &&
         (split ? (
-          <Balances
-            tripId={trip.id}
-            currency={cur}
-            travelers={travelers}
-            balances={split.balances}
-            transfers={split.transfers}
-            settlements={settlements}
-            withoutPayer={split.withoutPayer}
-            unconverted={split.unconverted}
-            alsoIn={alsoIn}
-            editable={editable}
-          />
+          <>
+            <Balances
+              tripId={trip.id}
+              currency={cur}
+              travelers={travelers}
+              balances={split.balances}
+              transfers={split.transfers}
+              settlements={settlements}
+              withoutPayer={split.withoutPayer}
+              unconverted={split.unconverted}
+              alsoIn={alsoIn}
+              editable={editable}
+            />
+            <ShareButton
+              title={`Cuentas · ${trip.name}`}
+              text={settleUpText({
+                tripName: trip.name,
+                currency: cur,
+                spent: summary.spent,
+                names: new Map(travelers.map((t) => [t.id, t.name])),
+                balances: split.balances,
+                transfers: split.transfers,
+                settlements,
+                alsoIn,
+              })}
+            />
+          </>
         ) : (
           <p className="rounded-2xl border border-dashed bg-card p-4 text-center text-sm text-muted-foreground">
             Cuando anoten gastos con quién pagó, aquí verán quién le debe a quién.
