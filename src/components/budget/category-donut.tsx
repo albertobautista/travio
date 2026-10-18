@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { BUDGET_META, type BudgetCategory } from "@/lib/budget/categories";
+import { toHomeCurrency } from "@/lib/budget/home-currency";
 import { formatMoney } from "@/lib/budget/money";
 
 type Mode = "spent" | "estimated";
@@ -18,7 +19,16 @@ const GAP = 2;
  * and a legend with amount and share. Switches between what was spent and
  * what's planned (estimated); starts on spent once there's any.
  */
-export function CategoryDonut({ rows, currency }: { rows: Row[]; currency: string }) {
+export function CategoryDonut({
+  rows,
+  currency,
+  home,
+}: {
+  rows: Row[];
+  currency: string;
+  /** "Tu moneda", to show the total in it too. */
+  home: { currency: string; rate: number } | null;
+}) {
   const hasSpent = rows.some((r) => r.spent > 0);
   const [mode, setMode] = useState<Mode>(hasSpent ? "spent" : "estimated");
   const money = (cents: number) => formatMoney(cents, currency);
@@ -85,6 +95,11 @@ export function CategoryDonut({ rows, currency }: { rows: Row[]; currency: strin
         <div className="min-w-0">
           <p className="text-sm text-muted-foreground">{mode === "spent" ? "Total gastado" : "Total estimado"}</p>
           <p className="font-mono text-2xl font-bold">{money(total)}</p>
+          {home && total > 0 && (
+            <p className="font-mono text-sm text-muted-foreground">
+              ≈ {formatMoney(Math.round(toHomeCurrency(total, home.rate) / 100) * 100, home.currency)} {home.currency}
+            </p>
+          )}
           {total === 0 && (
             <p className="text-xs text-muted-foreground">
               {mode === "spent" ? "Aún no hay gastos." : "Aún no hay costos en hospedajes, trayectos o actividades."}
