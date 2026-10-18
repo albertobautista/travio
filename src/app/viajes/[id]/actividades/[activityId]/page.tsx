@@ -26,7 +26,9 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/activ
 export default async function EditActivityPage({ params, searchParams }: PageProps<"/viajes/[id]/actividades/[activityId]">) {
   const { id, activityId } = await params;
   // Set when the activity saved but its participants didn't (see saveParticipants).
-  const participantsFailed = (await searchParams).participantes === "error";
+  const query = await searchParams;
+  const participantsFailed = query.participantes === "error";
+  const repeatFailed = query.repetir === "error";
   const [trip, role, activity, stops, activities, travelers, tripFiles, targets] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
@@ -58,6 +60,12 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
         </Link>
         <h1 className="text-3xl font-bold tracking-tight">Editar actividad</h1>
       </header>
+
+      {repeatFailed && (
+        <p role="alert" className="rounded-lg bg-warning-soft p-3 text-sm text-warning-foreground">
+          Los cambios se guardaron, pero no pudimos repetirla en los otros días. Inténtalo de nuevo.
+        </p>
+      )}
 
       {participantsFailed && (
         <p role="alert" className="rounded-lg bg-warning-soft p-3 text-sm text-warning-foreground">
@@ -104,6 +112,7 @@ export default async function EditActivityPage({ params, searchParams }: PagePro
           submitLabel="Guardar cambios"
           pendingLabel="Guardando…"
           cancelHref={backHref}
+          editing
         />
       </div>
 

@@ -7,6 +7,7 @@ import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Field, selectClass } from "@/components/form-field";
 import { PlaceFields } from "@/components/maps/place-fields";
 import { TimeZoneField } from "@/components/time-zone-field";
+import { RepeatDaysField } from "@/components/activities/repeat-days-field";
 import { ParticipantsField } from "@/components/travelers/participants-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { ActivityField, ActivityFormState, ActivityFormValues } from "@/lib/activities/activity-form";
 import { BOOKING_META, BOOKING_STATUSES, CATEGORIES, CATEGORY_META } from "@/lib/activities/categories";
+import { activityDate } from "@/lib/activities/itinerary";
+import { tripDates } from "@/lib/activities/repeat";
 import { findConflicts, formatDuration, formatTimeRange, getEnd } from "@/lib/activities/schedule";
 import type { TimeZoneOption } from "@/lib/time-zones";
 import { CURRENCIES } from "@/lib/trips/currencies";
@@ -54,6 +57,8 @@ type ActivityFormProps = {
   cancelHref: string;
   /** When scheduling a saved place: links the new activity back to it. */
   savedPlaceId?: string;
+  /** Editing an existing activity (repeats are added as new ones). */
+  editing?: boolean;
 };
 
 const DURATION_PRESETS = [30, 60, 90, 120, 180, 240];
@@ -71,6 +76,7 @@ export function ActivityForm({
   pendingLabel,
   cancelHref,
   savedPlaceId,
+  editing = false,
 }: ActivityFormProps) {
   const [state, action, pending] = useActionState(serverAction, undefined);
   const errors: Partial<Record<ActivityField, string>> = state?.fieldErrors ?? {};
@@ -87,6 +93,19 @@ export function ActivityForm({
   const [minutes, setMinutes] = useState(initialValues.duration_minutes);
   const [participants, setParticipants] = useState(() => new Set(initialValues.participants));
   const everyone = travelers.length > 0 && travelers.every((t) => participants.has(t.id));
+  const [repeatDates, setRepeatDates] = useState(() => new Set(initialValues.repeat_dates ?? []));
+  const [repeating, setRepeating] = useState(repeatDates.size > 0);
+  const dates = useMemo(
+    () => tripDates({ start_date: minDate ?? null, end_date: maxDate ?? null }),
+    [minDate, maxDate],
+  );
+  // Days that already have an activity with this name, e.g. breakfast repeated before.
+  const alreadyOn = useMemo(() => {
+    const title = initialValues.title.trim().toLowerCase();
+    return new Set(
+      title ? otherActivities.filter((a) => a.title.trim().toLowerCase() === title).map(activityDate) : [],
+    );
+  }, [initialValues.title, otherActivities]);
 
   function changeDate(next: string) {
     setDate(next);
@@ -281,6 +300,21 @@ export function ActivityForm({
             </p>
           )}
         </div>
+      )}
+
+      {dates.length > 1 && (
+        <RepeatDaysField
+          dates={dates}
+          date={date}
+          stops={stops}
+          stopId={stopId}
+          alreadyOn={alreadyOn}
+          open={repeating}
+          onOpenChange={setRepeating}
+          selected={repeatDates}
+          onChange={setRepeatDates}
+          editing={editing}
+        />
       )}
 
       <ParticipantsField
