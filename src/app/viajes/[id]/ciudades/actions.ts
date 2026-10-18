@@ -111,10 +111,17 @@ export async function moveStop(stopId: string, direction: -1 | 1) {
 /**
  * Remembers the Google place a city resolved to (found by name the first time
  * its photo is shown), so later views skip the text search, the costly call.
- * Only fills an empty value: it never overwrites a place someone chose.
+ * Also its location when the city has none: without coordinates there's no
+ * weather and no pin on the map (a city typed without picking it from the list).
+ * Only fills empty values: it never overwrites a place someone chose.
  * Viewers can't write (RLS), and that's fine: their views just search again.
  */
-export async function rememberStopPlace(tripId: string, stopId: string, placeId: string) {
+export async function rememberStopPlace(
+  tripId: string,
+  stopId: string,
+  placeId: string,
+  location: { lat: number; lng: number } | null = null,
+) {
   if (!isUuid(tripId) || !isUuid(stopId) || !/^[A-Za-z0-9_-]{10,300}$/.test(placeId)) return;
   const supabase = await createClient();
   const { error } = await supabase
@@ -124,4 +131,19 @@ export async function rememberStopPlace(tripId: string, stopId: string, placeId:
     .eq("id", stopId)
     .is("google_place_id", null);
   if (error) console.error("rememberStopPlace failed", error);
+
+  const { lat, lng } = location ?? {};
+  if (typeof lat !== "number" || typeof lng !== "number" || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
+  const { data, error: locationError } = await supabase
+    .from("trip_stops")
+    .update({ lat, lng })
+    .eq("trip_id", tripId)
+    .eq("id", stopId)
+    .is("lat", null)
+    .is("lng", null)
+    .select("id");
+  if (locationError) console.error("rememberStopPlace (location) failed", locationError);
+  // Now it has weather and a pin: show them.
+  else if (data.length > 0) refresh();
 }
