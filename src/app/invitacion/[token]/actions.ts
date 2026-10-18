@@ -8,7 +8,8 @@ import { notifyMemberChange } from "@/lib/notifications/members";
 import { isInvitationToken } from "@/lib/invitations/queries";
 import { createClient } from "@/lib/supabase/server";
 
-export type AcceptInvitationState = { error?: string } | undefined;
+/** `tripUrl`: joined (or already in); the form opens it with a full page load. */
+export type AcceptInvitationState = { error?: string; tripUrl?: string } | undefined;
 
 /**
  * "Unirme al viaje". All the checks (valid, not expired, not used) and who
@@ -38,7 +39,9 @@ export async function acceptInvitation(token: string): Promise<AcceptInvitationS
   switch (result.status) {
     case "joined":
     case "member":
-      return redirect(`/viajes/${result.trip_id}`);
+      // Not redirect(): that navigates in place and keeps this page's
+      // "no-referrer" policy (see the page's metadata).
+      return { tripUrl: `/viajes/${result.trip_id}` };
     case "used":
       return { error: "Alguien más ya usó esta invitación. Pide un enlace nuevo." };
     case "expired":

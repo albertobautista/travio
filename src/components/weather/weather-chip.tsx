@@ -18,8 +18,11 @@ export function WeatherChip({ code, max, min, rainChance, typical }: Props) {
   const Icon = meta.icon;
   const rain = rainChance != null && rainChance >= 40;
   const description = `${typical ? "Normalmente " : ""}${meta.label.toLowerCase()}, máxima ${max}°, mínima ${min}°${rain ? `, ${rainChance}% de lluvia` : ""}`;
+  // relative: the sr-only text is position: absolute. Without a positioned
+  // ancestor it's placed against the page, so chips far along a horizontal
+  // scroller (the overview's cities) widened the page and phones zoomed out.
   return (
-    <span className="inline-flex items-center gap-1.5 text-sm" title={description}>
+    <span className="relative inline-flex items-center gap-1.5 text-sm" title={description}>
       <Icon className="size-4 shrink-0 text-primary" aria-hidden="true" />
       <span className="sr-only">{description}</span>
       <span aria-hidden="true" className="font-mono">

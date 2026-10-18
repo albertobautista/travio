@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -13,6 +13,12 @@ type Props = {
 
 export function AcceptForm({ action: serverAction }: Props) {
   const [state, action, pending] = useActionState(serverAction, undefined);
+  const tripUrl = state?.tripUrl;
+
+  // A full page load, so the trip doesn't inherit this page's referrer policy.
+  useEffect(() => {
+    if (tripUrl) window.location.assign(tripUrl);
+  }, [tripUrl]);
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -21,8 +27,8 @@ export function AcceptForm({ action: serverAction }: Props) {
           {state.error}
         </p>
       )}
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Uniéndote…" : "Unirme al viaje"}
+      <Button type="submit" size="lg" disabled={pending || Boolean(tripUrl)}>
+        {pending || tripUrl ? "Uniéndote…" : "Unirme al viaje"}
       </Button>
     </form>
   );

@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { CalendarDays, Link2Off, Plane } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,10 @@ import { AcceptForm } from "./accept-form";
 
 // The token is in the URL: don't send it to other sites in the Referer
 // header, and keep the page out of search engines.
+// A referrer policy set by <meta> stays for the rest of the document, so every
+// way out of this page is a full page load (<a>, not <Link>; see AcceptForm):
+// otherwise the next pages keep "no-referrer" and Google refuses the place
+// photos (the Maps key is restricted by referrer).
 export const metadata: Metadata = {
   title: "Invitación · Travio",
   referrer: "no-referrer",
@@ -33,9 +36,10 @@ export default async function InvitationPage({ params }: PageProps<"/invitacion/
 
   return (
     <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-background px-4 py-12">
-      <Link href="/" className="text-xl font-bold tracking-tight">
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- full page load on purpose (see metadata) */}
+      <a href="/" className="text-xl font-bold tracking-tight">
         Travio
-      </Link>
+      </a>
       <Card className="w-full max-w-sm overflow-hidden pt-0">
         {invitation ? (
           <InvitationBody invitation={invitation} token={token} signedIn={signedIn} email={email} />
@@ -70,7 +74,7 @@ function InvitationBody({
         <TripHeader invitation={invitation} lead="Ya tienes acceso a" showRole={false} />
         <CardContent className="flex flex-col gap-4">
           <Button asChild size="lg">
-            <Link href={`/viajes/${invitation.trip_id}`}>Abrir el viaje</Link>
+            <a href={`/viajes/${invitation.trip_id}`}>Abrir el viaje</a>
           </Button>
         </CardContent>
       </>
@@ -124,7 +128,7 @@ function InvitationBody({
         ) : (
           <>
             <Button asChild size="lg">
-              <Link href={`/login?next=${encodeURIComponent(next)}`}>Iniciar sesión para unirme</Link>
+              <a href={`/login?next=${encodeURIComponent(next)}`}>Iniciar sesión para unirme</a>
             </Button>
             <p className="text-center text-xs text-muted-foreground">
               ¿No tienes cuenta? Créala en el siguiente paso, con Google o con tu correo. Volverás aquí al terminar.
@@ -171,7 +175,7 @@ function Problem({ title, text, signedIn }: { title: string; text: string; signe
       <h1 className="text-xl font-bold tracking-tight">{title}</h1>
       <p className="text-sm text-muted-foreground">{text}</p>
       <Button asChild variant="outline" size="lg" className="mt-2 w-full">
-        <Link href={signedIn ? "/viajes" : "/"}>{signedIn ? "Ir a Mis viajes" : "Conocer Travio"}</Link>
+        <a href={signedIn ? "/viajes" : "/"}>{signedIn ? "Ir a Mis viajes" : "Conocer Travio"}</a>
       </Button>
     </CardContent>
   );
