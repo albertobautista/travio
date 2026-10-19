@@ -481,13 +481,9 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                           <time dateTime={a.starts_at} className="w-11 shrink-0 font-mono text-[11px] text-muted-foreground">
                             {instantToZonedTime(a.startsAt, a.timezone).time}
                           </time>
-                          {editable ? (
-                            <Link href={`/viajes/${trip.id}/actividades/${a.id}`} className={lineClass + " hover:bg-muted"}>
-                              {line}
-                            </Link>
-                          ) : (
-                            <div className={lineClass}>{line}</div>
-                          )}
+                          <Link href={`/viajes/${trip.id}/actividades/${a.id}`} className={lineClass + " hover:bg-muted"}>
+                            {line}
+                          </Link>
                         </li>
                       );
                     }
@@ -531,7 +527,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                               )}
                             </span>
                           </span>
-                          {editable && <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
+                          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                         </span>
                         {overlaps.length > 0 && (
                           <span className="flex items-start gap-2 text-xs text-warning-foreground">
@@ -607,13 +603,9 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                           >
                             {instantToZonedTime(a.startsAt, a.timezone).time}
                           </time>
-                          {editable ? (
-                            <Link href={href} className={cardClass + " hover:border-primary/40"}>
-                              {card}
-                            </Link>
-                          ) : (
-                            <div className={cardClass}>{card}</div>
-                          )}
+                          <Link href={href} className={cardClass + " hover:border-primary/40"}>
+                            {card}
+                          </Link>
                         </li>
                       </Fragment>
                     );

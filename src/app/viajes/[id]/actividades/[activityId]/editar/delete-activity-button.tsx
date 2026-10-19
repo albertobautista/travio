@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 
-import { deleteActivity } from "../actions";
+import { deleteActivity } from "../../actions";
 
 type Props = { tripId: string; activityId: string; title: string; returnDate: string };
 

@@ -19,7 +19,10 @@ export function TravelerAvatar({ traveler, size = "default", className }: Props)
         // Google may refuse to serve profile photos when a Referer header is sent.
         <AvatarImage src={traveler.avatar_url} alt="" referrerPolicy="no-referrer" />
       )}
-      <AvatarFallback className={cn("font-semibold", colors)}>{initials(traveler.name)}</AvatarFallback>
+      {/* Smaller and tighter at sm, so two initials clear the next avatar in a stack. */}
+      <AvatarFallback className={cn("font-semibold", size === "sm" && "text-[10px] tracking-tight", colors)}>
+        {initials(traveler.name)}
+      </AvatarFallback>
     </Avatar>
   );
 }
@@ -37,7 +40,7 @@ export function TravelerStack({
   return (
     <span className="flex items-center" aria-label={travelers.map((t) => t.name).join(", ")} role="img">
       {shown.map((t, i) => (
-        <TravelerAvatar key={i} traveler={t} size="sm" className={cn("ring-2 ring-card", i > 0 && "-ml-1.5")} />
+        <TravelerAvatar key={i} traveler={t} size="sm" className={cn("ring-2 ring-card", i > 0 && "-ml-0.5")} />
       ))}
       {extra > 0 && <span className="ml-1 text-xs text-muted-foreground">+{extra}</span>}
     </span>
