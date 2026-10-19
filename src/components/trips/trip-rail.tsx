@@ -125,7 +125,7 @@ export async function TripRail({ tripId }: { tripId: string }) {
               return (
                 <li key={a.id}>
                   <Link
-                    href={editable ? `${base}/actividades/${a.id}` : `${base}/itinerario?dia=${date}`}
+                    href={`${base}/actividades/${a.id}`}
                     className="-mx-2 flex min-h-11 items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-muted"
                   >
                     <span className="flex w-10 shrink-0 flex-col items-center rounded-lg bg-secondary py-1 text-secondary-foreground">

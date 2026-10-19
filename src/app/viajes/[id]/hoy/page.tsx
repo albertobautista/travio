@@ -478,9 +478,7 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                     </Button>
                   ) : (
                     <Button asChild size="lg" variant="outline" className="h-11">
-                      <Link href={editable ? `${base}/actividades/${focus.id}` : `${base}/itinerario?dia=${today}`}>
-                        {editable ? "Ver detalles" : "Ver en itinerario"}
-                      </Link>
+                      <Link href={`${base}/actividades/${focus.id}`}>Ver detalles</Link>
                     </Button>
                   )}
                 </div>
@@ -657,13 +655,9 @@ export default async function TodayPage({ params, searchParams }: PageProps<"/vi
                       {instantToZonedTime(a.startsAt, a.timezone).time}
                     </time>
                     <span className="sr-only">{done ? "Hecho." : current ? "En curso." : ""}</span>
-                    {editable ? (
-                      <Link href={`${base}/actividades/${a.id}`} className="flex min-w-0 flex-1 items-center gap-2 hover:underline">
-                        {row}
-                      </Link>
-                    ) : (
-                      <span className="flex min-w-0 flex-1 items-center gap-2">{row}</span>
-                    )}
+                    <Link href={`${base}/actividades/${a.id}`} className="flex min-w-0 flex-1 items-center gap-2 hover:underline">
+                      {row}
+                    </Link>
                   </li>
                 </Fragment>
               );

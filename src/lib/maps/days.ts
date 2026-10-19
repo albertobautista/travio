@@ -101,7 +101,7 @@ export function buildMapDays({
           .join(" · "),
         category: a.category,
         pointId: located(a) ? a.id : null,
-        href: editable ? `${base}/actividades/${a.id}` : `${base}/itinerario?dia=${d.date}`,
+        href: `${base}/actividades/${a.id}`,
       }]);
     }
 

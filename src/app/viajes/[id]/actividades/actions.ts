@@ -40,7 +40,7 @@ async function saveParticipants(tripId: string, activityIds: string[], participa
   const error = results.find((r) => r.error)?.error;
   if (error) {
     console.error("set_activity_participants failed", error);
-    redirect(`/viajes/${tripId}/actividades/${activityIds[0]}?participantes=error`);
+    redirect(`/viajes/${tripId}/actividades/${activityIds[0]}/editar?participantes=error`);
   }
 }
 
@@ -125,13 +125,14 @@ export async function updateActivity(
       // The activity itself is saved, so don't return to the form with an
       // error as if nothing was; reopen it with a notice instead.
       console.error("updateActivity repeats failed", copyError);
-      redirect(`/viajes/${tripId}/actividades/${activityId}?repetir=error`);
+      redirect(`/viajes/${tripId}/actividades/${activityId}/editar?repetir=error`);
     }
     ids.push(...copies.map((row) => row.id));
   }
 
   await saveParticipants(tripId, ids, parsed.participantIds);
-  redirect(itineraryUrl(tripId, parsed.values.date));
+  // Back to the activity, to see what changed; it links on to its day.
+  redirect(`/viajes/${tripId}/actividades/${activityId}`);
 }
 
 export type DeleteActivityState = { error?: string } | undefined;

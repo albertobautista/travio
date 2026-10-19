@@ -134,7 +134,7 @@ export function buildMapPoints({
         dates: [activityDate(a)],
         checkOut: null,
         subtitle: a.location_name ?? a.address,
-        href: editable ? `${base}/actividades/${a.id}` : `${base}/itinerario?dia=${activityDate(a)}`,
+        href: `${base}/actividades/${a.id}`,
         placeId: a.google_place_id,
         stopId: a.trip_stop_id,
       }),
