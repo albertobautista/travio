@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { CloudOff } from "lucide-react";
 
+import { isOnline } from "@/lib/offline/connection";
 import { pageSavedAt } from "@/lib/offline/storage";
+
+/** While the browser says offline, how often to check whether it really is. */
+const RECHECK_MS = 30_000;
 
 const timeFormat = new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
@@ -13,7 +17,8 @@ const timeFormat = new Intl.DateTimeFormat("es-MX", { hour: "2-digit", minute: "
  * 1. Registers the service worker (public/sw.js). Production only: in
  *    development it would keep serving old copies of files that change on
  *    every save. NEXT_PUBLIC_ENABLE_SW=1 turns it on to try it locally.
- * 2. While offline, shows a banner with when the page's data was saved.
+ * 2. While offline (confirmed with a request, see isOnline), shows a banner
+ *    with when the page's data was saved.
  * 3. While offline, turns link clicks into full page loads. In-app navigation
  *    fetches fresh data from the server, which fails without connection; a
  *    full load goes through the service worker, which has the saved copy.
@@ -35,16 +40,30 @@ export function OfflineSupport() {
   }, []);
 
   useEffect(() => {
-    const sync = () => setOffline(!navigator.onLine);
+    let cancelled = false;
+    let timer: number | undefined;
+    // The browser's "offline" can be wrong, so it's checked with a request
+    // (isOnline). While the browser keeps saying offline, check again every
+    // so often: no "offline" event will come if the network really drops.
+    const sync = async () => {
+      window.clearTimeout(timer);
+      const online = await isOnline();
+      if (cancelled) return;
+      setOffline(!online);
+      if (!navigator.onLine) timer = window.setTimeout(sync, RECHECK_MS);
+    };
     const backOnline = () => {
-      sync();
+      void sync();
       router.refresh(); // replace what came from the saved copy with fresh data
     };
-    sync();
-    window.addEventListener("offline", sync);
+    const wentOffline = () => void sync();
+    void sync();
+    window.addEventListener("offline", wentOffline);
     window.addEventListener("online", backOnline);
     return () => {
-      window.removeEventListener("offline", sync);
+      cancelled = true;
+      window.clearTimeout(timer);
+      window.removeEventListener("offline", wentOffline);
       window.removeEventListener("online", backOnline);
     };
   }, [router]);
