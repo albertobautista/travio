@@ -7,7 +7,8 @@ import { after } from "next/server";
 import InvitationEmail from "@/emails/invitation";
 import { appUrl } from "@/lib/email/app-url";
 import { sendEmail } from "@/lib/email/send";
-import { notifyMemberChange } from "@/lib/notifications/members";
+import { GROUP_LINK_DAYS } from "@/lib/invitations/group-links";
+import { notifyJoinApproved, notifyMemberChange } from "@/lib/notifications/members";
 import { createClient } from "@/lib/supabase/server";
 import { formatTripDates } from "@/lib/trips/dates";
 import { isUuid } from "@/lib/uuid";
@@ -130,6 +131,111 @@ export async function deleteInvitation(tripId: string, invitationId: string): Pr
     return { error: "No pudimos cancelar la invitación. Inténtalo de nuevo." };
   }
   if (data.length === 0) return denied;
+  refresh();
+}
+
+export type CreateGroupLinkState = { error?: string; token?: string; expiresAt?: string } | undefined;
+
+/**
+ * Creates the trip's group link, replacing the previous one (its link stops
+ * working; requests already made stay). Like an invitation, the token is
+ * returned only now.
+ */
+export async function createGroupLink(
+  tripId: string,
+  _prev: CreateGroupLinkState,
+  formData: FormData,
+): Promise<CreateGroupLinkState> {
+  const days = Number(formData.get("days") ?? 7);
+  const maxRaw = String(formData.get("max") ?? "").trim();
+  const max = maxRaw ? Number(maxRaw) : null;
+  if (!isUuid(tripId)) return { error: "Este viaje no existe." };
+  if (!(GROUP_LINK_DAYS as readonly number[]).includes(days)) return { error: "Elige cuánto dura el enlace." };
+  if (max !== null && (!Number.isInteger(max) || max < 1 || max > 100)) {
+    return { error: "El máximo de personas va de 1 a 100, o déjalo vacío." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("create_trip_group_link", {
+    p_trip_id: tripId,
+    p_days: days,
+    p_max_members: max ?? undefined,
+  });
+  if (error) {
+    if (error.code === "42501") return denied;
+    console.error("createGroupLink failed", error);
+    return { error: "No pudimos crear el enlace. Inténtalo de nuevo." };
+  }
+  const result = data as { token: string; expires_at: string };
+  refresh();
+  return { token: result.token, expiresAt: result.expires_at };
+}
+
+/** Revoke the group link: it stops working. Requests already made stay. */
+export async function deleteGroupLink(tripId: string, linkId: string): Promise<AccessActionState> {
+  if (!isUuid(tripId) || !isUuid(linkId)) return { error: "Este enlace no existe." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("trip_group_links")
+    .delete()
+    .eq("id", linkId)
+    .eq("trip_id", tripId)
+    .select("id");
+  if (error) {
+    console.error("deleteGroupLink failed", error);
+    return { error: "No pudimos desactivar el enlace. Inténtalo de nuevo." };
+  }
+  if (data.length === 0) return denied;
+  refresh();
+}
+
+/**
+ * The owner approves or rejects a request made with the group link. On
+ * approval the owner also picks the access and whether the person travels:
+ * "follow" (no traveler), "new" (a new traveler with their name) or the id
+ * of a traveler without an account. decide_join_request checks it all.
+ */
+export async function decideJoinRequest(
+  tripId: string,
+  requestId: string,
+  decision: { approve: boolean; role?: string; for?: string },
+): Promise<AccessActionState> {
+  if (!isUuid(tripId) || !isUuid(requestId)) return { error: "Esta solicitud no existe." };
+  const role = decision.role ?? "viewer";
+  const target = decision.for ?? "follow";
+  if (decision.approve) {
+    if (!isRole(role)) return { error: "Elige un tipo de acceso." };
+    if (target !== "new" && target !== "follow" && !isUuid(target)) return { error: "Elige si viaja y como quién." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("decide_join_request", {
+    p_request_id: requestId,
+    p_approve: decision.approve,
+    p_role: role,
+    p_traveler_id: decision.approve && isUuid(target) ? target : undefined,
+    p_adds_traveler: decision.approve && target === "new",
+  });
+  if (error) {
+    switch (error.code) {
+      case "42501":
+        return denied;
+      case "23505":
+        return { error: "Ese viajero ya tiene una cuenta vinculada. Elige otra opción." };
+      default:
+        console.error("decideJoinRequest failed", error);
+        return { error: "No pudimos guardar tu respuesta. Inténtalo de nuevo." };
+    }
+  }
+
+  const result = data as { status: string; trip_id?: string; user_id?: string; role?: "editor" | "viewer" };
+  if (result.status === "full") {
+    return { error: "El enlace ya llegó a su máximo de personas. Crea uno nuevo o quita a alguien primero." };
+  }
+  if (result.status === "approved" && result.trip_id && result.user_id) {
+    const { trip_id, user_id } = result;
+    after(() => notifyJoinApproved({ tripId: trip_id, userId: user_id, role: result.role ?? "viewer" }));
+  }
   refresh();
 }
 
