@@ -136,6 +136,7 @@ export default async function Home() {
             [<b key="b">Choques de horario</b>, ": si dos planes se enciman, lo ves en la tarjeta."],
             [<b key="b">Tiempo para llegar</b>, " entre un plan y otro, a pie, en transporte o en auto."],
             [<b key="b">Hospedajes y transporte</b>, " aparecen solos en el día que toca."],
+            [<b key="b">Planes que se repiten</b>, ", como el desayuno de cada día, en un solo paso."],
             [<b key="b">Lugares guardados</b>, ": junta ideas y pásalas al itinerario cuando decidas."],
           ]}
           visual={<ItineraryDay />}
@@ -175,7 +176,8 @@ export default async function Home() {
           lead="Invita a quien viaja contigo y decide quién puede editar. Los que no tienen cuenta también cuentan en los planes y los gastos."
           points={[
             [<b key="b">Invita por enlace o correo</b>, ", con acceso de lectura o de edición."],
-            [<b key="b">Gastos divididos</b>, " en partes iguales, montos o porcentajes, y quién le paga a quién."],
+            [<b key="b">Un enlace para el grupo de WhatsApp</b>, ": cada quien pide entrar y tú apruebas."],
+            [<b key="b">Gastos divididos</b>, " en partes iguales, montos o porcentajes. Ve quién le paga a quién en tu moneda y mándalo al grupo."],
             [<b key="b">Avisos por correo</b>, " cuando alguien se une o cambia el plan, al momento o en un resumen."],
           ]}
           visual={<TogetherCards />}
@@ -190,11 +192,11 @@ export default async function Home() {
             </h2>
             <div className="stagger grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
               <Mini icon={MapIcon} title="Mapa del día" text="Tus planes, el hotel y los lugares guardados en un mapa, con la ruta del día." />
-              <Mini icon={PiggyBank} title="Presupuesto" text="Lo estimado contra lo gastado, por categoría, con tus tipos de cambio." />
+              <Mini icon={PiggyBank} title="Presupuesto" text="Lo estimado contra lo gastado, por categoría y por día, y en tu moneda aunque gastes en euros." />
               <Mini icon={BedDouble} title="Hospedajes y trayectos" text="Check-in, referencias, asientos y andenes, en su día del itinerario." />
-              <Mini icon={Smartphone} title="Se instala en tu celular" text="Ábrela desde la pantalla de inicio, como cualquier app, sin tienda de apps." />
+              <Mini icon={Smartphone} title="Se instala en tu celular" text="Ábrela desde la pantalla de inicio, como cualquier app, sin tienda de apps. Con modo claro u oscuro." />
               <Mini icon={Bell} title="Recordatorio antes de salir" text="Un correo el día anterior con lo del primer día y tus documentos." />
-              <Mini icon={Sparkles} title="Ideas para tus ratos libres" text="Opcional: si te sobran dos horas, sugerencias cerca que caben antes del siguiente plan." />
+              <Mini icon={Sparkles} title="Ideas para tus ratos libres" text="Opcional: si te sobran dos horas, sugerencias cerca que caben antes del siguiente plan." soon />
             </div>
           </div>
         </section>
@@ -282,13 +284,17 @@ function Feature({
   );
 }
 
-function Mini({ icon: Icon, title, text }: { icon: typeof Check; title: string; text: string }) {
+/** `soon` marks a feature that is built but not turned on in production yet. */
+function Mini({ icon: Icon, title, text, soon = false }: { icon: typeof Check; title: string; text: string; soon?: boolean }) {
   return (
     <div className="flex flex-col gap-2.5 rounded-[18px] border bg-background p-[22px]">
       <span className="flex size-10 items-center justify-center rounded-xl bg-secondary text-primary" aria-hidden="true">
         <Icon className="size-5" />
       </span>
-      <h3 className="text-[17px] font-bold">{title}</h3>
+      <h3 className="flex flex-wrap items-center gap-2 text-[17px] font-bold">
+        {title}
+        {soon && <span className="rounded-full bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground">Pronto</span>}
+      </h3>
       <p className="text-sm leading-relaxed text-muted-foreground">{text}</p>
     </div>
   );
