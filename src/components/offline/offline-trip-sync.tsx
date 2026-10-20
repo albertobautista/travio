@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { isOnline } from "@/lib/offline/connection";
 import { savePage, SYNC_KEY_PREFIX } from "@/lib/offline/storage";
 
 /** Save the trip again at most this often, so moving between tabs doesn't refetch everything. */
@@ -20,7 +21,7 @@ export function OfflineTripSync({ tripId, paths }: { tripId: string; paths: stri
   const key = paths.join("\n");
   useEffect(() => {
     const worker = navigator.serviceWorker?.controller;
-    if (!worker || !navigator.onLine) return;
+    if (!worker) return;
     const syncKey = SYNC_KEY_PREFIX + tripId;
     try {
       const last = Number(localStorage.getItem(syncKey));
@@ -31,14 +32,17 @@ export function OfflineTripSync({ tripId, paths }: { tripId: string; paths: stri
 
     let cancelled = false;
     const run = async () => {
+      if (!(await isOnline())) return;
       // One at a time: it's background work, the page in front matters more.
       for (const path of key.split("\n")) {
-        if (cancelled || !navigator.onLine) return;
+        if (cancelled) return;
         try {
           const html = await savePage(path);
           // Let the worker store the page's CSS/JS too, so the copy looks right.
           if (html) worker.postMessage({ type: "cache-assets", html });
         } catch {
+          // Lost the connection: stop, and try again next time.
+          if (!(await isOnline())) return;
           // A page that fails now will be saved on the next run.
         }
       }

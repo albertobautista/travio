@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 
+import { isOnline } from "@/lib/offline/connection";
 import { clearOfflineData, forgetOtherTrips } from "@/lib/offline/storage";
 
 /**
@@ -14,9 +15,13 @@ import { clearOfflineData, forgetOtherTrips } from "@/lib/offline/storage";
 export function OfflineHousekeeping({ tripIds }: { tripIds?: string[] }) {
   const key = tripIds?.join(",");
   useEffect(() => {
-    if (!navigator.onLine) return; // offline, the list may just be a saved copy
     const ids = key === undefined ? null : key.split(",").filter(Boolean);
-    (ids ? forgetOtherTrips(ids) : clearOfflineData()).catch((error) => console.error("Offline housekeeping failed", error));
+    isOnline()
+      .then((online) => {
+        if (!online) return; // offline, the list may just be a saved copy
+        return ids ? forgetOtherTrips(ids) : clearOfflineData();
+      })
+      .catch((error) => console.error("Offline housekeeping failed", error));
   }, [key]);
   return null;
 }
