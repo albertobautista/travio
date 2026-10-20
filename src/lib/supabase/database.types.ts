@@ -496,6 +496,31 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"trip_group_links": {
+                  Row: {
+                    "created_at": string,"created_by": string | null,"expires_at": string,"id": string,"max_members": number | null,"token_hash": string,"trip_id": string,"updated_at": string
+                  }
+                  Insert: {
+                    "created_at"?: string,"created_by"?: string | null,"expires_at": string,"id"?: string,"max_members"?: number | null,"token_hash": string,"trip_id": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"created_by"?: string | null,"expires_at"?: string,"id"?: string,"max_members"?: number | null,"token_hash"?: string,"trip_id"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "trip_group_links_created_by_fkey"
+      columns: ["created_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_group_links_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: true
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"trip_invitations": {
                   Row: {
                     "accepted_at": string | null,"accepted_by": string | null,"adds_traveler": boolean,"created_at": string,"created_by": string | null,"email": string | null,"expires_at": string,"id": string,"role": string,"token_hash": string,"traveler_id": string | null,"trip_id": string,"updated_at": string
@@ -531,6 +556,43 @@ isOneToOne: false
 isOneToOne: false
       referencedRelation: "travelers"
       referencedColumns: ["trip_id","id"]
+    }
+                  ]
+                },"trip_join_requests": {
+                  Row: {
+                    "avatar_url": string | null,"created_at": string,"decided_at": string | null,"decided_by": string | null,"email": string | null,"id": string,"link_id": string | null,"name": string,"status": string,"trip_id": string,"updated_at": string,"user_id": string
+                  }
+                  Insert: {
+                    "avatar_url"?: string | null,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"email"?: string | null,"id"?: string,"link_id"?: string | null,"name": string,"status"?: string,"trip_id": string,"updated_at"?: string,"user_id": string
+                  }
+                  Update: {
+                    "avatar_url"?: string | null,"created_at"?: string,"decided_at"?: string | null,"decided_by"?: string | null,"email"?: string | null,"id"?: string,"link_id"?: string | null,"name"?: string,"status"?: string,"trip_id"?: string,"updated_at"?: string,"user_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "trip_join_requests_decided_by_fkey"
+      columns: ["decided_by"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_join_requests_trip_id_fkey"
+      columns: ["trip_id"]
+isOneToOne: false
+      referencedRelation: "trips"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "trip_join_requests_trip_id_link_id_fkey"
+      columns: ["trip_id","link_id"]
+isOneToOne: false
+      referencedRelation: "trip_group_links"
+      referencedColumns: ["trip_id","id"]
+    },{
+      foreignKeyName: "trip_join_requests_user_id_fkey"
+      columns: ["user_id"]
+isOneToOne: false
+      referencedRelation: "profiles"
+      referencedColumns: ["id"]
     }
                   ]
                 },"trip_members": {
@@ -642,11 +704,23 @@ isOneToOne: false
 "claim_ai_request":
 { Args: { "p_trip_id": string }; Returns: number
                            },
+"create_trip_group_link":
+{ Args: { "p_days"?: number,"p_max_members"?: number,"p_trip_id": string }; Returns: Json
+                           },
 "create_trip_invitation":
 { Args: { "p_adds_traveler"?: boolean,"p_email"?: string,"p_role": string,"p_traveler_id"?: string,"p_trip_id": string }; Returns: Json
                            },
+"decide_join_request":
+{ Args: { "p_adds_traveler"?: boolean,"p_approve": boolean,"p_request_id": string,"p_role"?: string,"p_traveler_id"?: string }; Returns: Json
+                           },
+"get_trip_group_link":
+{ Args: { "p_token": string }; Returns: Json
+                           },
 "get_trip_invitation":
 { Args: { "p_token": string }; Returns: Json
+                           },
+"group_link_approved_count":
+{ Args: { "p_link_id": string }; Returns: number
                            },
 "invitation_token_hash":
 { Args: { "p_token": string }; Returns: string
@@ -665,6 +739,9 @@ isOneToOne: false
                            },
 "request_notification_run":
 { Args: Record<PropertyKey, never>; Returns: undefined
+                           },
+"request_to_join_trip":
+{ Args: { "p_token": string }; Returns: Json
                            },
 "set_accommodation_participants":
 { Args: { "p_accommodation_id": string,"p_traveler_ids": (string)[] }; Returns: undefined

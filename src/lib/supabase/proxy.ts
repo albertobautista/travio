@@ -8,10 +8,10 @@ import type { Database } from "./database.types";
 // and /sin-conexion is stored by the service worker when it installs.
 // /opengraph-image: the link preview picture, fetched by WhatsApp & co. with no session.
 const PUBLIC_PATHS = ["/", "/login", "/manifest.webmanifest", "/sw.js", "/sin-conexion", "/opengraph-image"];
-// /invitacion/: the invitation page shows a preview before signing in.
+// /invitacion/ and /unirse/: invitation and group links show a preview before signing in.
 // /avisos/: unsubscribing from emails works from the link, without signing in.
 // /api/avisos/: the notification job, called by pg_cron (checks its own secret).
-const PUBLIC_PREFIXES = ["/auth/", "/invitacion/", "/avisos/", "/api/avisos/"];
+const PUBLIC_PREFIXES = ["/auth/", "/invitacion/", "/unirse/", "/avisos/", "/api/avisos/"];
 
 function isPublic(pathname: string) {
   return PUBLIC_PATHS.includes(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
