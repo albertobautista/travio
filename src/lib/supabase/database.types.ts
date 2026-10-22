@@ -672,13 +672,13 @@ isOneToOne: false
                   ]
                 },"trips": {
                   Row: {
-                    "ai_enabled": boolean,"budget_amount": number | null,"cover_image_path": string | null,"created_at": string,"created_by": string | null,"currency": string,"description": string | null,"end_date": string | null,"id": string,"name": string,"start_date": string | null,"updated_at": string
+                    "ai_enabled": boolean,"budget_amount": number | null,"cover_image_path": string | null,"created_at": string,"created_by": string | null,"currency": string,"description": string | null,"end_date": string | null,"id": string,"name": string,"share_code": string,"start_date": string | null,"updated_at": string
                   }
                   Insert: {
-                    "ai_enabled"?: boolean,"budget_amount"?: number | null,"cover_image_path"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name": string,"start_date"?: string | null,"updated_at"?: string
+                    "ai_enabled"?: boolean,"budget_amount"?: number | null,"cover_image_path"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name": string,"share_code"?: string,"start_date"?: string | null,"updated_at"?: string
                   }
                   Update: {
-                    "ai_enabled"?: boolean,"budget_amount"?: number | null,"cover_image_path"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name"?: string,"start_date"?: string | null,"updated_at"?: string
+                    "ai_enabled"?: boolean,"budget_amount"?: number | null,"cover_image_path"?: string | null,"created_at"?: string,"created_by"?: string | null,"currency"?: string,"description"?: string | null,"end_date"?: string | null,"id"?: string,"name"?: string,"share_code"?: string,"start_date"?: string | null,"updated_at"?: string
                   }
                   Relationships: [
                     {
@@ -719,6 +719,9 @@ isOneToOne: false
 "get_trip_invitation":
 { Args: { "p_token": string }; Returns: Json
                            },
+"get_trip_share_preview":
+{ Args: { "p_code": string }; Returns: Json
+                           },
 "group_link_approved_count":
 { Args: { "p_link_id": string }; Returns: number
                            },
@@ -736,6 +739,9 @@ isOneToOne: false
                            },
 "move_trip_stop":
 { Args: { "p_direction": number,"p_stop_id": string }; Returns: undefined
+                           },
+"new_share_code":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "request_notification_run":
 { Args: Record<PropertyKey, never>; Returns: undefined
@@ -763,6 +769,9 @@ isOneToOne: false
                            },
 "trip_id_from_storage_path":
 { Args: { "p_name": string }; Returns: string
+                           },
+"trip_preview":
+{ Args: { "p_trip_id": string }; Returns: Json
                            },
 "trip_role":
 { Args: { "p_trip_id": string }; Returns: string

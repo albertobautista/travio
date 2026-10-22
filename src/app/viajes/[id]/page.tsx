@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight, LogIn, LogOut, Pencil } from "lucide-react";
 
 import { PlacePhoto } from "@/components/maps/place-photo";
+import { ShareTripButton } from "@/components/trips/share-trip-button";
 import { TripCountdown } from "@/components/trips/trip-countdown";
 import { TripRoute } from "@/components/trips/trip-route";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
@@ -192,15 +193,18 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
           <ChevronLeft className="size-5" aria-hidden="true" />
         </Link>
         {/* On desktop the trip header has these (and the sidebar, the way back). */}
-        {editable && (
-          <Link
-            href={`${base}/editar`}
-            className="absolute top-3 right-3 flex h-11 lg:hidden items-center gap-1.5 rounded-xl bg-card/90 px-3 text-sm font-semibold text-foreground shadow hover:bg-card"
-          >
-            <Pencil className="size-4" aria-hidden="true" />
-            Editar
-          </Link>
-        )}
+        <div className="absolute top-3 right-3 flex gap-2 lg:hidden">
+          <ShareTripButton shareCode={trip.share_code} tripName={trip.name} variant="hero" />
+          {editable && (
+            <Link
+              href={`${base}/editar`}
+              className="flex h-11 items-center gap-1.5 rounded-xl bg-card/90 px-3 text-sm font-semibold text-foreground shadow hover:bg-card"
+            >
+              <Pencil className="size-4" aria-hidden="true" />
+              Editar
+            </Link>
+          )}
+        </div>
         <div className={"absolute inset-x-0 bottom-0 flex flex-col gap-1 px-4 py-3 text-white " + (coverUrl ? "bg-black/70" : "")}>
           <div className="flex items-start justify-between gap-3">
             <h1 className="text-2xl font-bold tracking-tight">{trip.name}</h1>

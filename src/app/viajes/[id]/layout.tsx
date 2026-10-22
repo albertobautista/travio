@@ -4,6 +4,7 @@ import { Pencil, Plus } from "lucide-react";
 import { TripNav, TripTabs } from "@/components/nav/app-nav";
 import { OfflineTripSync } from "@/components/offline/offline-trip-sync";
 import { RailSlot } from "@/components/trips/rail-slot";
+import { ShareTripButton } from "@/components/trips/share-trip-button";
 import { TripRail } from "@/components/trips/trip-rail";
 import { Button } from "@/components/ui/button";
 import { getTripFiles } from "@/lib/files/queries";
@@ -53,22 +54,25 @@ export default async function TripLayout({ children, params }: LayoutProps<"/via
                 <p className="truncate text-xl font-bold tracking-tight">{trip.name}</p>
                 <p className="text-sm text-muted-foreground">{facts.join(" · ")}</p>
               </div>
-              {editable && (
-                <div className="flex shrink-0 gap-2">
-                  <Button asChild variant="outline" className="h-10">
-                    <Link href={`${base}/editar`}>
-                      <Pencil aria-hidden="true" />
-                      Editar
-                    </Link>
-                  </Button>
-                  <Button asChild className="h-10">
-                    <Link href={`${base}/actividades/nueva`}>
-                      <Plus aria-hidden="true" />
-                      Añadir actividad
-                    </Link>
-                  </Button>
-                </div>
-              )}
+              <div className="flex shrink-0 gap-2">
+                <ShareTripButton shareCode={trip.share_code} tripName={trip.name} variant="header" />
+                {editable && (
+                  <>
+                    <Button asChild variant="outline" className="h-10">
+                      <Link href={`${base}/editar`}>
+                        <Pencil aria-hidden="true" />
+                        Editar
+                      </Link>
+                    </Button>
+                    <Button asChild className="h-10">
+                      <Link href={`${base}/actividades/nueva`}>
+                        <Plus aria-hidden="true" />
+                        Añadir actividad
+                      </Link>
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
             <TripTabs tripId={trip.id} editable={editable} />
           </div>
