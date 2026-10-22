@@ -1,42 +1,20 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-
 import { ImageResponse } from "next/og";
+
+import { geistFonts, Plane } from "@/lib/og/brand";
 
 /**
  * The picture WhatsApp, iMessage, Slack… show when someone shares a Travio
  * link (Open Graph). Built once at build time from this JSX; at the app root
- * so every page inherits it (an invitation link too).
- *
- * The image renderer (Satori) is not a browser: every element with more than
- * one child needs display: flex, styles are inline, and fonts must be passed
- * as files (Geist from the `geist` package, dev dependency).
+ * so every page inherits it (a one-person invitation too). Share links
+ * (/v/…) and group links (/unirse/…) show the trip's own picture instead
+ * (src/lib/trips/share-image.tsx).
  */
 
 export const alt = "Travio: tu viaje, todo en un lugar. Itinerario, hospedajes, boletos y gastos del grupo, también sin conexión.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const fontDir = join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans");
-
-const PLANE =
-  "M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z";
-
-function Plane({ size: px, stroke, width = 2 }: { size: number; stroke: string; width?: number }) {
-  return (
-    <svg width={px} height={px} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={width} strokeLinecap="round" strokeLinejoin="round">
-      <path d={PLANE} />
-    </svg>
-  );
-}
-
 export default async function OpenGraphImage() {
-  const [regular, semibold, bold] = await Promise.all([
-    readFile(join(fontDir, "Geist-Regular.ttf")),
-    readFile(join(fontDir, "Geist-SemiBold.ttf")),
-    readFile(join(fontDir, "Geist-Bold.ttf")),
-  ]);
-
   return new ImageResponse(
     (
       <div style={{ width: "100%", height: "100%", display: "flex", background: "#1F5EDB", fontFamily: "Geist", position: "relative", overflow: "hidden" }}>
@@ -122,11 +100,7 @@ export default async function OpenGraphImage() {
     ),
     {
       ...size,
-      fonts: [
-        { name: "Geist", data: regular, weight: 400, style: "normal" },
-        { name: "Geist", data: semibold, weight: 600, style: "normal" },
-        { name: "Geist", data: bold, weight: 700, style: "normal" },
-      ],
+      fonts: await geistFonts(),
     },
   );
 }

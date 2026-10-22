@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { getGroupLinkPreview, type GroupLinkPreview } from "@/lib/invitations/group-links";
 import { createClient } from "@/lib/supabase/server";
 import { formatTripDates } from "@/lib/trips/dates";
+import { previewLine } from "@/lib/trips/share-text";
 
 import { requestToJoin, switchAccount } from "./actions";
 import { RequestForm } from "./request-form";
@@ -13,15 +14,16 @@ import { RequestForm } from "./request-form";
 /**
  * Same rules as /invitacion (see its metadata): the token is in the URL, so
  * no Referer to other sites, out of search engines, and every way out is a
- * full page load. The title names the trip so the WhatsApp preview says
- * what it's about; the picture is the app's (src/app/opengraph-image.tsx),
- * never the trip's cover, which is private to members.
+ * full page load. The WhatsApp preview is the trip's: its name in the
+ * title, dates and cities in the description, and its cover in the picture
+ * (./opengraph-image.tsx; decided with Alberto on 2026-10-22).
  */
 export async function generateMetadata({ params }: PageProps<"/unirse/[token]">): Promise<Metadata> {
   const { token } = await params;
   const link = await getGroupLinkPreview(token);
   const title = link ? `Únete a ${link.trip_name} · Travio` : "Invitación · Travio";
-  const description = "Pide unirte al viaje: verás el itinerario, los hospedajes y los documentos cuando te acepten.";
+  const line = link ? previewLine(link) : "";
+  const description = `${line ? `${line}. ` : ""}Pide unirte al viaje: verás el itinerario, los hospedajes y los documentos cuando te acepten.`;
   return {
     title,
     description,
@@ -154,7 +156,7 @@ function JoinBody({ link, token, signedIn, email }: { link: GroupLinkPreview; to
   );
 }
 
-/** No cover photo: covers are private to members, and whoever opens the link isn't one yet. */
+/** No cover photo here: the page is about asking to join (the link preview has the cover). */
 function TripHeader({ link, lead }: { link: GroupLinkPreview; lead: string }) {
   return (
     <div className="flex flex-col gap-3 bg-secondary px-6 pt-6 pb-5">

@@ -1,6 +1,7 @@
 import { cache } from "react";
 
 import { createClient } from "@/lib/supabase/server";
+import type { TripPreview } from "@/lib/trips/share";
 import { isUuid } from "@/lib/uuid";
 
 import { isInvitationToken } from "./queries";
@@ -13,13 +14,9 @@ import { isInvitationToken } from "./queries";
 export const GROUP_LINK_DAYS = [1, 7, 30] as const;
 
 /** What /unirse/<token> shows. Mirrors get_trip_group_link's jsonb. */
-export type GroupLinkPreview = {
+export type GroupLinkPreview = TripPreview & {
   /** member: already in; pending/rejected: the caller's request; full: the cap was reached. */
   status: "valid" | "expired" | "full" | "member" | "pending" | "rejected";
-  trip_id: string;
-  trip_name: string;
-  start_date: string | null;
-  end_date: string | null;
   expires_at: string;
   inviter_name: string | null;
 };
