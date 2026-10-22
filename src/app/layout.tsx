@@ -4,6 +4,7 @@ import "./globals.css";
 
 import { OfflineSupport } from "@/components/offline/offline-support";
 import { ThemeSync } from "@/components/theme-sync";
+import { WebAnalytics } from "@/components/web-analytics";
 import { THEME_SCRIPT } from "@/lib/theme";
 
 const geistSans = Geist({
@@ -49,6 +50,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <ThemeSync />
         <OfflineSupport />
         {children}
+        <WebAnalytics />
       </body>
     </html>
   );
