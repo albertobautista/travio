@@ -8,6 +8,7 @@ import { getGroupLink, getPendingJoinRequests } from "@/lib/invitations/group-li
 import { getPendingInvitations, ROLE_LABELS } from "@/lib/invitations/queries";
 import { createClient } from "@/lib/supabase/server";
 import type { Traveler } from "@/lib/travelers/queries";
+import { PERMISSION_META, toMemberPermissions } from "@/lib/trips/permissions";
 import { getMembers, type TripRole } from "@/lib/trips/queries";
 
 import {
@@ -19,6 +20,7 @@ import {
   deleteInvitation,
   leaveTrip,
   removeMember,
+  setMemberPermissions,
   transferOwnership,
 } from "./access-actions";
 
@@ -67,6 +69,14 @@ export async function AccessSection({
           const name = m.profiles?.display_name ?? "Sin nombre";
           const traveler = travelerOf.get(m.user_id);
           const memberRole = m.role as TripRole;
+          const permissions = toMemberPermissions(m.permissions);
+          // "Solo lectura · también guarda lugares y anota gastos"
+          const extras =
+            memberRole === "viewer" && permissions.length > 0
+              ? ` · también ${new Intl.ListFormat("es", { type: "conjunction" }).format(
+                  permissions.map((p) => PERMISSION_META[p].short),
+                )}`
+              : "";
           return (
             <li key={m.user_id} className="flex min-h-14 items-center gap-3 px-4 py-2">
               <TravelerAvatar
@@ -79,6 +89,7 @@ export async function AccessSection({
                 </span>
                 <span className="truncate text-xs text-muted-foreground">
                   {ROLE_LABELS[memberRole]}
+                  {extras}
                   {traveler ? ` · viaja como ${traveler.name}` : " · no está en la lista de viajeros"}
                 </span>
               </span>
@@ -86,7 +97,9 @@ export async function AccessSection({
                 <ManageMemberButton
                   name={name}
                   role={memberRole}
+                  permissions={permissions}
                   changeRole={changeMemberRole.bind(null, trip.id, m.user_id)}
+                  setPermissions={setMemberPermissions.bind(null, trip.id, m.user_id)}
                   remove={removeMember.bind(null, trip.id, m.user_id)}
                   makeOwner={transferOwnership.bind(null, trip.id, m.user_id)}
                 />

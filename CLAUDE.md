@@ -141,6 +141,8 @@ Initial roles:
 - **editor**: can create/update trip content but has no owner-level administrative powers.
 - **viewer**: read-only access.
 
+Extra permissions (decided 2026-10-22): the owner can let a specific viewer **save places** or **note expenses** without making them an editor; they add those and change only the ones they added. Stored in `trip_members.permissions`, enforced by RLS (`docs/data-model.md`, section 4).
+
 Example: Alberto owns and manages a trip; Ximena has a Travio account and is invited as a viewer, so she can see the itinerary and tickets without modifying them.
 
 Permissions must **not** exist only in the frontend. Authorization is also enforced in the backend/database using Supabase **Row Level Security**.

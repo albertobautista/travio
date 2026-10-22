@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import type { AccessActionState } from "@/app/viajes/[id]/viajeros/access-actions";
+import { MEMBER_PERMISSIONS, PERMISSION_META, type MemberPermission } from "@/lib/trips/permissions";
 
 import { ROLE_OPTIONS } from "./invite-form";
 
@@ -23,17 +24,21 @@ type Result = Promise<AccessActionState>;
 type ManageProps = {
   name: string;
   role: "editor" | "viewer";
+  /** Extra permissions (only used while they're a viewer). */
+  permissions: MemberPermission[];
   /** Server Actions with the trip and member already bound. */
   changeRole: (role: string) => Result;
+  setPermissions: (permissions: string[]) => Result;
   remove: () => Result;
   makeOwner: () => Result;
 };
 
 /**
- * Owner only: change someone's access, give them the trip, or remove them.
- * One dialog per member; the two drastic actions ask again inside it.
+ * Owner only: change someone's access (and, for viewers, what else they may
+ * add), give them the trip, or remove them. One dialog per member; the two
+ * drastic actions ask again inside it.
  */
-export function ManageMemberButton({ name, role, changeRole, remove, makeOwner }: ManageProps) {
+export function ManageMemberButton({ name, role, permissions, changeRole, setPermissions, remove, makeOwner }: ManageProps) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState<"remove" | "owner" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,6 +97,33 @@ export function ManageMemberButton({ name, role, changeRole, remove, makeOwner }
                 </label>
               ))}
             </fieldset>
+            {role === "viewer" && (
+              <fieldset className="flex flex-col gap-2" disabled={pending}>
+                <legend className="mb-2 text-sm font-medium">También puede</legend>
+                {MEMBER_PERMISSIONS.map((p) => (
+                  <label
+                    key={p}
+                    className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border p-3 has-checked:border-primary has-checked:bg-secondary"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={permissions.includes(p)}
+                      onChange={(e) =>
+                        run(
+                          () => setPermissions(e.target.checked ? [...permissions, p] : permissions.filter((x) => x !== p)),
+                          false,
+                        )
+                      }
+                      className="mt-1 accent-primary"
+                    />
+                    <span className="flex flex-col">
+                      <span className="text-sm font-medium">{PERMISSION_META[p].label}</span>
+                      <span className="text-xs text-muted-foreground">{PERMISSION_META[p].hint}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             <div className="flex flex-col gap-1 border-t pt-3">
               <Button variant="ghost" className="h-11 justify-start" disabled={pending} onClick={() => setConfirm("owner")}>
                 <Crown aria-hidden="true" />

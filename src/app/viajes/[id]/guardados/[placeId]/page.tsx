@@ -5,7 +5,8 @@ import { ChevronLeft } from "lucide-react";
 
 import { SavedPlaceForm } from "@/components/saved-places/saved-place-form";
 import { getSavedPlace } from "@/lib/saved-places/queries";
-import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
+import { canChange } from "@/lib/trips/permissions";
+import { getMyTripAccess, getStops, getTrip } from "@/lib/trips/queries";
 
 import { updateSavedPlace } from "../actions";
 import { DeleteSavedPlaceButton } from "./delete-saved-place-button";
@@ -18,9 +19,14 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/guard
 
 export default async function EditSavedPlacePage({ params }: PageProps<"/viajes/[id]/guardados/[placeId]">) {
   const { id, placeId } = await params;
-  const [trip, role, stops, place] = await Promise.all([getTrip(id), getMyTripRole(id), getStops(id), getSavedPlace(id, placeId)]);
+  const [trip, access, stops, place] = await Promise.all([
+    getTrip(id),
+    getMyTripAccess(id),
+    getStops(id),
+    getSavedPlace(id, placeId),
+  ]);
   if (!trip || !place) notFound();
-  if (!canEdit(role)) redirect(`/viajes/${trip.id}/guardados`);
+  if (!canChange(access, "saved_places", place.created_by)) redirect(`/viajes/${trip.id}/guardados`);
   const backHref = `/viajes/${trip.id}/guardados`;
 
   return (

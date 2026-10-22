@@ -305,7 +305,8 @@ $$;
 | trips | member, or `created_by = auth.uid()` * | insert: any authenticated user as `created_by`; update: editor+; delete: owner |
 | trip_members | member | owner only; members can delete their own row (leave); joining by invitation goes through `accept_trip_invitation` |
 | trip_invitations | owner | insert/delete: owner (no update; delete = revoke) |
-| travelers, trip_stops, activities, accommodations, transportations, saved_places, participants | member | editor+ |
+| travelers, trip_stops, activities, accommodations, transportations, participants | member | editor+ |
+| saved_places, expenses, expense_shares | member | editor+; a viewer with the matching permission adds them and changes/deletes the ones they added (`created_by = auth.uid()`) |
 | files | member | insert: editor+ with `uploaded_by = auth.uid()`; update/delete: editor+ |
 | storage.objects (`trip-files`) | member of the path's trip | editor+ of the path's trip |
 
@@ -313,6 +314,7 @@ $$;
 
 Other rules:
 
+- **Extra permissions per member (2026-10-22)**: `trip_members.permissions text[]` (fixed list, check constraint: `saved_places`, `expenses`). The owner grants them to a viewer from the person's access dialog; each one means "add these, and change or delete the ones you added", never what others added. Owners and editors already do everything, so the list only counts for viewers (it stays stored if the role changes). `has_trip_permission(trip_id, permission)` (security definer, like `trip_role`) is what the policies ask; `my_trip_permissions(trip_id)` lets the app decide what to show; `can_change_expense(expense_id)` covers the split. A new permission needs its own policies, so it always comes with a migration. Code: `src/lib/trips/permissions.ts`.
 - The owner can't remove or demote themselves directly; ownership changes only through `transfer_trip_ownership`.
 - Every policy targets the `authenticated` role; `anon` gets nothing. The one exception is `get_trip_invitation`, a function `anon` may call for the invitation preview.
 - The bucket is **private**; files are opened via short-lived signed URLs created server-side.
