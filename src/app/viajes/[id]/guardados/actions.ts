@@ -36,7 +36,7 @@ export async function createSavedPlace(
     if (error) console.error("createSavedPlace failed", error);
     const denied = !error || error.code === "42501";
     return {
-      error: denied ? "No tienes permiso para editar este viaje." : "No pudimos guardar el lugar. Inténtalo de nuevo.",
+      error: denied ? "No tienes permiso para guardar lugares en este viaje." : "No pudimos guardar el lugar. Inténtalo de nuevo.",
       values: parsed.values,
     };
   }
@@ -65,7 +65,7 @@ export async function updateSavedPlace(
     console.error("updateSavedPlace failed", error);
     return { error: "No pudimos guardar los cambios. Inténtalo de nuevo.", values: parsed.values };
   }
-  if (data.length === 0) return { error: "No tienes permiso para editar este viaje.", values: parsed.values };
+  if (data.length === 0) return { error: "No tienes permiso para editar este lugar.", values: parsed.values };
   redirect(listUrl(tripId));
 }
 
@@ -80,6 +80,6 @@ export async function deleteSavedPlace(tripId: string, placeId: string): Promise
     console.error("deleteSavedPlace failed", error);
     return { error: "No pudimos borrar el lugar. Inténtalo de nuevo." };
   }
-  if (data.length === 0) return { error: "No tienes permiso para editar este viaje." };
+  if (data.length === 0) return { error: "No tienes permiso para borrar este lugar." };
   redirect(listUrl(tripId));
 }

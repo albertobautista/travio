@@ -4,7 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 
 import { SavedPlaceForm } from "@/components/saved-places/saved-place-form";
-import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
+import { canAdd } from "@/lib/trips/permissions";
+import { getMyTripAccess, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
 
 import { createSavedPlace } from "../actions";
@@ -14,9 +15,9 @@ export const metadata: Metadata = { title: "Guardar lugar · Travio" };
 export default async function NewSavedPlacePage({ params, searchParams }: PageProps<"/viajes/[id]/guardados/nuevo">) {
   const { id } = await params;
   const { ciudad } = await searchParams;
-  const [trip, role, stops] = await Promise.all([getTrip(id), getMyTripRole(id), getStops(id)]);
+  const [trip, access, stops] = await Promise.all([getTrip(id), getMyTripAccess(id), getStops(id)]);
   if (!trip) notFound();
-  if (!canEdit(role)) redirect(`/viajes/${trip.id}/guardados`);
+  if (!canAdd(access, "saved_places")) redirect(`/viajes/${trip.id}/guardados`);
 
   // ?ciudad=, else the city the travelers are in right now (handy mid-trip).
   const stopId = (typeof ciudad === "string" && stops.find((s) => s.id === ciudad)?.id) || resolveTripNow(stops).stop?.id || "";

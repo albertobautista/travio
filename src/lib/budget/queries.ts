@@ -16,7 +16,7 @@ export const getExpenses = cache(async (tripId: string) => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("expenses")
-    .select("id, category, description, amount, currency, spent_on, paid_by, notes, split_mode, expense_shares (traveler_id, share)")
+    .select("id, category, description, amount, currency, spent_on, paid_by, notes, split_mode, created_by, expense_shares (traveler_id, share)")
     .eq("trip_id", tripId)
     .order("spent_on", { ascending: false })
     .order("created_at", { ascending: false });

@@ -12,13 +12,16 @@ import { instantToZonedTime } from "@/lib/zoned-time";
 type Props = {
   tripId: string;
   place: SavedPlace;
+  /** May add it to the itinerary (owners and editors). */
+  schedulable: boolean;
+  /** May edit it: editors, or whoever saved it if the owner lets them save places. */
   editable: boolean;
   /** Day to suggest when scheduling: the city's first day, or the trip's. */
   suggestedDay: string | null;
 };
 
 /** One saved place: what, where, how long, and whether it's already planned. */
-export function SavedPlaceCard({ tripId, place, editable, suggestedDay }: Props) {
+export function SavedPlaceCard({ tripId, place, schedulable, editable, suggestedDay }: Props) {
   const category = isCategory(place.category) ? CATEGORY_META[place.category] : CATEGORY_META.other;
   const Icon = category.icon;
   const planned = [...place.activities].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
@@ -64,7 +67,7 @@ export function SavedPlaceCard({ tripId, place, editable, suggestedDay }: Props)
       {place.notes && <p className="line-clamp-3 text-sm whitespace-pre-line text-foreground/80">{place.notes}</p>}
 
       <div className="flex flex-wrap gap-2">
-        {editable && (
+        {schedulable && (
           <Button asChild size="sm" className="h-10">
             <Link href={`/viajes/${tripId}/actividades/nueva?${schedule}`}>
               <CalendarPlus aria-hidden="true" />

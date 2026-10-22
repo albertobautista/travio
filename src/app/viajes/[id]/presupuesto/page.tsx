@@ -24,7 +24,8 @@ import { computeBalances, isSplitMode } from "@/lib/budget/split";
 import { summarizeBudget } from "@/lib/budget/summary";
 import { getTransportations } from "@/lib/transportations/queries";
 import { getTravelers } from "@/lib/travelers/queries";
-import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
+import { canAdd, canChange } from "@/lib/trips/permissions";
+import { canEdit, getMyTripAccess, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
 
 import { deleteExpense, saveExpense, setBudgetAmount, setExchangeRate } from "./actions";
@@ -46,9 +47,9 @@ type Tab = keyof typeof TABS;
 export default async function BudgetPage({ params, searchParams }: PageProps<"/viajes/[id]/presupuesto">) {
   const { id } = await params;
   const { vista } = await searchParams;
-  const [trip, role, stops, activities, stays, legs, expenses, rates, travelers, settlements] = await Promise.all([
+  const [trip, access, stops, activities, stays, legs, expenses, rates, travelers, settlements] = await Promise.all([
     getTrip(id),
-    getMyTripRole(id),
+    getMyTripAccess(id),
     getStops(id),
     getActivities(id),
     getAccommodations(id),
@@ -59,7 +60,9 @@ export default async function BudgetPage({ params, searchParams }: PageProps<"/v
     getSettlements(id),
   ]);
   if (!trip) notFound();
-  const editable = canEdit(role);
+  const editable = canEdit(access.role);
+  // Viewers may note expenses too if the owner allowed it (and then edit their own).
+  const addsExpenses = canAdd(access, "expenses");
   const cur = trip.currency;
   const money = (cents: number) => formatMoney(cents, cur);
 
@@ -125,7 +128,7 @@ export default async function BudgetPage({ params, searchParams }: PageProps<"/v
             {home && homeRate && ` También en ${home}${rates.has(home) ? "" : ", al tipo del BCE"}.`}
           </p>
         </div>
-        {editable && (
+        {addsExpenses && (
           <ExpenseSheet
             action={saveExpense.bind(null, trip.id, null)}
             travelers={travelers}
@@ -336,7 +339,7 @@ export default async function BudgetPage({ params, searchParams }: PageProps<"/v
         <section aria-label="Gastos" className="flex flex-col gap-3">
           {expenses.length === 0 ? (
             <p className="rounded-2xl border border-dashed bg-card p-4 text-center text-sm text-muted-foreground">
-              Aún no hay gastos. {editable ? "Anota lo que gastas para compararlo con lo planeado." : ""}
+              Aún no hay gastos. {addsExpenses ? "Anota lo que gastas para compararlo con lo planeado." : ""}
             </p>
           ) : (
             [...byDay].map(([date, items]) => (
@@ -380,7 +383,7 @@ export default async function BudgetPage({ params, searchParams }: PageProps<"/v
                     );
                     return (
                       <li key={e.id}>
-                        {editable ? (
+                        {canChange(access, "expenses", e.created_by) ? (
                           <details className="rounded-xl border bg-card">
                             <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-3 py-2">{row}</summary>
                             <div className="border-t p-3">

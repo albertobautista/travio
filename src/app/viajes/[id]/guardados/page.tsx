@@ -7,7 +7,8 @@ import { SavedPlaceCard } from "@/components/saved-places/saved-place-card";
 import { Button } from "@/components/ui/button";
 import { CATEGORY_META, isCategory, type ActivityCategory } from "@/lib/activities/categories";
 import { getSavedPlaces } from "@/lib/saved-places/queries";
-import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
+import { canAdd, canChange } from "@/lib/trips/permissions";
+import { canEdit, getMyTripAccess, getStops, getTrip } from "@/lib/trips/queries";
 import { resolveTripNow } from "@/lib/trips/today";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/guardados">): Promise<Metadata> {
@@ -23,9 +24,10 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/guard
 export default async function SavedPlacesPage({ params, searchParams }: PageProps<"/viajes/[id]/guardados">) {
   const { id } = await params;
   const { ver, categoria } = await searchParams;
-  const [trip, role, stops, places] = await Promise.all([getTrip(id), getMyTripRole(id), getStops(id), getSavedPlaces(id)]);
+  const [trip, access, stops, places] = await Promise.all([getTrip(id), getMyTripAccess(id), getStops(id), getSavedPlaces(id)]);
   if (!trip) notFound();
-  const editable = canEdit(role);
+  // Viewers may save places too if the owner allowed it (and then edit their own).
+  const editable = canAdd(access, "saved_places");
   const base = `/viajes/${trip.id}/guardados`;
 
   const onlyPending = ver === "pendientes";
@@ -130,7 +132,14 @@ export default async function SavedPlacesPage({ params, searchParams }: PageProp
               {g.name} <span className="font-normal text-muted-foreground">({g.places.length})</span>
             </h2>
             {g.places.map((p) => (
-              <SavedPlaceCard key={p.id} tripId={trip.id} place={p} editable={editable} suggestedDay={g.suggestedDay} />
+              <SavedPlaceCard
+                key={p.id}
+                tripId={trip.id}
+                place={p}
+                schedulable={canEdit(access.role)}
+                editable={canChange(access, "saved_places", p.created_by)}
+                suggestedDay={g.suggestedDay}
+              />
             ))}
           </section>
         ))

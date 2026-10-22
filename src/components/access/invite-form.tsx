@@ -22,7 +22,7 @@ type Props = {
 };
 
 export const ROLE_OPTIONS = [
-  { value: "viewer", label: "Solo lectura", hint: "Ve el viaje y sus documentos, pero no puede cambiar nada." },
+  { value: "viewer", label: "Solo lectura", hint: "Ve el viaje y sus documentos. Puedes dejarle guardar lugares o anotar gastos." },
   { value: "editor", label: "Puede editar", hint: "Agrega y cambia actividades, ciudades, hospedajes y gastos." },
 ] as const;
 

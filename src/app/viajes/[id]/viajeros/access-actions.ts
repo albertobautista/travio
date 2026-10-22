@@ -11,6 +11,7 @@ import { GROUP_LINK_DAYS } from "@/lib/invitations/group-links";
 import { notifyJoinApproved, notifyMemberChange } from "@/lib/notifications/members";
 import { createClient } from "@/lib/supabase/server";
 import { formatTripDates } from "@/lib/trips/dates";
+import { isMemberPermission, MEMBER_PERMISSIONS } from "@/lib/trips/permissions";
 import { isUuid } from "@/lib/uuid";
 
 // Who can see and change the trip. Every rule lives in the database (RLS on
@@ -252,6 +253,28 @@ export async function changeMemberRole(tripId: string, userId: string, role: str
   if (error) {
     console.error("changeMemberRole failed", error);
     return { error: "No pudimos cambiar el acceso. Inténtalo de nuevo." };
+  }
+  if (data.length === 0) return denied;
+  refresh();
+}
+
+/**
+ * The owner decides what else a viewer may add (saved places, expenses...).
+ * The whole list is replaced; the order is kept stable for tidy rows.
+ */
+export async function setMemberPermissions(tripId: string, userId: string, permissions: string[]): Promise<AccessActionState> {
+  if (!isUuid(tripId) || !isUuid(userId)) return { error: "Esta persona no existe." };
+  if (!Array.isArray(permissions) || !permissions.every(isMemberPermission)) return { error: "Elige permisos de la lista." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("trip_members")
+    .update({ permissions: MEMBER_PERMISSIONS.filter((p) => permissions.includes(p)) })
+    .eq("trip_id", tripId)
+    .eq("user_id", userId)
+    .select("user_id");
+  if (error) {
+    console.error("setMemberPermissions failed", error);
+    return { error: "No pudimos cambiar los permisos. Inténtalo de nuevo." };
   }
   if (data.length === 0) return denied;
   refresh();

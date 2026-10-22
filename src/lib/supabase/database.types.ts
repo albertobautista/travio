@@ -597,13 +597,13 @@ isOneToOne: false
                   ]
                 },"trip_members": {
                   Row: {
-                    "created_at": string,"role": string,"trip_id": string,"updated_at": string,"user_id": string
+                    "created_at": string,"permissions": (string)[],"role": string,"trip_id": string,"updated_at": string,"user_id": string
                   }
                   Insert: {
-                    "created_at"?: string,"role": string,"trip_id": string,"updated_at"?: string,"user_id": string
+                    "created_at"?: string,"permissions"?: (string)[],"role": string,"trip_id": string,"updated_at"?: string,"user_id": string
                   }
                   Update: {
-                    "created_at"?: string,"role"?: string,"trip_id"?: string,"updated_at"?: string,"user_id"?: string
+                    "created_at"?: string,"permissions"?: (string)[],"role"?: string,"trip_id"?: string,"updated_at"?: string,"user_id"?: string
                   }
                   Relationships: [
                     {
@@ -698,6 +698,9 @@ isOneToOne: false
             "accept_trip_invitation":
 { Args: { "p_token": string }; Returns: Json
                            },
+"can_change_expense":
+{ Args: { "p_expense_id": string }; Returns: boolean
+                           },
 "can_edit_trip":
 { Args: { "p_trip_id": string }; Returns: boolean
                            },
@@ -725,6 +728,9 @@ isOneToOne: false
 "group_link_approved_count":
 { Args: { "p_link_id": string }; Returns: number
                            },
+"has_trip_permission":
+{ Args: { "p_permission": string,"p_trip_id": string }; Returns: boolean
+                           },
 "invitation_token_hash":
 { Args: { "p_token": string }; Returns: string
                            },
@@ -736,6 +742,9 @@ isOneToOne: false
                            },
 "link_traveler_to_account":
 { Args: { "p_email": string,"p_role"?: string,"p_traveler_id": string }; Returns: Json
+                           },
+"my_trip_permissions":
+{ Args: { "p_trip_id": string }; Returns: (string)[]
                            },
 "move_trip_stop":
 { Args: { "p_direction": number,"p_stop_id": string }; Returns: undefined

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/uuid";
 
 const SAVED_PLACE_COLUMNS =
-  "id, trip_stop_id, name, category, google_place_id, address, lat, lng, estimated_minutes, external_url, notes, created_at, activities (id, starts_at, timezone)";
+  "id, trip_stop_id, name, category, google_place_id, address, lat, lng, estimated_minutes, external_url, notes, created_by, created_at, activities (id, starts_at, timezone)";
 
 /** A trip's saved places, newest first, with the activities planned from each. */
 export const getSavedPlaces = cache(async (tripId: string) => {

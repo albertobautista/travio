@@ -3,6 +3,8 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/uuid";
 
+import { toMemberPermissions, type TripAccess } from "./permissions";
+
 export type TripRole = "owner" | "editor" | "viewer";
 
 /** trip_members.role is `text` with a check constraint, so it's typed as string. */
@@ -33,6 +35,21 @@ export const getMyTripRole = cache(async (tripId: string): Promise<TripRole | nu
   const supabase = await createClient();
   const { data } = await supabase.rpc("trip_role", { p_trip_id: tripId });
   return toTripRole(data);
+});
+
+/**
+ * The signed-in user's role plus the extra permissions the owner gave them
+ * (see permissions.ts), and who they are, to tell what they added.
+ */
+export const getMyTripAccess = cache(async (tripId: string): Promise<TripAccess> => {
+  if (!isUuid(tripId)) return { role: null, permissions: [], userId: null };
+  const supabase = await createClient();
+  const [role, { data: permissions }, { data: claims }] = await Promise.all([
+    getMyTripRole(tripId),
+    supabase.rpc("my_trip_permissions", { p_trip_id: tripId }),
+    supabase.auth.getClaims(),
+  ]);
+  return { role, permissions: toMemberPermissions(permissions), userId: claims?.claims.sub ?? null };
 });
 
 /** Mirrors the database rules; only for deciding what to show. RLS still decides. */
@@ -69,7 +86,7 @@ export const getMembers = cache(async (tripId: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("trip_members")
-    .select("user_id, role, profiles (display_name, avatar_url)")
+    .select("user_id, role, permissions, profiles (display_name, avatar_url)")
     .eq("trip_id", tripId)
     .order("created_at");
   return data ?? [];
