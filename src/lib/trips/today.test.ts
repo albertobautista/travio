@@ -32,4 +32,19 @@ describe("resolveTripNow", () => {
     expect(now.stop).toBeUndefined();
     expect(now.timeZone).toBe("Europe/Madrid");
   });
+
+  it("a connection gives way to the destination reached the same day", () => {
+    const route = [
+      { ...stop("Guadalajara", "", "", "America/Mexico_City"), arrives_on: null, departs_on: null, kind: "origin" },
+      { ...stop("Ciudad de México", "2026-10-05", "2026-10-05", "America/Mexico_City"), kind: "transit" },
+      { ...stop("Londres", "2026-10-06", "2026-10-10", "Europe/London"), kind: "destination" },
+      { ...stop("Ciudad de México", "2026-10-10", "2026-10-10", "America/Mexico_City"), kind: "transit" },
+    ];
+    // Departure day: only the connection matches.
+    expect(resolveTripNow(route, new Date("2026-10-05T18:00:00Z")).stop?.name).toBe("Ciudad de México");
+    // Flying home through Mexico City: still London's last day.
+    expect(resolveTripNow(route, new Date("2026-10-10T09:00:00Z")).stop?.name).toBe("Londres");
+    // Before the trip, the clock is home's.
+    expect(resolveTripNow([route[2], route[0]], new Date("2026-09-01T10:00:00Z")).timeZone).toBe("America/Mexico_City");
+  });
 });

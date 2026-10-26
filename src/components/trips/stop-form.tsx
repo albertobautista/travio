@@ -11,10 +11,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { TimeZoneOption } from "@/lib/time-zones";
 import type { StopField, StopFormState, StopFormValues } from "@/lib/trips/stop-form";
+import { isStopKind, STOP_KIND_META, STOP_KINDS, type StopKind } from "@/lib/trips/stops";
+
+import { STOP_KIND_ICON } from "./stop-kind-icons";
 
 type StopFormProps = {
   action: (prev: StopFormState, formData: FormData) => Promise<StopFormState>;
   initialValues?: StopFormValues;
+  /** Preselected kind for a new stop. */
+  initialKind?: StopKind;
+  /** Another stop is already the origin: only one per trip. */
+  hasOrigin?: boolean;
   timeZones: TimeZoneOption[];
   /** "YYYY-MM-DD" bounds for the date pickers, from the trip's dates. */
   minDate?: string;
@@ -27,6 +34,8 @@ type StopFormProps = {
 export function StopForm({
   action: serverAction,
   initialValues,
+  initialKind = "destination",
+  hasOrigin = false,
   timeZones,
   minDate,
   maxDate,
@@ -40,12 +49,53 @@ export function StopForm({
   // Filled by the city search; editable for places Google doesn't know.
   const [timezone, setTimezone] = useState(values?.timezone ?? "");
   const [cityName, setCityName] = useState(values?.name ?? "");
+  const [kind, setKind] = useState<StopKind>(isStopKind(values?.kind) ? values.kind : initialKind);
 
   const describedBy = (field: StopField, hint?: boolean) =>
     [errors[field] ? `${field}-error` : null, hint ? `${field}-hint` : null].filter(Boolean).join(" ") || undefined;
 
   return (
     <form action={action} className="flex flex-col gap-5" noValidate>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-2 text-sm font-medium">En este viaje es…</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {STOP_KINDS.map((k) => {
+            const Icon = STOP_KIND_ICON[k];
+            const checked = kind === k;
+            const disabled = k === "origin" && hasOrigin && !checked;
+            return (
+              <label
+                key={k}
+                className={
+                  "flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl border p-2 text-xs has-focus-visible:ring-3 has-focus-visible:ring-ring/50 " +
+                  (checked ? "border-primary bg-secondary font-semibold text-secondary-foreground" : "bg-card text-foreground/80") +
+                  (disabled ? " cursor-not-allowed opacity-50" : " cursor-pointer")
+                }
+              >
+                <input
+                  type="radio"
+                  name="kind"
+                  value={k}
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => setKind(k)}
+                  className="sr-only"
+                />
+                <Icon className="size-5" aria-hidden="true" />
+                {STOP_KIND_META[k].label}
+              </label>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {STOP_KIND_META[kind].hint}
+          {kind === "origin" && " Va primero en la ruta y el mapa la usa para el regreso. No pide fechas ni hospedaje."}
+          {kind === "transit" && " No pide hospedaje."}
+          {hasOrigin && kind !== "origin" && " Este viaje ya tiene ciudad de origen."}
+        </p>
+        {errors.kind && <p className="text-sm text-destructive">{errors.kind}</p>}
+      </fieldset>
+
       {/* Picking the city from Google saves where it is (for the map) and its time zone. */}
       <PlaceFields
         nameField="name"
@@ -68,9 +118,12 @@ export function StopForm({
         }}
       />
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">Estancia</legend>
-        <p className="text-xs text-muted-foreground">Opcional: puedes agregarla después.</p>
+      {/* Home has no stay; hidden fields would still be dropped by the server. */}
+      <fieldset className={kind === "origin" ? "hidden" : "flex flex-col gap-2"} disabled={kind === "origin"}>
+        <legend className="text-sm font-medium">{kind === "transit" ? "Cuándo pasas" : "Estancia"}</legend>
+        <p className="text-xs text-muted-foreground">
+          {kind === "transit" ? "Normalmente llegas y sales el mismo día." : "Opcional: puedes agregarla después."}
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <Field id="arrives_on" label="Llegada" error={errors.arrives_on} small>
             <Input

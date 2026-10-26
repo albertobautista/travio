@@ -31,6 +31,7 @@ import { formatTripDates, getTripDayNumber, getTripLengthDays, getTripStatus, to
 import { canEdit, getStops, getTrip, toTripRole } from "@/lib/trips/queries";
 import { findNextUp } from "@/lib/trips/next-up";
 import { planningProgress } from "@/lib/trips/progress";
+import { isDestination } from "@/lib/trips/stops";
 import { resolveTripNow } from "@/lib/trips/today";
 import { getDailyWeather } from "@/lib/weather/open-meteo";
 import { summarize, WEATHER_ATTRIBUTION } from "@/lib/weather/types";
@@ -88,6 +89,8 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
   const base = `/viajes/${trip.id}`;
 
   const { today, stop: todayStop } = resolveTripNow(stops);
+  // The trip's cities proper: home and connections are on the route, not here.
+  const cities = stops.filter(isDestination);
   const stopName = new Map(stops.map((s) => [s.id, s.name]));
   const status = getTripStatus(trip.start_date, trip.end_date, today);
   const days = getTripLengthDays(trip.start_date, trip.end_date);
@@ -140,9 +143,9 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
   const weatherByStop = new Map(
     (
       await Promise.all(
-        stops.map(async (s) => {
-          const from = s.arrives_on ?? (stops.length === 1 ? trip.start_date : null);
-          const to = s.arrives_on ? (s.departs_on ?? s.arrives_on) : stops.length === 1 ? trip.end_date : null;
+        cities.map(async (s) => {
+          const from = s.arrives_on ?? (cities.length === 1 ? trip.start_date : null);
+          const to = s.arrives_on ? (s.departs_on ?? s.arrives_on) : cities.length === 1 ? trip.end_date : null;
           if (s.lat === null || s.lng === null || !from || !to) return null;
           const days = await getDailyWeather({ lat: s.lat, lng: s.lng, timezone: s.timezone }, from, to, todayIn(s.timezone));
           const summary = summarize([...days.values()]);
@@ -153,7 +156,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
   );
 
   // Gaps worth a nudge while planning (editors only).
-  const citiesWithoutStay = stops.filter((s) => !stays.some((a) => a.trip_stop_id === s.id));
+  const citiesWithoutStay = cities.filter((s) => !stays.some((a) => a.trip_stop_id === s.id));
   const pendingSaved = saved.filter((p) => p.activities.length === 0).length;
   const todo = editable
     ? [
@@ -258,7 +261,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
 
       <dl className="grid grid-cols-4 gap-2">
         <StatTile label="Días" value={days ?? "—"} />
-        <StatTile label="Ciudades" value={stops.length} />
+        <StatTile label="Ciudades" value={cities.length} />
         <StatTile label="Hospedajes" value={stays.length} />
         <StatTile label="Actividades" value={activities.filter((a) => a.category !== "transfer").length} />
       </dl>
@@ -330,7 +333,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
         </section>
       )}
 
-      {stops.length > 0 && (
+      {cities.length > 0 && (
         <section aria-labelledby="cities" className="flex flex-col gap-2">
           <div className="flex items-baseline justify-between">
             <h2 id="cities" className="font-semibold">
@@ -341,7 +344,7 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
             </Link>
           </div>
           <ol className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-            {stops.map((s) => (
+            {cities.map((s) => (
               <li key={s.id} className="flex w-28 shrink-0 flex-col gap-1">
                 {/* The photo sits outside the link: its author credit is a link of its own. */}
                 <PlacePhoto

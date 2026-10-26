@@ -2,11 +2,12 @@ import { parseLocation } from "@/lib/form-fields";
 import { isKnownTimeZone } from "@/lib/time-zones";
 
 import { formatTripDates } from "./dates";
+import { isStopKind, type StopKind } from "./stops";
 import { isIsoDate } from "./trip-form";
 
 /** Parsing and validation for the stop (city) form. Runs on the server. */
 
-export type StopField = "name" | "arrives_on" | "departs_on" | "timezone" | "notes";
+export type StopField = "kind" | "name" | "arrives_on" | "departs_on" | "timezone" | "notes";
 /** Plus the place picked in the city search (hidden fields). */
 export type StopFormValues = Record<StopField | "google_place_id" | "lat" | "lng", string>;
 
@@ -19,6 +20,7 @@ export type StopFormState =
   | undefined;
 
 export type StopFormData = {
+  kind: StopKind;
   name: string;
   arrives_on: string | null;
   departs_on: string | null;
@@ -41,6 +43,7 @@ export function parseStopForm(
   | { ok: true; data: StopFormData; values: StopFormValues }
   | { ok: false; fieldErrors: Partial<Record<StopField, string>>; values: StopFormValues } {
   const values: StopFormValues = {
+    kind: String(formData.get("kind") ?? "destination"),
     name: String(formData.get("name") ?? "").trim(),
     arrives_on: String(formData.get("arrives_on") ?? ""),
     departs_on: String(formData.get("departs_on") ?? ""),
@@ -52,6 +55,13 @@ export function parseStopForm(
   };
 
   const fieldErrors: Partial<Record<StopField, string>> = {};
+
+  if (!isStopKind(values.kind)) fieldErrors.kind = "Elige qué es esta ciudad en el viaje.";
+  // Home has no stay: its dates are dropped rather than flagged (the form hides them).
+  if (values.kind === "origin") {
+    values.arrives_on = "";
+    values.departs_on = "";
+  }
 
   if (!values.name) fieldErrors.name = "Escribe el nombre de la ciudad.";
   else if (values.name.length > MAX_NAME) fieldErrors.name = `Máximo ${MAX_NAME} caracteres.`;
@@ -93,6 +103,7 @@ export function parseStopForm(
     ok: true,
     values,
     data: {
+      kind: values.kind as StopKind,
       name: values.name,
       arrives_on: values.arrives_on || null,
       departs_on: values.departs_on || null,

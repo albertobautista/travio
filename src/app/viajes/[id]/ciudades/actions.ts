@@ -11,6 +11,9 @@ import { isUuid } from "@/lib/uuid";
 // what the user may change. As with trips, a write blocked by RLS returns zero
 // rows instead of an error, so every write asks for the affected rows back.
 
+// The database allows one origin per trip (trip_stops_one_origin_idx).
+const SECOND_ORIGIN = { kind: "Este viaje ya tiene ciudad de origen. Cámbiala a destino o escala primero." };
+
 async function getTripDates(tripId: string) {
   const supabase = await createClient();
   const { data } = await supabase.from("trips").select("start_date, end_date").eq("id", tripId).maybeSingle();
@@ -32,6 +35,7 @@ export async function createStop(tripId: string, _prev: StopFormState, formData:
     .select("id");
 
   if (error) {
+    if (error.code === "23505") return { fieldErrors: SECOND_ORIGIN, values: parsed.values };
     console.error("createStop failed", error);
     const denied = error.code === "42501";
     return {
@@ -65,6 +69,7 @@ export async function updateStop(
     .select("id");
 
   if (error) {
+    if (error.code === "23505") return { fieldErrors: SECOND_ORIGIN, values: parsed.values };
     console.error("updateStop failed", error);
     return { error: "No pudimos guardar los cambios. Inténtalo de nuevo.", values: parsed.values };
   }

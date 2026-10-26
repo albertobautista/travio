@@ -9,6 +9,7 @@ import { getAccommodations } from "@/lib/accommodations/queries";
 import { getTripFiles } from "@/lib/files/queries";
 import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
+import { isDestination, routeOrder } from "@/lib/trips/stops";
 
 export async function generateMetadata({ params }: PageProps<"/viajes/[id]/hospedajes">): Promise<Metadata> {
   const trip = await getTrip((await params).id);
@@ -32,9 +33,10 @@ export default async function AccommodationsPage({ params }: PageProps<"/viajes/
   const filesOf = (stayId: string) => files.filter((f) => f.accommodation_id === stayId);
 
   const groups = [
-    ...stops.map((stop) => ({ key: stop.id, stop, stays: stays.filter((s) => s.trip_stop_id === stop.id) })),
+    ...routeOrder(stops).map((stop) => ({ key: stop.id, stop, stays: stays.filter((s) => s.trip_stop_id === stop.id) })),
     { key: "none", stop: null, stays: stays.filter((s) => !s.trip_stop_id) },
-  ].filter((g) => g.stop || g.stays.length > 0);
+    // Home and connections don't need a bed: listed only if one was added anyway.
+  ].filter((g) => (g.stop && isDestination(g.stop)) || g.stays.length > 0);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-6">
@@ -53,7 +55,7 @@ export default async function AccommodationsPage({ params }: PageProps<"/viajes/
         )}
       </header>
 
-      {groups.length === 0 || (stays.length === 0 && stops.length === 0) ? (
+      {groups.length === 0 || (stays.length === 0 && !stops.some(isDestination)) ? (
         <section className="flex flex-col items-center gap-3 rounded-2xl border border-dashed bg-card px-6 py-8 text-center">
           <BedDouble className="size-8 text-primary" aria-hidden="true" />
           <p className="font-semibold">Aún no hay hospedajes</p>

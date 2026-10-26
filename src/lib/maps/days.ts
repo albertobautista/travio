@@ -3,7 +3,7 @@ import { activityDate, buildItineraryDays, formatDayLabel } from "@/lib/activiti
 import { formatDuration, formatTimeRange } from "@/lib/activities/schedule";
 import { legEndTitle, transportMeta } from "@/lib/transportations/types";
 import { legTimes } from "@/lib/transportations/legs";
-import { stopsForDate } from "@/lib/trips/stops";
+import { isDestination, routeOrder, stopsForDate } from "@/lib/trips/stops";
 import type { DayWeather, summarize } from "@/lib/weather/types";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
@@ -167,8 +167,10 @@ export type MapLegSummary = { type: string; text: string };
 
 export type MapCity = {
   id: string;
-  /** 1-based position in the route. */
-  order: number;
+  /** destination / origin / transit (lib/trips/stops). */
+  kind: string;
+  /** 1-based position among the trip's destinations; null for home and connections. */
+  order: number | null;
   name: string;
   lat: number | null;
   lng: number | null;
@@ -193,7 +195,7 @@ export function buildMapCities({
   legs,
   days,
 }: {
-  stops: (Located & { id: string; name: string; arrives_on: string | null; departs_on: string | null; position: number })[];
+  stops: (Located & { id: string; name: string; kind: string; arrives_on: string | null; departs_on: string | null; position: number })[];
   activities: { trip_stop_id: string | null; category: string }[];
   stays: { name: string; trip_stop_id: string | null }[];
   legs: Parameters<typeof buildMapDays>[0]["legs"];
@@ -209,32 +211,57 @@ export function buildMapCities({
       : { type: l.leg.type, text: `${what} · ${l.departs.time} a ${l.leg.destination_name}` };
   };
 
-  return [...stops]
-    .sort((a, b) => a.position - b.position)
-    .map((s, i) => {
-      const arriving = s.arrives_on ? moves.filter((m) => m.arrives.date === s.arrives_on) : [];
-      const leaving = s.departs_on ? moves.filter((m) => m.departs.date === s.departs_on) : [];
-      const inbound = arriving.sort((a, b) => b.arrives.time.localeCompare(a.arrives.time))[0];
-      const outbound = leaving.sort((a, b) => a.departs.time.localeCompare(b.departs.time))[0];
-      const nights =
-        s.arrives_on && s.departs_on
-          ? Math.round((Date.parse(`${s.departs_on}T00:00:00Z`) - Date.parse(`${s.arrives_on}T00:00:00Z`)) / 86_400_000)
-          : null;
-      return {
-        id: s.id,
-        order: i + 1,
-        name: s.name,
-        lat: s.lat,
-        lng: s.lng,
-        dates: s.arrives_on ? `${formatDayLabel(s.arrives_on)} – ${formatDayLabel(s.departs_on ?? s.arrives_on)}` : null,
-        nights,
-        stays: stays.filter((st) => st.trip_stop_id === s.id).map((st) => st.name),
-        activityCount: activities.filter((a) => a.trip_stop_id === s.id && a.category !== "transfer").length,
-        arriveBy: inbound ? summary(inbound, "in") : null,
-        leaveBy: outbound ? summary(outbound, "out") : null,
-        days: days
-          .filter((d) => s.arrives_on && s.arrives_on <= d.date && d.date <= (s.departs_on ?? s.arrives_on))
-          .map((d) => ({ date: d.date, dayNumber: d.dayNumber })),
-      };
-    });
+  // Home: the trip's first departure and its last arrival.
+  const byDeparture = [...moves].sort((a, b) => Date.parse(a.leg.departs_at) - Date.parse(b.leg.departs_at));
+  const byArrival = [...moves].sort((a, b) => Date.parse(a.leg.arrives_at) - Date.parse(b.leg.arrives_at));
+
+  let order = 0;
+  return routeOrder(stops).map((s) => {
+    // A connection shares its day with the legs before and after it, so a
+    // leg named after the city wins over the date alone.
+    const named = <T extends (typeof moves)[number]>(list: T[], end: "origin_name" | "destination_name") => {
+      const match = list.filter((m) => samePlace(m.leg[end], s.name));
+      return match.length > 0 ? match : list;
+    };
+    const arriving = s.arrives_on ? named(moves.filter((m) => m.arrives.date === s.arrives_on), "destination_name") : [];
+    const inbound =
+      s.kind === "origin" ? byArrival.at(-1) : arriving.sort((a, b) => b.arrives.time.localeCompare(a.arrives.time))[0];
+    // You leave after you arrive: never the leg that brought you here.
+    const leaving = s.departs_on
+      ? named(
+          moves.filter((m) => m.departs.date === s.departs_on && m !== inbound && (!inbound || Date.parse(m.leg.departs_at) >= Date.parse(inbound.leg.arrives_at))),
+          "origin_name",
+        )
+      : [];
+    const outbound = s.kind === "origin" ? byDeparture[0] : leaving.sort((a, b) => a.departs.time.localeCompare(b.departs.time))[0];
+    const nights =
+      s.arrives_on && s.departs_on
+        ? Math.round((Date.parse(`${s.departs_on}T00:00:00Z`) - Date.parse(`${s.arrives_on}T00:00:00Z`)) / 86_400_000)
+        : null;
+    return {
+      id: s.id,
+      kind: s.kind,
+      order: isDestination(s) ? ++order : null,
+      name: s.name,
+      lat: s.lat,
+      lng: s.lng,
+      dates: s.arrives_on ? `${formatDayLabel(s.arrives_on)} – ${formatDayLabel(s.departs_on ?? s.arrives_on)}` : null,
+      nights,
+      stays: stays.filter((st) => st.trip_stop_id === s.id).map((st) => st.name),
+      activityCount: activities.filter((a) => a.trip_stop_id === s.id && a.category !== "transfer").length,
+      arriveBy: inbound ? summary(inbound, "in") : null,
+      leaveBy: outbound ? summary(outbound, "out") : null,
+      days: days
+        .filter((d) => s.arrives_on && s.arrives_on <= d.date && d.date <= (s.departs_on ?? s.arrives_on))
+        .map((d) => ({ date: d.date, dayNumber: d.dayNumber })),
+    };
+  });
+}
+
+/** "Ciudad de México (MEX)" and "ciudad de mexico" are the same place; so is "Londres" in "Londres Heathrow". */
+function samePlace(a: string, b: string) {
+  const norm = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+  const x = norm(a);
+  const y = norm(b);
+  return x.length > 0 && y.length > 0 && (x.includes(y) || y.includes(x));
 }
