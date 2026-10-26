@@ -14,7 +14,7 @@ import { resolveTripNow } from "@/lib/trips/today";
 export default async function TripsLayout({ children }: LayoutProps<"/viajes">) {
   const supabase = await createClient();
   const [{ data: trips }, { data: claims }] = await Promise.all([
-    supabase.from("trips").select("id, name, start_date, end_date, cover_image_path, trip_stops (timezone, arrives_on, departs_on)"),
+    supabase.from("trips").select("id, name, start_date, end_date, cover_image_path, trip_stops (kind, timezone, arrives_on, departs_on)"),
     supabase.auth.getClaims(),
   ]);
   const userId = claims?.claims.sub;

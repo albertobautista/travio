@@ -1,6 +1,7 @@
 import { instantToZonedTime, zonedTimeToInstant } from "@/lib/zoned-time";
 
 import { DEFAULT_TIME_ZONE } from "./dates";
+import { routeOrder } from "./stops";
 
 /**
  * "How long until the trip": what the countdown counts down to, and the
@@ -16,7 +17,7 @@ type Leg = {
   departs_at: string;
   departs_timezone: string;
 };
-type Stop = { position: number; timezone: string };
+type Stop = { position: number; timezone: string; kind?: string };
 
 export type CountdownTarget = {
   /** ISO instant the countdown reaches zero. */
@@ -56,7 +57,8 @@ export function tripCountdownTarget(startDate: string | null, stops: Stop[], leg
     };
   }
 
-  const zone = [...stops].sort((a, b) => a.position - b.position)[0]?.timezone ?? DEFAULT_TIME_ZONE;
+  // Home's clock (the origin is shown first), or the first city's.
+  const zone = routeOrder(stops)[0]?.timezone ?? DEFAULT_TIME_ZONE;
   return { at: zonedTimeToInstant(startDate, "00:00", zone).toISOString(), title: "El viaje empieza en", detail: null };
 }
 

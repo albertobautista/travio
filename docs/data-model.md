@@ -158,6 +158,7 @@ Implemented rules: the trip's creator is added automatically as its first travel
 | --- | --- | --- |
 | trip_id | uuid → trips (cascade) | |
 | name | text not null | "Londres" |
+| kind | text not null | `destination` (default) / `origin` / `transit`, added 2026-10-26. The **origin** is home (where you leave from and come back to): no dates, at most one per trip, shown first, and the map closes the route back to it; reordering skips it. A **transit** stop is a connection without lodging (GDL → CDMX → London). Only destinations ask for lodging, get a number on the route, count as "the city you're in today" (a connection only when no destination matches) and appear in link previews |
 | google_place_id | text | nullable |
 | lat, lng | double precision | nullable |
 | timezone | text not null | IANA "Area/Location" or `UTC`, checked by `is_valid_timezone` (rejects `EST`, `UTC+3`) |

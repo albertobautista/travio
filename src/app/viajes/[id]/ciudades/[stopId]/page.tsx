@@ -5,7 +5,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { StopForm } from "@/components/trips/stop-form";
 import { listTimeZones } from "@/lib/time-zones";
-import { canEdit, getMyTripRole, getStop, getTrip } from "@/lib/trips/queries";
+import { canEdit, getMyTripRole, getStop, getStops, getTrip } from "@/lib/trips/queries";
 
 import { updateStop } from "../actions";
 import { DeleteStopButton } from "./delete-stop-button";
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/ciuda
 
 export default async function EditStopPage({ params }: PageProps<"/viajes/[id]/ciudades/[stopId]">) {
   const { id, stopId } = await params;
-  const [trip, stop, role] = await Promise.all([getTrip(id), getStop(id, stopId), getMyTripRole(id)]);
+  const [trip, stop, role, stops] = await Promise.all([getTrip(id), getStop(id, stopId), getMyTripRole(id), getStops(id)]);
 
   if (!trip || !stop) notFound();
   if (!canEdit(role)) redirect(`/viajes/${trip.id}`);
@@ -39,7 +39,9 @@ export default async function EditStopPage({ params }: PageProps<"/viajes/[id]/c
       <div className="rounded-2xl border bg-card p-5">
         <StopForm
           action={updateStop.bind(null, trip.id, stop.id)}
+          hasOrigin={stops.some((s) => s.kind === "origin" && s.id !== stop.id)}
           initialValues={{
+            kind: stop.kind,
             name: stop.name,
             arrives_on: stop.arrives_on ?? "",
             departs_on: stop.departs_on ?? "",

@@ -9,6 +9,7 @@ import { daysLeftLabel, tripCountdownTarget, type CountdownTarget } from "@/lib/
 import { getCoverUrls } from "@/lib/trips/cover-urls";
 import { getTripDayNumber, getTripLengthDays, getTripStatus, type TripStatus } from "@/lib/trips/dates";
 import { planningProgress } from "@/lib/trips/progress";
+import { isDestination } from "@/lib/trips/stops";
 import { resolveTripNow } from "@/lib/trips/today";
 import { createClient } from "@/lib/supabase/server";
 
@@ -50,7 +51,7 @@ export default async function TripsPage() {
   const { data: rows, error } = await supabase
     .from("trips")
     .select(
-      "id, name, start_date, end_date, cover_image_path, trip_stops (name, position, timezone, arrives_on, departs_on), travelers (count), activities (starts_at, timezone), transportations (type, carrier, service_number, origin_name, destination_name, departs_at, departs_timezone), accommodations (check_in_at, check_out_at, timezone)",
+      "id, name, start_date, end_date, cover_image_path, trip_stops (name, kind, position, timezone, arrives_on, departs_on), travelers (count), activities (starts_at, timezone), transportations (type, carrier, service_number, origin_name, destination_name, departs_at, departs_timezone), accommodations (check_in_at, check_out_at, timezone)",
     );
 
   // One batch request signs every cover on the page.
@@ -69,7 +70,8 @@ export default async function TripsPage() {
         end_date: t.end_date,
         status,
         coverUrl: t.cover_image_path ? (coverUrls.get(t.cover_image_path) ?? null) : null,
-        cities: [...t.trip_stops].sort((a, b) => a.position - b.position).map((s) => s.name),
+        // Home and connections aren't the trip's cities.
+        cities: [...t.trip_stops].filter(isDestination).sort((a, b) => a.position - b.position).map((s) => s.name),
         travelerCount: t.travelers[0]?.count ?? 0,
         progress: planningProgress({
           start: t.start_date,

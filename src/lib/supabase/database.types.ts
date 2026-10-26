@@ -647,13 +647,13 @@ isOneToOne: false
                   ]
                 },"trip_stops": {
                   Row: {
-                    "arrives_on": string | null,"created_at": string,"created_by": string | null,"departs_on": string | null,"google_place_id": string | null,"id": string,"lat": number | null,"lng": number | null,"name": string,"notes": string | null,"position": number,"timezone": string,"trip_id": string,"updated_at": string
+                    "arrives_on": string | null,"created_at": string,"created_by": string | null,"departs_on": string | null,"google_place_id": string | null,"id": string,"kind": string,"lat": number | null,"lng": number | null,"name": string,"notes": string | null,"position": number,"timezone": string,"trip_id": string,"updated_at": string
                   }
                   Insert: {
-                    "arrives_on"?: string | null,"created_at"?: string,"created_by"?: string | null,"departs_on"?: string | null,"google_place_id"?: string | null,"id"?: string,"lat"?: number | null,"lng"?: number | null,"name": string,"notes"?: string | null,"position"?: number,"timezone": string,"trip_id": string,"updated_at"?: string
+                    "arrives_on"?: string | null,"created_at"?: string,"created_by"?: string | null,"departs_on"?: string | null,"google_place_id"?: string | null,"id"?: string,"kind"?: string,"lat"?: number | null,"lng"?: number | null,"name": string,"notes"?: string | null,"position"?: number,"timezone": string,"trip_id": string,"updated_at"?: string
                   }
                   Update: {
-                    "arrives_on"?: string | null,"created_at"?: string,"created_by"?: string | null,"departs_on"?: string | null,"google_place_id"?: string | null,"id"?: string,"lat"?: number | null,"lng"?: number | null,"name"?: string,"notes"?: string | null,"position"?: number,"timezone"?: string,"trip_id"?: string,"updated_at"?: string
+                    "arrives_on"?: string | null,"created_at"?: string,"created_by"?: string | null,"departs_on"?: string | null,"google_place_id"?: string | null,"id"?: string,"kind"?: string,"lat"?: number | null,"lng"?: number | null,"name"?: string,"notes"?: string | null,"position"?: number,"timezone"?: string,"trip_id"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     {

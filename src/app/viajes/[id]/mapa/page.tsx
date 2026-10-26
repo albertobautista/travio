@@ -9,6 +9,7 @@ import { buildMapPoints } from "@/lib/maps/points";
 import { getSavedPlaces } from "@/lib/saved-places/queries";
 import { getTransportations } from "@/lib/transportations/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
+import { isDestination } from "@/lib/trips/stops";
 import { resolveTripNow } from "@/lib/trips/today";
 import { todayIn } from "@/lib/trips/dates";
 import { getDailyWeather } from "@/lib/weather/open-meteo";
@@ -43,8 +44,9 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
   // from the city the day ends in.
   const weatherByStop = new Map(
     await Promise.all(
+      // Destinations only: a connection's weather isn't the day's.
       stops
-        .filter((s) => s.lat !== null && s.lng !== null && s.arrives_on)
+        .filter((s) => isDestination(s) && s.lat !== null && s.lng !== null && s.arrives_on)
         .map(async (s) => [
           s.id,
           await getDailyWeather(

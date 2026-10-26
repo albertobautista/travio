@@ -12,6 +12,7 @@ import { getTransportations } from "@/lib/transportations/queries";
 import { getTravelers } from "@/lib/travelers/queries";
 import { getTripStatus } from "@/lib/trips/dates";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
+import { isDestination, routePath } from "@/lib/trips/stops";
 import { resolveTripNow } from "@/lib/trips/today";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
@@ -54,7 +55,10 @@ export async function TripRail({ tripId }: { tripId: string }) {
   const editable = canEdit(role);
   const { today, stop } = resolveTripNow(stops, now);
   const active = getTripStatus(trip.start_date, trip.end_date, today) === "active";
-  const cities = stops.flatMap((s) => (s.lat !== null && s.lng !== null ? [{ id: s.id, name: s.name, lat: s.lat, lng: s.lng }] : []));
+  // Drawn from home and back when the trip has an origin.
+  const cities = routePath(stops).flatMap((s) =>
+    s.lat !== null && s.lng !== null ? [{ id: s.id, name: s.name, kind: s.kind, lat: s.lat, lng: s.lng }] : [],
+  );
   const stopName = new Map(stops.map((s) => [s.id, s.name]));
 
   // Tickets for today's plans and trips (while travelling).
@@ -157,7 +161,7 @@ export async function TripRail({ tripId }: { tripId: string }) {
           </div>
           <div className="flex justify-between gap-3">
             <dt className="text-muted-foreground">Ciudades</dt>
-            <dd>{stops.length}</dd>
+            <dd>{stops.filter(isDestination).length}</dd>
           </div>
           <div className="flex justify-between gap-3">
             <dt className="text-muted-foreground">Presupuesto</dt>

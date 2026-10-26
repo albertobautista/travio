@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, BedDouble, Bookmark, CalendarPlus, ChevronRight, Eye, EyeOff, LogIn, LogOut, MapPin, Navigation, ZoomIn } from "lucide-react";
+import { AlertTriangle, ArrowRight, BedDouble, Bookmark, CalendarPlus, ChevronRight, Eye, EyeOff, House, LogIn, LogOut, MapPin, Navigation, Waypoints, ZoomIn } from "lucide-react";
 
 import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
 import { directionsUrl } from "@/lib/maps/directions";
@@ -32,6 +32,9 @@ const BOOKMARK_SVG =
 const LEAVE_SVG =
   '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg>';
 
+const HOME_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+
 /** Zoom at which a city's hotels and activities appear in the whole-trip view. */
 const CITY_ZOOM = 11;
 
@@ -55,7 +58,7 @@ function frame(m: google.maps.Map, places: LatLng[], zoomForOne: number, padding
 }
 
 /** Marker content: plain DOM styled with the app's Tailwind tokens. */
-function markerElement(point: MapPoint, label: string | null, leaving: boolean) {
+function markerElement(point: MapPoint, label: string | null, leaving: boolean, home = false) {
   const el = document.createElement("div");
   if (point.kind === "saved") {
     // Saved for later: hollow, so it reads as "option", not "plan".
@@ -67,6 +70,15 @@ function markerElement(point: MapPoint, label: string | null, leaving: boolean) 
     el.className =
       "flex size-7 items-center justify-center rounded-full border-2 border-white bg-muted-foreground text-white opacity-80 shadow";
     el.innerHTML = LEAVE_SVG;
+  } else if (point.kind === "stop" && label === null) {
+    // Home or a connection: on the route, but quieter than the trip's cities.
+    el.className =
+      "flex items-center gap-1 rounded-full border-2 border-white bg-card py-0.5 pr-2 pl-1 text-[11px] font-medium text-foreground/80 shadow";
+    const icon = document.createElement("span");
+    icon.className = "flex size-4 items-center justify-center text-primary";
+    if (home) icon.innerHTML = HOME_SVG;
+    else icon.innerHTML = '<span class="size-2 rounded-full bg-primary"></span>';
+    el.append(icon, document.createTextNode(point.title));
   } else if (point.kind === "stop") {
     // "① Barcelona": the city's place in the route.
     el.className =
@@ -142,7 +154,8 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
   );
   const dayActivities = day ? visible.filter((p) => p.kind === "activity") : [];
   const numberOf = new Map(dayActivities.map((p, i) => [p.id, String(i + 1)]));
-  const cityOrder = new Map(cities.map((c) => [c.id, String(c.order)]));
+  const cityOrder = new Map(cities.flatMap((c) => (c.order === null ? [] : [[c.id, String(c.order)] as const])));
+  const homeId = cities.find((c) => c.kind === "origin")?.id ?? null;
 
   // Keep the selected day's chip visible in the horizontal selector.
   const selector = useRef<HTMLUListElement>(null);
@@ -209,7 +222,7 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
             map: p.kind === "stop" || (m.getZoom() ?? 0) >= CITY_ZOOM ? m : null,
             position: { lat: p.lat, lng: p.lng },
             title: p.title,
-            content: markerElement(p, p.kind === "stop" ? (cityOrder.get(p.id) ?? null) : null, false),
+            content: markerElement(p, p.kind === "stop" ? (cityOrder.get(p.id) ?? null) : null, false, p.id === homeId),
             zIndex: p.kind === "stop" ? 3 : p.kind === "stay" ? 2 : 1,
             gmpClickable: true,
           });
@@ -227,10 +240,12 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
         };
         overlays.current.zoomListener = m.addListener("zoom_changed", applyZoom);
 
+        // Cities come in route order, home first: the way back closes at home.
         const located = cities.filter((c) => c.lat !== null && c.lng !== null);
+        const path = located[0]?.kind === "origin" && located.length > 1 ? [...located, located[0]] : located;
         applyZoom();
-        overlays.current.lines = located.slice(1).map((c, i) => {
-          const from = located[i];
+        overlays.current.lines = path.slice(1).map((c, i) => {
+          const from = path[i];
           // Flights: dashed arcs (geodesic). Trains, buses, ferries: solid lines.
           const flight = (from.leaveBy?.type ?? c.arriveBy?.type) === "flight";
           return new Polyline({
@@ -513,13 +528,25 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
             return (
               <li key={c.id} className="flex flex-col gap-3 rounded-2xl border bg-card p-4">
                 <div className="flex items-start gap-3">
-                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-sm font-bold text-primary-foreground">
-                    {c.order}
-                  </span>
+                  {c.order === null ? (
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-primary/30 bg-card text-primary">
+                      {c.kind === "origin" ? <House className="size-4" aria-hidden="true" /> : <Waypoints className="size-4" aria-hidden="true" />}
+                    </span>
+                  ) : (
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-sm font-bold text-primary-foreground">
+                      {c.order}
+                    </span>
+                  )}
                   <div className="flex min-w-0 flex-1 flex-col">
                     <h3 className="text-lg leading-tight font-bold">{c.name}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {[c.dates, c.nights ? (c.nights === 1 ? "1 noche" : `${c.nights} noches`) : null].filter(Boolean).join(" · ")}
+                      {[
+                        c.kind === "origin" ? "Origen · sales y regresas aquí" : c.kind === "transit" ? "Escala" : null,
+                        c.dates,
+                        c.nights ? (c.nights === 1 ? "1 noche" : `${c.nights} noches`) : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
                   </div>
                 </div>
@@ -538,10 +565,12 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
                       <span className="truncate font-medium">{c.stays.join(" · ")}</span>
                     </li>
                   )}
-                  <li className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="size-4 shrink-0 text-primary" aria-hidden="true" />
-                    {c.activityCount === 1 ? "1 actividad" : `${c.activityCount} actividades`}
-                  </li>
+                  {(c.order !== null || c.activityCount > 0) && (
+                    <li className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="size-4 shrink-0 text-primary" aria-hidden="true" />
+                      {c.activityCount === 1 ? "1 actividad" : `${c.activityCount} actividades`}
+                    </li>
+                  )}
                   {c.weather && (
                     <li className="flex flex-wrap items-center gap-x-2 text-muted-foreground">
                       <WeatherChip code={c.weather.code} max={c.weather.max} min={c.weather.min} typical={c.weather.kind === "typical"} />
