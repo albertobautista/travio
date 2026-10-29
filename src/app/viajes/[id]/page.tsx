@@ -8,9 +8,8 @@ import { ShareTripButton } from "@/components/trips/share-trip-button";
 import { TripCountdown } from "@/components/trips/trip-countdown";
 import { TripRoute } from "@/components/trips/trip-route";
 import { TripStatusBadge } from "@/components/trips/trip-status-badge";
-import { TravelerStack } from "@/components/travelers/traveler-avatar";
+import { TravelerAvatar, TravelerStack } from "@/components/travelers/traveler-avatar";
 import { WeatherChip } from "@/components/weather/weather-chip";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAccommodations } from "@/lib/accommodations/queries";
 import { CATEGORY_META, isCategory } from "@/lib/activities/categories";
 import { formatDayLabel } from "@/lib/activities/itinerary";
@@ -19,11 +18,11 @@ import { formatMoney } from "@/lib/budget/money";
 import { plannedItems, spentItems } from "@/lib/budget/planned";
 import { getExchangeRates, getExpenses } from "@/lib/budget/queries";
 import { summarizeBudget } from "@/lib/budget/summary";
-import { initials } from "@/lib/initials";
 import { getSavedPlaces } from "@/lib/saved-places/queries";
 import { createClient } from "@/lib/supabase/server";
 import { getTransportations } from "@/lib/transportations/queries";
 import { legEndTitle, transportMeta } from "@/lib/transportations/types";
+import { colorForId } from "@/lib/travelers/colors";
 import { getTravelers } from "@/lib/travelers/queries";
 import { tripCountdownTarget } from "@/lib/trips/countdown";
 import { getCoverUrls } from "@/lib/trips/cover-urls";
@@ -84,6 +83,8 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
       getExchangeRates(trip.id),
     ]);
   const coverUrl = trip.cover_image_path ? coverUrls.get(trip.cover_image_path) : undefined;
+  // Members who travel use their traveler's color, like on the Viajeros page.
+  const colorOf = new Map(travelers.filter((t) => t.user_id).map((t) => [t.user_id, t.color]));
   const myRole = toTripRole(members?.find((m) => m.user_id === claimsData?.claims.sub)?.role);
   const editable = canEdit(myRole);
   const base = `/viajes/${trip.id}`;
@@ -443,10 +444,13 @@ export default async function TripPage({ params, searchParams }: PageProps<"/via
         <ul className="flex flex-col gap-3">
           {members?.map((m) => (
             <li key={m.user_id} className="flex items-center gap-3">
-              <Avatar>
-                {m.profiles?.avatar_url && <AvatarImage src={m.profiles.avatar_url} alt="" referrerPolicy="no-referrer" />}
-                <AvatarFallback>{initials(m.profiles?.display_name)}</AvatarFallback>
-              </Avatar>
+              <TravelerAvatar
+                traveler={{
+                  name: m.profiles?.display_name ?? "Sin nombre",
+                  color: colorOf.get(m.user_id) ?? colorForId(m.user_id),
+                  avatar_url: m.profiles?.avatar_url ?? null,
+                }}
+              />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">
                   {m.profiles?.display_name ?? "Sin nombre"}

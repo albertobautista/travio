@@ -22,3 +22,13 @@ export function nextTravelerColor(used: string[]): TravelerColor {
   for (const c of used) if (isTravelerColor(c)) counts.set(c, (counts.get(c) ?? 0) + 1);
   return TRAVELER_COLORS.reduce((best, c) => ((counts.get(c) ?? 0) < (counts.get(best) ?? 0) ? c : best));
 }
+
+/**
+ * A stable color for someone with no traveler row (an account that only has
+ * access, a join request): the same id always lands on the same color.
+ */
+export function colorForId(id: string): TravelerColor {
+  let hash = 0;
+  for (const ch of id) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return TRAVELER_COLORS[hash % TRAVELER_COLORS.length];
+}

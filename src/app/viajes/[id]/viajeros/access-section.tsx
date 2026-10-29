@@ -7,6 +7,7 @@ import { TravelerAvatar } from "@/components/travelers/traveler-avatar";
 import { getGroupLink, getPendingJoinRequests } from "@/lib/invitations/group-links";
 import { getPendingInvitations, ROLE_LABELS } from "@/lib/invitations/queries";
 import { createClient } from "@/lib/supabase/server";
+import { colorForId } from "@/lib/travelers/colors";
 import type { Traveler } from "@/lib/travelers/queries";
 import { PERMISSION_META, toMemberPermissions } from "@/lib/trips/permissions";
 import { getMembers, type TripRole } from "@/lib/trips/queries";
@@ -80,7 +81,7 @@ export async function AccessSection({
           return (
             <li key={m.user_id} className="flex min-h-14 items-center gap-3 px-4 py-2">
               <TravelerAvatar
-                traveler={{ name, color: traveler?.color ?? "blue", avatar_url: m.profiles?.avatar_url ?? null }}
+                traveler={{ name, color: traveler?.color ?? colorForId(m.user_id), avatar_url: m.profiles?.avatar_url ?? null }}
               />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate font-medium">
@@ -117,7 +118,7 @@ export async function AccessSection({
           <ul className="flex flex-col divide-y rounded-2xl border bg-card">
             {requests.map((r) => (
               <li key={r.id} className="flex min-h-14 flex-wrap items-center gap-3 px-4 py-2">
-                <TravelerAvatar traveler={{ name: r.name, color: "blue", avatar_url: r.avatar_url }} />
+                <TravelerAvatar traveler={{ name: r.name, color: colorForId(r.id), avatar_url: r.avatar_url }} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate font-medium">{r.name}</span>
                   <span className="truncate text-xs text-muted-foreground">
