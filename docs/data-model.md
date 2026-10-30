@@ -93,6 +93,8 @@ Activities, accommodations and transportations have `booking_status text not nul
 | `booked` | reserved/paid, confirmation not received yet | "Reservada" |
 | `confirmed` | confirmation/ticket in hand | "Confirmada" |
 
+**Options (2026-10-30)**: accommodations and transportations (not activities) also take `option`: a stay or leg saved while comparing, before buying ("this hotel or that one?"). An option is the same row with the same data (dates, price, link, notes, who goes, screenshots), so choosing one only changes `booking_status` to `booked` or `planned`, and nothing is copied. Until then it stays out of the plan: `getAccommodations` / `getTransportations` leave options out, so the itinerary, Hoy, the map, the budget, "% planned", conflicts and the reminder email never see them; `getAccommodationOptions` / `getTransportationOptions` feed the Opciones lists (stays per city, legs per route, with the cheapest in the trip currency and the fastest marked). Options aren't news for the change summaries: `record_trip_event` skips them, records choosing one as "added" and turning it back into an option as "removed". After choosing, the other options for the same city (stays) or route (legs, compared ignoring case and accents) can be deleted in one go. Same permissions as any stay or leg (editor+). Why a status and not separate tables: separate tables would duplicate the form, the validation, participants and attachments, and "choosing" would mean copying a row into another table.
+
 ### 2.8 Money
 
 `cost_amount numeric(12,2)` + `cost_currency char(3)` (ISO 4217). Never floats. Conversion between currencies is out of scope for v1.

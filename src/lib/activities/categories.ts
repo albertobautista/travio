@@ -42,3 +42,22 @@ export const BOOKING_META: Record<BookingStatus, { label: string; badge: string 
 export function isBookingStatus(value: string): value is BookingStatus {
   return (BOOKING_STATUSES as readonly string[]).includes(value);
 }
+
+/**
+ * Stays and legs can also be an "option": saved while comparing, before
+ * buying. Options stay out of the plan (itinerary, Hoy, map, budget) until one
+ * is chosen. Mirrors the check constraints on accommodations/transportations.
+ */
+export const RESERVATION_STATUSES = ["option", ...BOOKING_STATUSES] as const;
+export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
+
+export const RESERVATION_LABELS: Record<ReservationStatus, string> = {
+  option: "Opción (aún comparando)",
+  planned: BOOKING_META.planned.label,
+  booked: BOOKING_META.booked.label,
+  confirmed: BOOKING_META.confirmed.label,
+};
+
+export function isReservationStatus(value: string): value is ReservationStatus {
+  return (RESERVATION_STATUSES as readonly string[]).includes(value);
+}

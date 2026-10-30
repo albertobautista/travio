@@ -7,14 +7,20 @@ import { AccommodationForm } from "@/components/accommodations/accommodation-for
 import { EditFileButton } from "@/components/files/edit-file-button";
 import { FileRow } from "@/components/files/file-row";
 import { UploadForm } from "@/components/files/upload-form";
-import { getAccommodation } from "@/lib/accommodations/queries";
+import { ChooseOption } from "@/components/options/choose-option";
+import { DeleteOtherOptionsButton } from "@/components/options/delete-other-options-button";
+import { getAccommodation, getAccommodationOptions } from "@/lib/accommodations/queries";
 import { getAttachTargets, getTripFiles } from "@/lib/files/queries";
 import { listTimeZones } from "@/lib/time-zones";
 import { getTravelers } from "@/lib/travelers/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { instantToZonedTime } from "@/lib/zoned-time";
 
-import { updateAccommodation } from "../actions";
+import {
+  chooseAccommodationOption,
+  deleteOtherAccommodationOptions,
+  updateAccommodation,
+} from "../actions";
 import { DeleteAccommodationButton } from "./delete-accommodation-button";
 
 export async function generateMetadata({
@@ -30,8 +36,8 @@ export default async function EditAccommodationPage({
   searchParams,
 }: PageProps<"/viajes/[id]/hospedajes/[accommodationId]">) {
   const { id, accommodationId } = await params;
-  const { participantes, nuevo } = await searchParams;
-  const [trip, role, stay, stops, travelers, tripFiles, targets] = await Promise.all([
+  const { participantes, nuevo, elegida } = await searchParams;
+  const [trip, role, stay, stops, travelers, tripFiles, targets, options] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getAccommodation(id, accommodationId),
@@ -39,6 +45,7 @@ export default async function EditAccommodationPage({
     getTravelers(id),
     getTripFiles(id),
     getAttachTargets(id),
+    getAccommodationOptions(id),
   ]);
 
   if (!trip || !stay) notFound();
@@ -48,6 +55,10 @@ export default async function EditAccommodationPage({
   const checkIn = instantToZonedTime(stay.check_in_at, stay.timezone);
   const checkOut = instantToZonedTime(stay.check_out_at, stay.timezone);
   const backHref = `/viajes/${trip.id}/hospedajes`;
+  const isOption = stay.booking_status === "option";
+  // Once chosen, the options left for the same city can be cleared in one go.
+  const otherOptions = isOption ? [] : options.filter((o) => o.trip_stop_id === stay.trip_stop_id);
+  const city = stops.find((s) => s.id === stay.trip_stop_id)?.name;
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 px-4 py-6">
@@ -59,8 +70,36 @@ export default async function EditAccommodationPage({
           <ChevronLeft className="size-4" aria-hidden="true" />
           Hospedajes
         </Link>
+        {isOption && <span className="text-sm font-medium text-muted-foreground">Opción · sin reservar</span>}
         <h1 className="text-3xl font-bold tracking-tight">{stay.name}</h1>
       </header>
+
+      {isOption && (
+        <section aria-labelledby="choose-option" className="flex flex-col gap-3 rounded-2xl border border-primary/30 bg-secondary/40 p-5">
+          <div>
+            <h2 id="choose-option" className="font-semibold">
+              ¿Se decidieron por esta?
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Al elegirla pasa al itinerario, a Hoy, al mapa y al presupuesto. Las otras opciones se quedan hasta que las borres.
+            </p>
+          </div>
+          <ChooseOption
+            chooseBooked={chooseAccommodationOption.bind(null, trip.id, stay.id, "booked")}
+            choosePlanned={chooseAccommodationOption.bind(null, trip.id, stay.id, "planned")}
+          />
+        </section>
+      )}
+
+      {elegida === "1" && (
+        <div role="status" className="flex flex-col gap-3 rounded-lg bg-success-soft p-3 text-sm text-success-foreground">
+          <p className="flex items-center gap-2">
+            <CheckCircle2 className="size-4 shrink-0" aria-hidden="true" />
+            Listo, ya es su hospedaje{city ? ` en ${city}` : ""}. Adjunta la reserva abajo cuando la tengas.
+          </p>
+          {otherOptions.length > 0 && <DeleteOtherOptionsButton action={deleteOtherAccommodationOptions.bind(null, trip.id, stay.id)} count={otherOptions.length} />}
+        </div>
+      )}
 
       {nuevo === "1" && (
         <p role="status" className="flex items-center gap-2 rounded-lg bg-success-soft p-3 text-sm text-success-foreground">
@@ -77,9 +116,13 @@ export default async function EditAccommodationPage({
       <section aria-labelledby="stay-files" className="flex flex-col gap-3">
         <div>
           <h2 id="stay-files" className="font-semibold">
-            Reserva
+            {isOption ? "Capturas y archivos" : "Reserva"}
           </h2>
-          <p className="text-sm text-muted-foreground">Aparece en Hoy y en Documentos. Solo la ve quien tiene acceso al viaje.</p>
+          <p className="text-sm text-muted-foreground">
+            {isOption
+              ? "Por ejemplo, una captura con el precio o las condiciones. Solo la ve quien tiene acceso al viaje."
+              : "Aparece en Hoy y en Documentos. Solo la ve quien tiene acceso al viaje."}
+          </p>
         </div>
         {files.length > 0 && (
           <ul className="flex flex-col gap-2">
@@ -94,12 +137,12 @@ export default async function EditAccommodationPage({
           tripId={trip.id}
           accommodationId={stay.id}
           defaultType="hotel"
-          title={files.length > 0 ? "Agregar más archivos" : "Adjuntar reserva"}
+          title={files.length > 0 ? "Agregar más archivos" : isOption ? "Adjuntar archivo" : "Adjuntar reserva"}
         />
       </section>
 
       <div className="rounded-2xl border bg-card p-5">
-        <h2 className="mb-4 font-semibold">Datos del hospedaje</h2>
+        <h2 className="mb-4 font-semibold">{isOption ? "Datos de la opción" : "Datos del hospedaje"}</h2>
         <AccommodationForm
           action={updateAccommodation.bind(null, trip.id, stay.id)}
           initialValues={{
@@ -138,9 +181,14 @@ export default async function EditAccommodationPage({
 
       <section aria-labelledby="remove-stay" className="flex flex-col gap-3 rounded-2xl border border-destructive/30 bg-card p-5">
         <h2 id="remove-stay" className="font-semibold">
-          Borrar hospedaje
+          {isOption ? "Borrar opción" : "Borrar hospedaje"}
         </h2>
-        <DeleteAccommodationButton tripId={trip.id} accommodationId={stay.id} title={stay.name} />
+        <DeleteAccommodationButton
+          tripId={trip.id}
+          accommodationId={stay.id}
+          title={stay.name}
+          label={isOption ? "Borrar opción" : "Borrar hospedaje"}
+        />
       </section>
     </main>
   );

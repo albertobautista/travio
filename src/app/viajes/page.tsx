@@ -52,7 +52,11 @@ export default async function TripsPage() {
     .from("trips")
     .select(
       "id, name, start_date, end_date, cover_image_path, trip_stops (name, kind, position, timezone, arrives_on, departs_on), travelers (count), activities (starts_at, timezone), transportations (type, carrier, service_number, origin_name, destination_name, departs_at, departs_timezone), accommodations (check_in_at, check_out_at, timezone)",
-    );
+
+    )
+    // Options being compared aren't part of the plan (progress, next leg).
+    .neq("transportations.booking_status", "option")
+    .neq("accommodations.booking_status", "option");
 
   // One batch request signs every cover on the page.
   const coverUrls = await getCoverUrls((rows ?? []).map((t) => t.cover_image_path));

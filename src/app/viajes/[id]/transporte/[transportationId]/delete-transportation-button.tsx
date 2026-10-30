@@ -17,9 +17,9 @@ import { Button } from "@/components/ui/button";
 
 import { deleteTransportation } from "../actions";
 
-type Props = { tripId: string; transportationId: string; title: string };
+type Props = { tripId: string; transportationId: string; title: string; label?: string };
 
-export function DeleteTransportationButton({ tripId, transportationId, title }: Props) {
+export function DeleteTransportationButton({ tripId, transportationId, title, label = "Borrar transporte" }: Props) {
   const [state, action, pending] = useActionState(deleteTransportation.bind(null, tripId, transportationId), undefined);
 
   return (
@@ -27,7 +27,7 @@ export function DeleteTransportationButton({ tripId, transportationId, title }: 
       <AlertDialogTrigger asChild>
         <Button variant="destructive" size="lg" className="w-full sm:w-auto">
           <Trash2 aria-hidden="true" />
-          Borrar transporte
+          {label}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>

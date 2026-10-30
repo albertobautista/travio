@@ -6,7 +6,7 @@ import { isUuid } from "@/lib/uuid";
 const TRANSPORTATION_COLUMNS =
   "id, type, origin_name, destination_name, departs_at, departs_timezone, arrives_at, arrives_timezone, carrier, service_number, booking_ref, booking_url, booking_status, departure_detail, arrival_detail, cost_amount, cost_currency, notes, transportation_participants (traveler_id, seat)";
 
-/** A trip's transportation by departure. Empty if the user can't see the trip. */
+/** A trip's transportation by departure, without options. Empty if the user can't see the trip. */
 export const getTransportations = cache(async (tripId: string) => {
   if (!isUuid(tripId)) return [];
   const supabase = await createClient();
@@ -14,8 +14,23 @@ export const getTransportations = cache(async (tripId: string) => {
     .from("transportations")
     .select(TRANSPORTATION_COLUMNS)
     .eq("trip_id", tripId)
+    .neq("booking_status", "option")
     .order("departs_at");
   if (error) console.error("getTransportations failed", error);
+  return data ?? [];
+});
+
+/** Legs saved while comparing (booking_status "option"), not part of the plan yet. */
+export const getTransportationOptions = cache(async (tripId: string) => {
+  if (!isUuid(tripId)) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transportations")
+    .select(TRANSPORTATION_COLUMNS)
+    .eq("trip_id", tripId)
+    .eq("booking_status", "option")
+    .order("departs_at");
+  if (error) console.error("getTransportationOptions failed", error);
   return data ?? [];
 });
 

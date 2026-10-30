@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 
+import { routeKey } from "@/lib/options/compare";
 import { createClient } from "@/lib/supabase/server";
 import { parseTransportForm, type TransportFormState } from "@/lib/transportations/transport-form";
 import { isUuid } from "@/lib/uuid";
@@ -65,6 +66,8 @@ export async function createTransportation(
   if (data.length === 0) return { error: "No tienes permiso para editar este viaje.", values: parsed.values };
 
   await saveTravelers(tripId, data[0].id, parsed.travelers);
+  // An option goes back to the list, next to the ones it's compared with.
+  if (parsed.data.booking_status === "option") redirect(`${listUrl(tripId)}?opcion=guardada`);
   // Straight to the new leg, where the ticket or boarding pass can be attached.
   redirect(`/viajes/${tripId}/transporte/${data[0].id}?nuevo=1`);
 }
@@ -119,5 +122,69 @@ export async function deleteTransportation(tripId: string, transportationId: str
   }
   if (data.length === 0) return { error: "No tienes permiso para editar este viaje." };
 
+  redirect(listUrl(tripId));
+}
+
+export type OptionActionState = { error?: string } | undefined;
+
+/**
+ * Choosing an option: it becomes a leg of the trip, either already paid
+ * ("booked") or decided but still to book ("planned"). Only changes rows that
+ * are still options, so a double tap can't downgrade a confirmed leg.
+ */
+export async function chooseTransportationOption(
+  tripId: string,
+  transportationId: string,
+  status: "planned" | "booked",
+): Promise<OptionActionState> {
+  if (!isUuid(tripId) || !isUuid(transportationId)) return { error: "Esta opción no existe." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transportations")
+    .update({ booking_status: status })
+    .eq("id", transportationId)
+    .eq("trip_id", tripId)
+    .eq("booking_status", "option")
+    .select("id");
+
+  if (error) {
+    console.error("chooseTransportationOption failed", error);
+    return { error: "No pudimos elegir esta opción. Inténtalo de nuevo." };
+  }
+  if (data.length === 0) return { error: "No tienes permiso para editar este viaje, o ya la eligieron." };
+
+  redirect(`/viajes/${tripId}/transporte/${transportationId}?elegida=1`);
+}
+
+/** After choosing a leg: deletes the other options for the same route (their files stay in Documentos). */
+export async function deleteOtherTransportationOptions(tripId: string, transportationId: string): Promise<OptionActionState> {
+  if (!isUuid(tripId) || !isUuid(transportationId)) return { error: "Este transporte no existe." };
+
+  const supabase = await createClient();
+  const [{ data: chosen }, { data: options }] = await Promise.all([
+    supabase
+      .from("transportations")
+      .select("origin_name, destination_name")
+      .eq("id", transportationId)
+      .eq("trip_id", tripId)
+      .maybeSingle(),
+    supabase
+      .from("transportations")
+      .select("id, origin_name, destination_name")
+      .eq("trip_id", tripId)
+      .eq("booking_status", "option"),
+  ]);
+  if (!chosen) return { error: "Este transporte no existe." };
+
+  // Same route as the list groups them: written slightly differently still counts.
+  const ids = (options ?? []).filter((o) => o.id !== transportationId && routeKey(o) === routeKey(chosen)).map((o) => o.id);
+  if (ids.length > 0) {
+    const { error } = await supabase.from("transportations").delete().eq("trip_id", tripId).in("id", ids).eq("booking_status", "option");
+    if (error) {
+      console.error("deleteOtherTransportationOptions failed", error);
+      return { error: "No pudimos borrar las otras opciones. Inténtalo de nuevo." };
+    }
+  }
   redirect(listUrl(tripId));
 }
