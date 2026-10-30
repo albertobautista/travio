@@ -134,7 +134,12 @@ async function sendDueReminders(now: Date, base: string) {
     const [{ data: members }, { data: activities }, { data: legs }, { count: documents }] = await Promise.all([
       admin.from("trip_members").select("user_id").eq("trip_id", trip.id),
       admin.from("activities").select("title, starts_at, timezone, category").eq("trip_id", trip.id).order("starts_at"),
-      admin.from("transportations").select("origin_name, destination_name, departs_at, departs_timezone").eq("trip_id", trip.id).order("departs_at"),
+      admin
+        .from("transportations")
+        .select("origin_name, destination_name, departs_at, departs_timezone")
+        .eq("trip_id", trip.id)
+        .neq("booking_status", "option")
+        .order("departs_at"),
       admin.from("files").select("id", { count: "exact", head: true }).eq("trip_id", trip.id),
     ]);
     const userIds = (members ?? []).map((m) => m.user_id);

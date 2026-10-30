@@ -222,6 +222,8 @@ Check-in and check-out may automatically appear as special events in the itinera
 
 Example card: "Your stay in Venice · Hotel … · Check-in 15:00 · [Directions] [View reservation]".
 
+**Options (decided 2026-10-30):** while comparing before buying, stays and legs can be saved as options (`booking_status = 'option'`); they stay out of the itinerary, Hoy, map and budget until one is chosen ("Ya la reservé" / "Elegirla, falta reservar"). Details in `docs/data-model.md` 2.7.
+
 ## 12. Transportation
 
 Types: flight, train, bus, ferry, rental car, other.

@@ -1,4 +1,4 @@
-import { isBookingStatus, type BookingStatus } from "@/lib/activities/categories";
+import { isReservationStatus, type ReservationStatus } from "@/lib/activities/categories";
 import { isTime, parseAmount, parseHttpUrl, parseLocation, text } from "@/lib/form-fields";
 import { isKnownTimeZone } from "@/lib/time-zones";
 import { isOfferedCurrency } from "@/lib/trips/currencies";
@@ -55,7 +55,7 @@ export type AccommodationData = {
   check_in_at: string;
   check_out_at: string;
   address: string | null;
-  booking_status: BookingStatus;
+  booking_status: ReservationStatus;
   booking_ref: string | null;
   booking_url: string | null;
   cost_amount: number | null;
@@ -110,7 +110,7 @@ export function parseAccommodationForm(
   if (!values.name) errors.name = "¿Dónde se quedan? Escribe el nombre del hotel o alojamiento.";
   else if (values.name.length > 160) errors.name = "Máximo 160 caracteres.";
 
-  if (!isBookingStatus(values.booking_status)) errors.booking_status = "Elige un estado de la lista.";
+  if (!isReservationStatus(values.booking_status)) errors.booking_status = "Elige un estado de la lista.";
 
   // Time zone: from the chosen city, or typed when there's no city.
   let timezone: string | null = null;
@@ -194,7 +194,7 @@ export function parseAccommodationForm(
       check_in_at: checkIn.toISOString(),
       check_out_at: checkOut.toISOString(),
       address: values.address || null,
-      booking_status: values.booking_status as BookingStatus,
+      booking_status: values.booking_status as ReservationStatus,
       booking_ref: values.booking_ref || null,
       booking_url: url,
       cost_amount: cost,

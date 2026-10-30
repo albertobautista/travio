@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { BOOKING_META, BOOKING_STATUSES } from "@/lib/activities/categories";
+import { RESERVATION_LABELS, RESERVATION_STATUSES } from "@/lib/activities/categories";
 import { formatDuration } from "@/lib/activities/schedule";
 import { guessTimeZone, type TimeZoneOption } from "@/lib/time-zones";
 import type { TransportField, TransportFormState, TransportFormValues } from "@/lib/transportations/transport-form";
@@ -51,6 +51,8 @@ export function TransportForm({
   const [state, action, pending] = useActionState(serverAction, undefined);
   const errors: Partial<Record<TransportField, string>> = state?.fieldErrors ?? {};
   const values = state?.values ?? initialValues;
+  // Saving an option while comparing: the link and notes mean something else.
+  const isOption = initialValues.booking_status === "option";
 
   const [type, setType] = useState(values.type);
   // `guessed`: the zone came from the place's name, so retyping the name may change it.
@@ -321,9 +323,9 @@ export function TransportForm({
       <div className="grid grid-cols-2 gap-3">
         <Field id="booking_status" label="Reserva" error={errors.booking_status}>
           <select id="booking_status" name="booking_status" defaultValue={values.booking_status} className={selectClass}>
-            {BOOKING_STATUSES.map((s) => (
+            {RESERVATION_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {BOOKING_META[s].label}
+                {RESERVATION_LABELS[s]}
               </option>
             ))}
           </select>
@@ -357,7 +359,7 @@ export function TransportForm({
         </Field>
       </div>
 
-      <Field id="booking_url" label="Enlace de la reserva" error={errors.booking_url}>
+      <Field id="booking_url" label={isOption ? "Enlace (dónde la viste)" : "Enlace de la reserva"} error={errors.booking_url}>
         <Input
           id="booking_url"
           name="booking_url"
@@ -372,7 +374,7 @@ export function TransportForm({
       </Field>
 
       <Field id="notes" label="Notas" error={errors.notes}>
-        <Textarea id="notes" name="notes" rows={3} maxLength={2000} placeholder="Equipaje incluido, llegar 2 h antes…" defaultValue={values.notes} />
+        <Textarea id="notes" name="notes" rows={3} maxLength={2000} placeholder={isOption ? "Solo equipaje de mano, sin cambios, escala de 3 h…" : "Equipaje incluido, llegar 2 h antes…"} defaultValue={values.notes} />
       </Field>
 
       {state?.error && (

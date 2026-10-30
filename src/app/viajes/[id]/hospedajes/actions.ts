@@ -66,6 +66,8 @@ export async function createAccommodation(
   if (data.length === 0) return { error: "No tienes permiso para editar este viaje.", values: parsed.values };
 
   await saveParticipants(tripId, data[0].id, parsed.participantIds);
+  // An option goes back to the list, next to the ones it's compared with.
+  if (parsed.data.booking_status === "option") redirect(`${listUrl(tripId)}?opcion=guardada`);
   // Straight to the new stay, where the reservation can be attached.
   redirect(`/viajes/${tripId}/hospedajes/${data[0].id}?nuevo=1`);
 }
@@ -120,5 +122,66 @@ export async function deleteAccommodation(tripId: string, accommodationId: strin
   }
   if (data.length === 0) return { error: "No tienes permiso para editar este viaje." };
 
+  redirect(listUrl(tripId));
+}
+
+export type OptionActionState = { error?: string } | undefined;
+
+/**
+ * Choosing an option: it becomes a stay of the trip, either already paid
+ * ("booked") or decided but still to book ("planned"). Only changes rows that
+ * are still options, so a double tap can't downgrade a confirmed stay.
+ */
+export async function chooseAccommodationOption(
+  tripId: string,
+  accommodationId: string,
+  status: "planned" | "booked",
+): Promise<OptionActionState> {
+  if (!isUuid(tripId) || !isUuid(accommodationId)) return { error: "Esta opción no existe." };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("accommodations")
+    .update({ booking_status: status })
+    .eq("id", accommodationId)
+    .eq("trip_id", tripId)
+    .eq("booking_status", "option")
+    .select("id");
+
+  if (error) {
+    console.error("chooseAccommodationOption failed", error);
+    return { error: "No pudimos elegir esta opción. Inténtalo de nuevo." };
+  }
+  if (data.length === 0) return { error: "No tienes permiso para editar este viaje, o ya la eligieron." };
+
+  redirect(`/viajes/${tripId}/hospedajes/${accommodationId}?elegida=1`);
+}
+
+/** After choosing a stay: deletes the other options for the same city (their files stay in Documentos). */
+export async function deleteOtherAccommodationOptions(tripId: string, accommodationId: string): Promise<OptionActionState> {
+  if (!isUuid(tripId) || !isUuid(accommodationId)) return { error: "Este hospedaje no existe." };
+
+  const supabase = await createClient();
+  const { data: chosen } = await supabase
+    .from("accommodations")
+    .select("trip_stop_id")
+    .eq("id", accommodationId)
+    .eq("trip_id", tripId)
+    .maybeSingle();
+  if (!chosen) return { error: "Este hospedaje no existe." };
+
+  let query = supabase
+    .from("accommodations")
+    .delete()
+    .eq("trip_id", tripId)
+    .eq("booking_status", "option")
+    .neq("id", accommodationId);
+  query = chosen.trip_stop_id ? query.eq("trip_stop_id", chosen.trip_stop_id) : query.is("trip_stop_id", null);
+  const { error } = await query.select("id");
+
+  if (error) {
+    console.error("deleteOtherAccommodationOptions failed", error);
+    return { error: "No pudimos borrar las otras opciones. Inténtalo de nuevo." };
+  }
   redirect(listUrl(tripId));
 }

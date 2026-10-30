@@ -14,8 +14,10 @@ export const metadata: Metadata = {
   title: "Nuevo transporte · Travio",
 };
 
-export default async function NewTransportationPage({ params }: PageProps<"/viajes/[id]/transporte/nuevo">) {
+export default async function NewTransportationPage({ params, searchParams }: PageProps<"/viajes/[id]/transporte/nuevo">) {
   const { id } = await params;
+  // ?opcion=1: saving a flight or train to compare, not one already booked.
+  const isOption = (await searchParams).opcion === "1";
   const [trip, role, stops, travelers] = await Promise.all([getTrip(id), getMyTripRole(id), getStops(id), getTravelers(id)]);
 
   if (!trip) notFound();
@@ -32,7 +34,12 @@ export default async function NewTransportationPage({ params }: PageProps<"/viaj
           <ChevronLeft className="size-4" aria-hidden="true" />
           Transporte
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight">Nuevo transporte</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{isOption ? "Guardar opción" : "Nuevo transporte"}</h1>
+        {isOption && (
+          <p className="text-sm text-muted-foreground">
+            Un vuelo, tren o autobús que estás considerando. No aparece en el itinerario ni en el presupuesto hasta que lo elijas.
+          </p>
+        )}
       </header>
       <div className="rounded-2xl border bg-card p-5">
         <TransportForm
@@ -51,7 +58,7 @@ export default async function NewTransportationPage({ params }: PageProps<"/viaj
             arrival_detail: "",
             carrier: "",
             service_number: "",
-            booking_status: "booked",
+            booking_status: isOption ? "option" : "booked",
             booking_ref: "",
             booking_url: "",
             cost_amount: "",
@@ -66,7 +73,7 @@ export default async function NewTransportationPage({ params }: PageProps<"/viaj
           timeZones={listTimeZones()}
           minDate={trip.start_date ?? undefined}
           maxDate={trip.end_date ?? undefined}
-          submitLabel="Guardar transporte"
+          submitLabel={isOption ? "Guardar opción" : "Guardar transporte"}
           cancelHref={backHref}
         />
       </div>

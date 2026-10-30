@@ -1,4 +1,4 @@
-import { isBookingStatus, type BookingStatus } from "@/lib/activities/categories";
+import { isReservationStatus, type ReservationStatus } from "@/lib/activities/categories";
 import { isTime, parseAmount, parseHttpUrl, text } from "@/lib/form-fields";
 import { isKnownTimeZone } from "@/lib/time-zones";
 import { isOfferedCurrency } from "@/lib/trips/currencies";
@@ -65,7 +65,7 @@ export type TransportData = {
   arrival_detail: string | null;
   carrier: string | null;
   service_number: string | null;
-  booking_status: BookingStatus;
+  booking_status: ReservationStatus;
   booking_ref: string | null;
   booking_url: string | null;
   cost_amount: number | null;
@@ -121,7 +121,7 @@ export function parseTransportForm(
   const errors: Partial<Record<TransportField, string>> = {};
 
   if (!isTransportType(values.type)) errors.type = "Elige un tipo de la lista.";
-  if (!isBookingStatus(values.booking_status)) errors.booking_status = "Elige un estado de la lista.";
+  if (!isReservationStatus(values.booking_status)) errors.booking_status = "Elige un estado de la lista.";
 
   if (!values.origin_name) errors.origin_name = "¿De dónde sale?";
   else if (values.origin_name.length > 160) errors.origin_name = "Máximo 160 caracteres.";
@@ -212,7 +212,7 @@ export function parseTransportForm(
       arrival_detail: values.arrival_detail || null,
       carrier: values.carrier || null,
       service_number: hasNumber ? values.service_number || null : null,
-      booking_status: values.booking_status as BookingStatus,
+      booking_status: values.booking_status as ReservationStatus,
       booking_ref: values.booking_ref || null,
       booking_url: url,
       cost_amount: cost,

@@ -17,7 +17,9 @@ export const metadata: Metadata = {
 
 export default async function NewAccommodationPage({ params, searchParams }: PageProps<"/viajes/[id]/hospedajes/nuevo">) {
   const { id } = await params;
-  const { ciudad } = await searchParams;
+  const { ciudad, opcion } = await searchParams;
+  // ?opcion=1: saving a place to compare, not one already booked.
+  const isOption = opcion === "1";
   const [trip, role, stops, travelers] = await Promise.all([getTrip(id), getMyTripRole(id), getStops(id), getTravelers(id)]);
 
   if (!trip) notFound();
@@ -37,7 +39,12 @@ export default async function NewAccommodationPage({ params, searchParams }: Pag
           <ChevronLeft className="size-4" aria-hidden="true" />
           Hospedajes
         </Link>
-        <h1 className="text-3xl font-bold tracking-tight">Nuevo hospedaje</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{isOption ? "Guardar opción" : "Nuevo hospedaje"}</h1>
+        {isOption && (
+          <p className="text-sm text-muted-foreground">
+            Un lugar que estás considerando. No aparece en el itinerario ni en el presupuesto hasta que lo elijas.
+          </p>
+        )}
       </header>
       <div className="rounded-2xl border bg-card p-5">
         <AccommodationForm
@@ -51,7 +58,7 @@ export default async function NewAccommodationPage({ params, searchParams }: Pag
             check_out_date: stop?.departs_on ?? "",
             check_out_time: DEFAULT_CHECK_OUT_TIME,
             address: "",
-            booking_status: "booked",
+            booking_status: isOption ? "option" : "booked",
             booking_ref: "",
             booking_url: "",
             cost_amount: "",
@@ -68,7 +75,7 @@ export default async function NewAccommodationPage({ params, searchParams }: Pag
           timeZones={listTimeZones()}
           minDate={trip.start_date ?? undefined}
           maxDate={trip.end_date ?? undefined}
-          submitLabel="Guardar hospedaje"
+          submitLabel={isOption ? "Guardar opción" : "Guardar hospedaje"}
           cancelHref={backHref}
         />
       </div>
