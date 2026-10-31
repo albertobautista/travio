@@ -14,6 +14,7 @@ import { activityDate } from "@/lib/activities/itinerary";
 import { getActivities } from "@/lib/activities/queries";
 import { getAttachTargets, getTripFiles, type TripFile } from "@/lib/files/queries";
 import { DOCUMENT_TYPES, isDocumentType, type DocumentType } from "@/lib/files/rules";
+import { tripPages } from "@/lib/offline/trip-pages";
 import { legsForToday } from "@/lib/transportations/legs";
 import { getTransportations } from "@/lib/transportations/queries";
 import { getTripStatus } from "@/lib/trips/dates";
@@ -123,7 +124,11 @@ export default async function DocumentsPage({ params, searchParams }: PageProps<
         )}
       </header>
 
-      <OfflineDocuments tripId={trip.id} files={files.map((f) => ({ id: f.id, name: f.original_name, size: f.size_bytes }))} />
+      <OfflineDocuments
+        tripId={trip.id}
+        files={files.map((f) => ({ id: f.id, name: f.original_name, size: f.size_bytes }))}
+        pages={["/viajes", ...tripPages(trip, today, files.map((f) => f.id))]}
+      />
 
       {files.length === 0 ? (
         <section className="flex flex-col items-center gap-2 rounded-2xl border border-dashed bg-card px-6 py-8 text-center">

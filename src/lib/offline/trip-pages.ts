@@ -23,12 +23,27 @@ export function offlineTripPages(
   const status = getTripStatus(trip.start_date, trip.end_date, today);
   const startsTomorrow = trip.start_date === addDays(today, 1);
   if (status !== "active" && !startsTomorrow) return [];
+  return tripPages(trip, today, fileIds);
+}
 
+/**
+ * Every page of a trip that should open without connection, whatever its
+ * dates. Used by "Descargar para el viaje": whoever downloads the tickets
+ * expects the trip around them to open too, even weeks before leaving.
+ * Days already over are skipped; undated trips get only their main pages.
+ */
+export function tripPages(
+  trip: { id: string; start_date: string | null; end_date: string | null },
+  today: string,
+  fileIds: string[],
+) {
   const base = `/viajes/${trip.id}`;
   const paths = [`${base}/hoy`, base, `${base}/itinerario`, `${base}/hospedajes`, `${base}/transporte`, `${base}/documentos`];
-  const end = trip.end_date ?? trip.start_date!;
-  for (let day = status === "active" ? today : trip.start_date!; day <= end; day = addDays(day, 1)) {
-    paths.push(`${base}/itinerario?dia=${day}`);
+  if (trip.start_date) {
+    const end = trip.end_date ?? trip.start_date;
+    for (let day = trip.start_date > today ? trip.start_date : today; day <= end; day = addDays(day, 1)) {
+      paths.push(`${base}/itinerario?dia=${day}`);
+    }
   }
   for (const id of fileIds) paths.push(`${base}/ticket/${id}`);
   return paths;
