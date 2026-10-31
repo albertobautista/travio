@@ -295,7 +295,7 @@ export function TogetherCards() {
           <b>Acceso al viaje</b>
           {member("A", "Ana", "Propietaria")}
           {member("S", "Sofía", "Puede editar")}
-          {member("L", "Luis", "Solo lectura · invitación enviada por correo")}
+          {member("L", "Luis", "Solo lectura · también anota gastos")}
         </div>
         <div className="flex flex-col gap-2.5 rounded-[18px] border bg-card px-[18px] py-4">
           <div className="flex justify-between">
