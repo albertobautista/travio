@@ -5,7 +5,7 @@ import { CheckCircle2, CloudDownload, Loader2, RefreshCw, Trash2 } from "lucide-
 
 import { Button } from "@/components/ui/button";
 import { formatFileSize } from "@/lib/files/rules";
-import { removeDocuments, saveDocument, savedDocumentIds } from "@/lib/offline/storage";
+import { removeDocuments, saveDocument, savedDocumentIds, savePage } from "@/lib/offline/storage";
 
 type File = { id: string; name: string; size: number };
 
@@ -14,6 +14,7 @@ type Status =
   | { kind: "unsupported" }
   | { kind: "idle"; saved: Set<string> }
   | { kind: "downloading"; done: number; total: number }
+  | { kind: "saving-pages" }
   | { kind: "error"; saved: Set<string>; failed: number };
 
 /**
@@ -23,8 +24,12 @@ type Status =
  *
  * Saved files open from the same links as always: the service worker answers
  * /viajes/{trip}/documentos/{file} from the device (public/sw.js).
+ *
+ * It also saves the trip's pages (`pages`: My trips, Hoy, the itinerary
+ * days, each ticket…). Otherwise a trip weeks away would only have the pages
+ * the user happened to open, and the tickets would be stranded on the device.
  */
-export function OfflineDocuments({ tripId, files }: { tripId: string; files: File[] }) {
+export function OfflineDocuments({ tripId, files, pages }: { tripId: string; files: File[]; pages: string[] }) {
   const [status, setStatus] = useState<Status>({ kind: "checking" });
   const ids = files.map((f) => f.id).join(",");
 
@@ -63,8 +68,24 @@ export function OfflineDocuments({ tripId, files }: { tripId: string; files: Fil
         failed++;
       }
     }
+    setStatus({ kind: "saving-pages" });
+    await savePages(pages);
     const nowSaved = await savedDocumentIds(tripId, files.map((f) => f.id));
     setStatus(failed > 0 ? { kind: "error", saved: nowSaved, failed } : { kind: "idle", saved: nowSaved });
+  }
+
+  /** One at a time, like OfflineTripSync; a page that fails is not worth an error. */
+  async function savePages(paths: string[]) {
+    const worker = navigator.serviceWorker?.controller;
+    for (const path of paths) {
+      try {
+        const html = await savePage(path);
+        // Let the worker store the page's CSS/JS too, so the copy looks right.
+        if (html) worker?.postMessage({ type: "cache-assets", html });
+      } catch {
+        return; // Lost the connection: the documents are saved, which matters most.
+      }
+    }
   }
 
   async function updateAll() {
@@ -95,10 +116,10 @@ export function OfflineDocuments({ tripId, files }: { tripId: string; files: Fil
           </h2>
           <p className="text-sm text-muted-foreground">
             {allSaved
-              ? `${files.length === 1 ? "El documento está guardado" : `Los ${files.length} documentos están guardados`} en este dispositivo. Se borran al cerrar sesión.`
+              ? `${files.length === 1 ? "El documento está guardado" : `Los ${files.length} documentos están guardados`} en este dispositivo, con el itinerario del viaje. Se borran al cerrar sesión.`
               : saved.size > 0
                 ? `${saved.size} de ${files.length} guardados en este dispositivo. Descarga el resto para abrirlos sin internet.`
-                : "Guárdalos en este dispositivo para abrir boletos y reservas sin internet. Quedan sin cifrar en el teléfono y se borran al cerrar sesión."}
+                : "Guárdalos en este dispositivo, junto con el itinerario, para abrir boletos y reservas sin internet. Quedan sin cifrar en el teléfono y se borran al cerrar sesión."}
           </p>
         </div>
       </div>
@@ -113,6 +134,11 @@ export function OfflineDocuments({ tripId, files }: { tripId: string; files: Fil
             <span className="block h-full rounded-full bg-primary transition-all" style={{ width: `${(status.done / status.total) * 100}%` }} />
           </span>
         </div>
+      ) : status.kind === "saving-pages" ? (
+        <span className="flex items-center gap-2 text-sm" role="status">
+          <Loader2 className="size-4 animate-spin text-primary" aria-hidden="true" />
+          Guardando el itinerario…
+        </span>
       ) : allSaved ? (
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" className="h-11 flex-1" onClick={updateAll}>
