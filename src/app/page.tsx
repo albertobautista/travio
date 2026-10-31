@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Bell, BedDouble, Check, Lock, Map as MapIcon, MapPin, PiggyBank, Plane, Smartphone, Sparkles } from "lucide-react";
+import { Bell, BedDouble, Check, House, Lock, Map as MapIcon, MapPin, PiggyBank, Plane, Smartphone, Sparkles } from "lucide-react";
 
 import { DocumentsCard, HeroBadges, ItineraryDay, NowNext, PhoneToday, TogetherCards } from "@/components/landing/illustrations";
 import { createClient } from "@/lib/supabase/server";
@@ -18,7 +18,8 @@ export const metadata: Metadata = {
   },
 };
 
-const ROUTE = ["Barcelona", "Madrid", "Sevilla", "Málaga", "Granada", "Valencia", "San Sebastián"];
+const ORIGIN = "Guadalajara";
+const ROUTE = ["Barcelona", "Madrid", "Sevilla", "Málaga", "Granada", "Valencia"];
 
 /**
  * The landing page: what Travio does, for someone who got the link. Only
@@ -106,6 +107,15 @@ export default async function Home() {
         <section aria-label="Un viaje de ejemplo" className="border-y bg-card">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-3.5 gap-y-2.5 px-4 py-7 text-sm sm:px-6">
             <span className="mr-1.5 text-muted-foreground">Un viaje real en Travio:</span>
+            <span className="flex items-center gap-3.5">
+              <span className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 font-semibold text-foreground/80">
+                <House className="size-3.5" aria-hidden="true" />
+                {ORIGIN}
+              </span>
+              <span aria-hidden="true" className="text-timeline">
+                →
+              </span>
+            </span>
             {ROUTE.map((city, i) => (
               <span key={city} className="flex items-center gap-3.5">
                 <span
@@ -116,14 +126,16 @@ export default async function Home() {
                 >
                   {city}
                 </span>
-                {i < ROUTE.length - 1 && (
-                  <span aria-hidden="true" className="text-timeline">
-                    →
-                  </span>
-                )}
+                <span aria-hidden="true" className="text-timeline">
+                  →
+                </span>
               </span>
             ))}
-            <span className="ml-1.5 text-muted-foreground">· 23 días · 3 viajeros</span>
+            <span className="flex size-8 items-center justify-center rounded-full border text-foreground/80">
+              <House className="size-3.5" aria-hidden="true" />
+              <span className="sr-only">De regreso a {ORIGIN}</span>
+            </span>
+            <span className="ml-1.5 text-muted-foreground">· 20 días · 3 viajeros</span>
           </div>
         </section>
 
@@ -131,12 +143,12 @@ export default async function Home() {
           id="planifica"
           kicker="Planifica"
           title="Todo el viaje, día por día."
-          lead="Arma la ruta de ciudades y llena cada día con planes que tienen hora y duración. Travio te avisa cuando algo no cuadra."
+          lead="Arma la ruta desde tu ciudad, con escalas incluidas, y llena cada día con planes que tienen hora y duración. Travio te avisa cuando algo no cuadra."
           points={[
             [<b key="b">Choques de horario</b>, ": si dos planes se enciman, lo ves en la tarjeta."],
             [<b key="b">Tiempo para llegar</b>, " entre un plan y otro, a pie, en transporte o en auto."],
-            [<b key="b">Hospedajes y transporte</b>, " aparecen solos en el día que toca."],
-            [<b key="b">Planes que se repiten</b>, ", como el desayuno de cada día, en un solo paso."],
+            [<b key="b">Compara antes de reservar</b>, ": guarda varios hoteles o vuelos, ve el más barato y el más rápido, y elige uno."],
+            [<b key="b">Hospedajes y transporte</b>, " aparecen solos en el día que toca. Los planes que se repiten, en un solo paso."],
             [<b key="b">Lugares guardados</b>, ": junta ideas y pásalas al itinerario cuando decidas."],
           ]}
           visual={<ItineraryDay />}
@@ -164,7 +176,7 @@ export default async function Home() {
           points={[
             [<b key="b">Solo los ve quien tiene acceso al viaje.</b>, " Nunca hay un enlace público a tus archivos."],
             [<b key="b">«Para hoy»</b>, ": los que necesitas hoy, primero."],
-            [<b key="b">Descárgalos para el viaje</b>, " y ábrelos sin señal."],
+            [<b key="b">Descarga el viaje</b>, ": tus boletos, el itinerario y los hospedajes se abren sin señal."],
           ]}
           icon={<Lock className="size-3.5" strokeWidth={2.4} aria-hidden="true" />}
           visual={<DocumentsCard />}
@@ -177,8 +189,9 @@ export default async function Home() {
           points={[
             [<b key="b">Invita por enlace o correo</b>, ", con acceso de lectura o de edición."],
             [<b key="b">Un enlace para el grupo de WhatsApp</b>, ": cada quien pide entrar y tú apruebas."],
+            [<b key="b">Permisos a la medida</b>, ": deja que alguien de solo lectura guarde lugares o anote gastos, sin darle todo."],
+            [<b key="b">Comparte el viaje</b>, " con su portada, fechas y ciudades en la vista previa del chat."],
             [<b key="b">Gastos divididos</b>, " en partes iguales, montos o porcentajes. Ve quién le paga a quién en tu moneda y mándalo al grupo."],
-            [<b key="b">Avisos por correo</b>, " cuando alguien se une o cambia el plan, al momento o en un resumen."],
           ]}
           visual={<TogetherCards />}
           reverse
@@ -193,9 +206,9 @@ export default async function Home() {
             <div className="stagger grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-4">
               <Mini icon={MapIcon} title="Mapa del día" text="Tus planes, el hotel y los lugares guardados en un mapa, con la ruta del día." />
               <Mini icon={PiggyBank} title="Presupuesto" text="Lo estimado contra lo gastado, por categoría y por día, y en tu moneda aunque gastes en euros." />
-              <Mini icon={BedDouble} title="Hospedajes y trayectos" text="Check-in, referencias, asientos y andenes, en su día del itinerario." />
+              <Mini icon={BedDouble} title="Hospedajes y trayectos" text="Check-in, referencias, asientos y andenes, en su día del itinerario. Las opciones que comparas quedan aparte." />
               <Mini icon={Smartphone} title="Se instala en tu celular" text="Ábrela desde la pantalla de inicio, como cualquier app, sin tienda de apps. Con modo claro u oscuro." />
-              <Mini icon={Bell} title="Recordatorio antes de salir" text="Un correo el día anterior con lo del primer día y tus documentos." />
+              <Mini icon={Bell} title="Avisos por correo" text="Cuando alguien se une o cambia el plan, al momento o en un resumen, y un recordatorio el día antes de salir." />
               <Mini icon={Sparkles} title="Ideas para tus ratos libres" text="Opcional: si te sobran dos horas, sugerencias cerca que caben antes del siguiente plan." soon />
             </div>
           </div>
