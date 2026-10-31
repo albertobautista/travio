@@ -59,6 +59,27 @@ Disabled until you have OAuth credentials:
 
 4. Set `enabled = true` under `[auth.external.google]` in `supabase/config.toml` and restart: `supabase stop && supabase start`.
 
+#### Why Google's screen can show the Supabase domain
+
+With the redirect flow (`POST /auth/google` → Supabase → Google), Google tells
+the user where it will send them back: `<project-ref>.supabase.co`. To show
+`travio.com.mx` instead, set `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (the same Web
+client ID). The login page then renders Google's own button (Google Identity
+Services, `src/app/login/google-sign-in.tsx`): Google returns an ID token to the
+page and `supabase.auth.signInWithIdToken` turns it into a session, so the
+browser never visits the Supabase domain. Requirements:
+
+- The site's origins (`http://localhost:3000`, `https://travio.com.mx`, …) in
+  the client's **Authorized JavaScript origins**.
+- The same client ID in Supabase → Auth → Providers → Google (for a second
+  client, add it to "Client IDs", comma-separated).
+- "Skip nonce check" stays **off**: the page sends a nonce.
+
+If the env var is empty or Google's script can't load, the button falls back
+to the redirect flow. The app name and logo on Google's screen come from the
+OAuth consent screen (Google Auth Platform → Branding) once Google verifies the
+brand.
+
 ## Avisos por correo
 
 Emails go out through [Resend](https://resend.com) (`src/lib/email/send.ts`,
