@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, BedDouble, Bus, Car, ChevronRight, Footprints, LogIn, LogOut, MapPin, Plus, Ship, TrainFront } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, BedDouble, Check, Bus, Car, ChevronRight, Footprints, LogIn, LogOut, MapPin, Plus, Ship, TrainFront } from "lucide-react";
 
 import { TravelerAvatar, TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { legEndTitle, legRoute, transportMeta } from "@/lib/transportations/type
 import { BOOKING_META, CATEGORY_META, isBookingStatus, isCategory } from "@/lib/activities/categories";
 import { activityDate, buildItineraryDays, pickDay } from "@/lib/activities/itinerary";
 import { DayStrip } from "@/components/activities/day-strip";
+import { DaySorter, type SortRow } from "@/components/activities/day-sorter";
 import { getActivities } from "@/lib/activities/queries";
 import { findConflicts, formatDuration, formatTimeRange } from "@/lib/activities/schedule";
 import { getTravelers } from "@/lib/travelers/queries";
@@ -37,7 +38,7 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itine
 
 export default async function ItineraryPage({ params, searchParams }: PageProps<"/viajes/[id]/itinerario">) {
   const { id } = await params;
-  const { dia, persona } = await searchParams;
+  const { dia, persona, ordenar } = await searchParams;
   const [trip, role, stops, activities, travelers, stays, legs] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
@@ -132,6 +133,72 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     ...dayEvents.map((e): Row => ({ kind: "stay", at: e.at, event: e })),
     ...dayLegs.map((item): Row => ({ kind: "leg", at: item.at, item })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
+  // "Ordenar": drag the day's activities (?ordenar=1). Needs something to order against.
+  const canSort = editable && dayActivities.length > 0 && dayRows.length > 1;
+  const sorting = canSort && ordenar === "1";
+  // The same rows, slimmed down for sorting: icon, title, and the times that decide where things go.
+  const sortRow = (row: Row): SortRow => {
+    const box = (Icon: typeof LogIn, className: string) => (
+      <span className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${className}`}>
+        <Icon className="size-4" aria-hidden="true" />
+      </span>
+    );
+    const text = (title: string, meta: string) => (
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-semibold">{title}</span>
+        <span className="truncate text-xs text-muted-foreground">{meta}</span>
+      </span>
+    );
+    if (row.kind === "activity") {
+      const a = row.activity;
+      const category = isCategory(a.category) ? CATEGORY_META[a.category] : CATEGORY_META.other;
+      return {
+        key: a.id,
+        start: a.starts_at,
+        end: new Date(a.startsAt.getTime() + a.duration_minutes * 60_000).toISOString(),
+        timezone: a.timezone,
+        activity: { id: a.id, title: a.title, durationMinutes: a.duration_minutes },
+        content: (
+          <>
+            {box(category.icon, category.className)}
+            {text(a.title, formatDuration(a.duration_minutes))}
+          </>
+        ),
+      };
+    }
+    if (row.kind === "stay") {
+      const { event } = row;
+      const at = event.at.toISOString();
+      return {
+        key: `${event.stay.id}-${event.kind}`,
+        start: at,
+        end: at,
+        timezone: event.stay.timezone,
+        content: (
+          <>
+            {box(event.kind === "check_in" ? LogIn : LogOut, "bg-secondary text-primary")}
+            {text(`${event.kind === "check_in" ? "Check-in" : "Check-out"} · ${event.stay.name}`, "Hora fija")}
+          </>
+        ),
+      };
+    }
+    const { leg, end, at } = row.item;
+    // On the leg until it arrives: a plan dropped after the departure starts at the arrival.
+    // Except picking up a rental car: you're free right after.
+    const until = end === "departs" && leg.type !== "car_rental" ? new Date(leg.arrives_at) : at;
+    return {
+      key: `${leg.id}-${end}`,
+      start: at.toISOString(),
+      end: until.toISOString(),
+      timezone: end === "departs" ? leg.departs_timezone : leg.arrives_timezone,
+      content: (
+        <>
+          {box(transportMeta(leg.type).icon, "bg-secondary text-primary")}
+          {text(legEndTitle(leg, end), "Hora fija")}
+        </>
+      ),
+    };
+  };
   // Travel time to check between consecutive activities (anything else in between breaks the chain).
   const pairStop = (a: (typeof dayActivities)[number]) => ({
     id: a.id,
@@ -222,12 +289,13 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
         ).get(day.date)
       : undefined;
   const addHref = `/viajes/${trip.id}/actividades/nueva${day ? `?dia=${day.date}` : ""}`;
-  const itineraryHref = (params: { dia?: string; persona?: string | null }) => {
+  const itineraryHref = (params: { dia?: string; persona?: string | null; ordenar?: boolean }) => {
     const q = new URLSearchParams();
     const d = params.dia ?? day?.date;
     const p = params.persona === undefined ? person?.id : params.persona;
     if (d) q.set("dia", d);
     if (p) q.set("persona", p);
+    if (params.ordenar) q.set("ordenar", "1");
     return `/viajes/${trip.id}/itinerario${q.size ? `?${q}` : ""}`;
   };
 
@@ -311,17 +379,28 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
 
           {day && (
             <section aria-labelledby="day-heading" className="flex flex-col gap-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <h2 id="day-heading" className="text-lg font-semibold">
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="day-heading" className="shrink-0 text-lg font-semibold">
                   {day.dayNumber ? `Día ${day.dayNumber} · ` : ""}
                   {day.label}
                 </h2>
-                {dayStops.length > 0 && (
-                  <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <MapPin className="size-3.5" aria-hidden="true" />
-                    {dayStops.map((s) => s.name).join(" → ")}
-                  </span>
-                )}
+                <span className="flex min-w-0 items-center gap-1">
+                  {dayStops.length > 0 && (
+                    <span className="flex min-w-0 items-center gap-1 text-sm text-muted-foreground">
+                      <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{dayStops.map((s) => s.name).join(" → ")}</span>
+                    </span>
+                  )}
+                  {canSort && (
+                    <Button asChild variant="ghost" className="-my-2 h-11 shrink-0 px-2 text-primary">
+                      {/* scroll={false}: stay at the day, don't jump to the top. */}
+                      <Link href={itineraryHref({ ordenar: !sorting })} scroll={false}>
+                        {sorting ? <Check aria-hidden="true" /> : <ArrowUpDown aria-hidden="true" />}
+                        {sorting ? "Listo" : "Ordenar"}
+                      </Link>
+                    </Button>
+                  )}
+                </span>
               </div>
               {weather && (
                 <p className="-mt-1 flex flex-wrap items-center gap-x-2 text-sm text-muted-foreground">
@@ -348,7 +427,9 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                 </Link>
               )}
 
-              {dayRows.length === 0 ? (
+              {sorting ? (
+                <DaySorter tripId={trip.id} rows={dayRows.map(sortRow)} />
+              ) : dayRows.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed bg-card px-6 py-8 text-center">
                   <p className="text-sm text-muted-foreground">Nada planeado este día.</p>
                   {editable && (

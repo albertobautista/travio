@@ -4,6 +4,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { parseActivityForm, type ActivityFormState } from "@/lib/activities/activity-form";
+import { activityDate } from "@/lib/activities/itinerary";
 import { buildRepeats } from "@/lib/activities/repeat";
 import { isTravelMode } from "@/lib/maps/travel";
 import { createClient } from "@/lib/supabase/server";
@@ -194,5 +195,57 @@ export async function setTravelMode(tripId: string, activityId: string, mode: st
   }
   if (data.length === 0) return { error: "No tienes permiso para editar este viaje." };
   refresh();
+  return {};
+}
+
+/**
+ * Saves a new start after dragging an activity within its day (the client
+ * works it out with dropActivity). Two checks the browser can't be trusted
+ * with: the activity still starts when the dragging view thought (another
+ * edit meanwhile wins, the view refreshes instead), and the new start is on
+ * the same local day. Duration and everything else stay as they are.
+ */
+export async function moveActivityStart(
+  tripId: string,
+  activityId: string,
+  startsAt: string,
+  previousStartsAt: string,
+): Promise<{ error?: string }> {
+  const start = Date.parse(startsAt);
+  const previous = Date.parse(previousStartsAt);
+  if (!isUuid(tripId) || !isUuid(activityId) || !Number.isFinite(start) || !Number.isFinite(previous)) {
+    return { error: "No pudimos moverla." };
+  }
+
+  const supabase = await createClient();
+  const { data: activity } = await supabase
+    .from("activities")
+    .select("starts_at, timezone")
+    .eq("trip_id", tripId)
+    .eq("id", activityId)
+    .maybeSingle();
+  if (!activity) return { error: "Esta actividad ya no existe." };
+  if (Date.parse(activity.starts_at) !== previous) {
+    refresh();
+    return { error: "La actividad cambió mientras ordenabas. Inténtalo de nuevo." };
+  }
+  const newStart = new Date(start).toISOString();
+  if (activityDate({ starts_at: newStart, timezone: activity.timezone }) !== activityDate(activity)) {
+    return { error: "Ahí ya no cabe en este día. Cámbiale la hora desde la actividad." };
+  }
+
+  const { data, error } = await supabase
+    .from("activities")
+    .update({ starts_at: newStart })
+    .eq("trip_id", tripId)
+    .eq("id", activityId)
+    .eq("starts_at", activity.starts_at)
+    .select("id");
+  refresh();
+  if (error) {
+    console.error("moveActivityStart failed", error);
+    return { error: "No pudimos moverla. Inténtalo de nuevo." };
+  }
+  if (data.length === 0) return { error: "No tienes permiso para editar este viaje." };
   return {};
 }
