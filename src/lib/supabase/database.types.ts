@@ -752,6 +752,9 @@ isOneToOne: false
 "new_share_code":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"reorder_trip_stops":
+{ Args: { "p_stop_ids": string[],"p_trip_id": string }; Returns: undefined
+                           },
 "request_notification_run":
 { Args: Record<PropertyKey, never>; Returns: undefined
                            },
