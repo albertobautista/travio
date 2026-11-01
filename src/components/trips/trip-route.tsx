@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, House, Plus, Undo2, Waypoints } from "lucide-react";
+import { ArrowUpDown, Check, ChevronRight, House, Plus, Undo2, Waypoints } from "lucide-react";
 
-import { moveStop } from "@/app/viajes/[id]/ciudades/actions";
+import { RouteSorter } from "@/components/trips/route-sorter";
 import { Button } from "@/components/ui/button";
 import { formatTripDates, getNights } from "@/lib/trips/dates";
 import { isDestination, routeOrder } from "@/lib/trips/stops";
@@ -35,7 +35,8 @@ function zoneCity(timezone: string) {
 
 /**
  * The trip's cities in order. Reordering is a mode ("Ordenar", ?ordenar=1),
- * so the up/down buttons don't crowd the list the rest of the time.
+ * so the drag handles and up/down buttons don't crowd the list the rest of
+ * the time. While sorting, the cities after the origin go to RouteSorter.
  * During the trip, `currentStopId` marks the city you're in and `today` dims the ones done.
  */
 export function TripRoute({
@@ -63,6 +64,48 @@ export function TripRoute({
   const numberOf = new Map(destinations.map((s, i) => [s.id, i + 1]));
   const canSort = editable && movable.length > 1;
   const reorder = sorting && canSort;
+
+  /** The dot (number or icon), name and dates of a stop. */
+  function stopContent(stop: Stop) {
+    const done = today !== null && stop.departs_on !== null && stop.departs_on < today;
+    const here = stop.id === currentStopId;
+    const number = numberOf.get(stop.id);
+    return (
+      <>
+        {number === undefined ? (
+          // Home and connections: a quiet icon, not a number.
+          <span
+            className={
+              "relative flex size-7 shrink-0 items-center justify-center rounded-full border-2 bg-card text-primary " +
+              (done ? "border-success/40 opacity-60" : "border-primary/30")
+            }
+          >
+            {stop.kind === "origin" ? <House className="size-3.5" aria-hidden="true" /> : <Waypoints className="size-3.5" aria-hidden="true" />}
+          </span>
+        ) : (
+          <span
+            className={
+              "relative flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold " +
+              (done ? "bg-success text-white" : here ? "bg-primary text-primary-foreground ring-4 ring-secondary" : today ? "border-2 border-primary/30 bg-card text-primary" : "bg-primary text-primary-foreground")
+            }
+          >
+            {number}
+          </span>
+        )}
+        <span className={"flex min-w-0 flex-1 flex-col " + (done ? "opacity-60" : "")}>
+          <span className="truncate font-semibold">
+            {stop.name}
+            {here && <span className="text-xs font-semibold text-primary"> · estás aquí</span>}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {stayLabel(stop)}
+            {reorder ? "" : ` · hora de ${zoneCity(stop.timezone)}`}
+          </span>
+        </span>
+      </>
+    );
+  }
+
   return (
     <section aria-labelledby="route-heading" className="flex flex-col gap-3 rounded-[18px] border bg-card p-4">
       <div className="flex items-center justify-between gap-2">
@@ -106,44 +149,9 @@ export function TripRoute({
           {/* The line connecting the stops. */}
           <span aria-hidden="true" className="absolute top-6 bottom-6 left-[13px] w-0.5 bg-timeline" />
           {stops.map((stop) => {
-            const done = today !== null && stop.departs_on !== null && stop.departs_on < today;
-            const here = stop.id === currentStopId;
-            const number = numberOf.get(stop.id);
-            const index = movable.indexOf(stop);
-            const content = (
-              <>
-                {number === undefined ? (
-                  // Home and connections: a quiet icon, not a number.
-                  <span
-                    className={
-                      "relative flex size-7 shrink-0 items-center justify-center rounded-full border-2 bg-card text-primary " +
-                      (done ? "border-success/40 opacity-60" : "border-primary/30")
-                    }
-                  >
-                    {stop.kind === "origin" ? <House className="size-3.5" aria-hidden="true" /> : <Waypoints className="size-3.5" aria-hidden="true" />}
-                  </span>
-                ) : (
-                  <span
-                    className={
-                      "relative flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold " +
-                      (done ? "bg-success text-white" : here ? "bg-primary text-primary-foreground ring-4 ring-secondary" : today ? "border-2 border-primary/30 bg-card text-primary" : "bg-primary text-primary-foreground")
-                    }
-                  >
-                    {number}
-                  </span>
-                )}
-                <span className={"flex min-w-0 flex-1 flex-col " + (done ? "opacity-60" : "")}>
-                  <span className="truncate font-semibold">
-                    {stop.name}
-                    {here && <span className="text-xs font-semibold text-primary"> · estás aquí</span>}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {stayLabel(stop)}
-                    {reorder ? "" : ` · hora de ${zoneCity(stop.timezone)}`}
-                  </span>
-                </span>
-              </>
-            );
+            // While sorting, everything but the origin is drawn by RouteSorter below.
+            if (reorder && stop !== origin) return null;
+            const content = stopContent(stop);
 
             return (
               <li key={stop.id} className="flex items-center gap-1 py-1.5">
@@ -158,30 +166,15 @@ export function TripRoute({
                 ) : (
                   <span className="flex min-w-0 flex-1 items-center gap-3">{content}</span>
                 )}
-                {reorder && index >= 0 && (
-                  <span className="flex shrink-0 animate-rise">
-                    <form action={moveStop.bind(null, stop.id, -1)}>
-                      <Button type="submit" variant="ghost" size="icon" className="size-11" disabled={index === 0} aria-label={`Mover ${stop.name} antes`}>
-                        <ChevronUp aria-hidden="true" />
-                      </Button>
-                    </form>
-                    <form action={moveStop.bind(null, stop.id, 1)}>
-                      <Button
-                        type="submit"
-                        variant="ghost"
-                        size="icon"
-                        className="size-11"
-                        disabled={index === movable.length - 1}
-                        aria-label={`Mover ${stop.name} después`}
-                      >
-                        <ChevronDown aria-hidden="true" />
-                      </Button>
-                    </form>
-                  </span>
-                )}
               </li>
             );
           })}
+          {reorder && (
+            <RouteSorter
+              tripId={tripId}
+              items={movable.map((stop) => ({ id: stop.id, name: stop.name, content: stopContent(stop) }))}
+            />
+          )}
           {origin && movable.length > 0 && (
             // The way back: the route closes at home.
             <li className="flex items-center gap-3 py-1.5 text-muted-foreground">
