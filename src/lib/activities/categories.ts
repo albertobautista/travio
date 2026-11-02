@@ -58,6 +58,15 @@ export const RESERVATION_LABELS: Record<ReservationStatus, string> = {
   confirmed: BOOKING_META.confirmed.label,
 };
 
+/**
+ * How an option looks when it's previewed in the itinerary and the map:
+ * dashed and labeled, so it never reads as booked.
+ */
+export const OPTION_BADGE = {
+  label: "Opción · sin reservar",
+  className: "border border-dashed border-primary/60 bg-card text-primary-text",
+} as const;
+
 export function isReservationStatus(value: string): value is ReservationStatus {
   return (RESERVATION_STATUSES as readonly string[]).includes(value);
 }

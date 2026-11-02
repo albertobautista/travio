@@ -2,16 +2,16 @@ import type { Metadata } from "next";
 import { Fragment } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AlertTriangle, ArrowUpDown, BedDouble, Check, Bus, Car, ChevronRight, Footprints, LogIn, LogOut, MapPin, Plus, Ship, TrainFront } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, BedDouble, Check, Bus, Car, ChevronRight, Eye, EyeOff, Footprints, LogIn, LogOut, MapPin, Plus, Ship, TrainFront } from "lucide-react";
 
 import { TravelerAvatar, TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
-import { getAccommodations } from "@/lib/accommodations/queries";
+import { getAccommodationOptions, getAccommodations } from "@/lib/accommodations/queries";
 import { stayEvents } from "@/lib/accommodations/stays";
 import { formatLegTimes, legMinutes, legTimes } from "@/lib/transportations/legs";
-import { getTransportations } from "@/lib/transportations/queries";
+import { getTransportationOptions, getTransportations } from "@/lib/transportations/queries";
 import { legEndTitle, legRoute, transportMeta } from "@/lib/transportations/types";
-import { BOOKING_META, CATEGORY_META, isBookingStatus, isCategory } from "@/lib/activities/categories";
+import { BOOKING_META, CATEGORY_META, OPTION_BADGE, isBookingStatus, isCategory } from "@/lib/activities/categories";
 import { activityDate, buildItineraryDays, pickDay } from "@/lib/activities/itinerary";
 import { DayStrip } from "@/components/activities/day-strip";
 import { DaySorter, type SortRow } from "@/components/activities/day-sorter";
@@ -38,8 +38,8 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/itine
 
 export default async function ItineraryPage({ params, searchParams }: PageProps<"/viajes/[id]/itinerario">) {
   const { id } = await params;
-  const { dia, persona, ordenar } = await searchParams;
-  const [trip, role, stops, activities, travelers, stays, legs] = await Promise.all([
+  const { dia, persona, ordenar, opciones } = await searchParams;
+  const [trip, role, stops, activities, travelers, stays, legs, stayOptions, legOptions] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
@@ -47,6 +47,8 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     getTravelers(id),
     getAccommodations(id),
     getTransportations(id),
+    getAccommodationOptions(id),
+    getTransportationOptions(id),
   ]);
   if (!trip) notFound();
 
@@ -55,6 +57,14 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
   // ?persona= shows one traveler's itinerary: activities with nobody listed
   // (everyone) or with them listed.
   const person = typeof persona === "string" ? travelerById.get(persona) : undefined;
+  // Favorite options (the stay or leg you lean towards, not bought yet) show as
+  // a preview: dashed and labeled, never in conflicts, travel times or
+  // "Ordenar". ?opciones=0 hides them.
+  const favoriteStays = stayOptions.filter((o) => o.favorite);
+  const favoriteLegs = legOptions.filter((o) => o.favorite);
+  const optionCount = favoriteStays.length + favoriteLegs.length;
+  const showOptions = opciones !== "0";
+  const isOption = (row: { booking_status: string }) => row.booking_status === "option";
 
   const withDates = activities
     .map((a) => ({
@@ -98,11 +108,13 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
 
   // Stays: check-in/check-out are derived events in the timeline (not stored
   // as activities), and the day header says where the night is spent.
-  const personStays = stays.filter((s) => {
+  const forPerson = (s: (typeof stays)[number]) => {
     const ids = s.accommodation_participants.map((p) => p.traveler_id);
     return !person || ids.length === 0 || ids.includes(person.id);
-  });
-  const events = stayEvents(personStays);
+  };
+  const personStays = stays.filter(forPerson);
+  const personStayOptions = showOptions ? favoriteStays.filter(forPerson) : [];
+  const events = stayEvents([...personStays, ...personStayOptions]);
   const dayEvents = day ? events.filter((e) => e.date === day.date) : [];
   // The night of `day` belongs to the stay checked into on or before it and left after it.
   const tonight = day
@@ -112,9 +124,24 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
           day.date < instantToZonedTime(s.check_out_at, s.timezone).date,
       )
     : undefined;
+  // No stay yet for the night: the favorite option for it, not booked.
+  const tonightOptions =
+    day && !tonight
+      ? personStayOptions.filter(
+          (s) =>
+            instantToZonedTime(s.check_in_at, s.timezone).date <= day.date &&
+            day.date < instantToZonedTime(s.check_out_at, s.timezone).date,
+        )
+      : [];
+  const personLegOptions = showOptions
+    ? favoriteLegs.filter((l) => {
+        const ids = l.transportation_participants.map((p) => p.traveler_id);
+        return !person || ids.length === 0 || ids.includes(person.id);
+      })
+    : [];
   // Legs show at departure; an arrival on a later local date gets its own row that day.
   const dayLegs = day
-    ? personLegs.flatMap((l) => {
+    ? [...personLegs, ...personLegOptions].flatMap((l) => {
         const { departs, arrives } = legTimes(l);
         const out: { leg: typeof l; end: "departs" | "arrives"; at: Date; time: string }[] = [];
         if (departs.date === day.date) out.push({ leg: l, end: "departs", at: new Date(l.departs_at), time: departs.time });
@@ -133,8 +160,12 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     ...dayEvents.map((e): Row => ({ kind: "stay", at: e.at, event: e })),
     ...dayLegs.map((item): Row => ({ kind: "leg", at: item.at, item })),
   ].sort((a, b) => a.at.getTime() - b.at.getTime());
+  // The plan without the options: what sorting, travel times and ideas work with.
+  const planRows = dayRows.filter(
+    (row) => row.kind === "activity" || !isOption(row.kind === "stay" ? row.event.stay : row.item.leg),
+  );
   // "Ordenar": drag the day's activities (?ordenar=1). Needs something to order against.
-  const canSort = editable && dayActivities.length > 0 && dayRows.length > 1;
+  const canSort = editable && dayActivities.length > 0 && planRows.length > 1;
   const sorting = canSort && ordenar === "1";
   // The same rows, slimmed down for sorting: icon, title, and the times that decide where things go.
   const sortRow = (row: Row): SortRow => {
@@ -209,7 +240,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
     participantIds: a.participantIds,
   });
   const travelTo = new Map(
-    travelPairs(dayRows.map((row) => (row.kind === "activity" ? pairStop(row.activity) : null))).map((pair) => [pair.to.id, pair]),
+    travelPairs(planRows.map((row) => (row.kind === "activity" ? pairStop(row.activity) : null))).map((pair) => [pair.to.id, pair]),
   );
   // And from the hotel: where you woke up, or where you just checked in.
   const asHotel = (s: (typeof personStays)[number]) => ({
@@ -224,7 +255,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
       )
     : undefined;
   const fromHotel = hotelStarts<ReturnType<typeof pairStop>, ReturnType<typeof asHotel>>(
-    dayRows.map((row) =>
+    planRows.map((row) =>
       row.kind === "activity"
         ? { kind: "activity" as const, stop: pairStop(row.activity) }
         : row.kind === "stay"
@@ -237,7 +268,7 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
   );
   // "Regreso al hotel": after the day's last activity, a shortcut to add the way
   // back to tonight's hotel as a transfer, prefilled in the usual form.
-  const lastRow = dayRows.at(-1);
+  const lastRow = planRows.at(-1);
   const backToHotel = (() => {
     if (!editable || !tonight || lastRow?.kind !== "activity") return null;
     const last = lastRow.activity;
@@ -266,8 +297,8 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
   const ideasBefore = new Map<string, { fromId: string; minutes: number }>();
   if (aiOn) {
     const nowMs = new Date().getTime();
-    dayRows.forEach((row, i) => {
-      const prev = dayRows[i - 1];
+    planRows.forEach((row, i) => {
+      const prev = planRows[i - 1];
       if (row.kind !== "activity" || prev?.kind !== "activity") return;
       const end = prev.activity.startsAt.getTime() + prev.activity.duration_minutes * 60_000;
       const minutes = Math.round((row.activity.startsAt.getTime() - end) / 60_000);
@@ -289,13 +320,14 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
         ).get(day.date)
       : undefined;
   const addHref = `/viajes/${trip.id}/actividades/nueva${day ? `?dia=${day.date}` : ""}`;
-  const itineraryHref = (params: { dia?: string; persona?: string | null; ordenar?: boolean }) => {
+  const itineraryHref = (params: { dia?: string; persona?: string | null; ordenar?: boolean; opciones?: boolean }) => {
     const q = new URLSearchParams();
     const d = params.dia ?? day?.date;
     const p = params.persona === undefined ? person?.id : params.persona;
     if (d) q.set("dia", d);
     if (p) q.set("persona", p);
     if (params.ordenar) q.set("ordenar", "1");
+    if (!(params.opciones ?? showOptions)) q.set("opciones", "0");
     return `/viajes/${trip.id}/itinerario${q.size ? `?${q}` : ""}`;
   };
 
@@ -426,9 +458,32 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                   Esta noche: <span className="font-medium text-foreground">{tonight.name}</span>
                 </Link>
               )}
+              {tonightOptions.length > 0 && (
+                <Link
+                  href={`/viajes/${trip.id}/hospedajes`}
+                  className="-mt-1 flex w-fit items-start gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  <BedDouble className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+                  <span>
+                    Esta noche, sin reservar:{" "}
+                    <span className="font-medium text-foreground">{tonightOptions.map((s) => s.name).join(" · ")}</span>
+                  </span>
+                </Link>
+              )}
+              {optionCount > 0 && !sorting && (
+                <Link
+                  href={itineraryHref({ opciones: !showOptions })}
+                  scroll={false}
+                  aria-pressed={showOptions}
+                  className="-mt-1 flex h-9 w-fit items-center gap-1.5 rounded-full border bg-card px-3 text-xs text-foreground/80 hover:bg-muted"
+                >
+                  {showOptions ? <Eye className="size-3.5" aria-hidden="true" /> : <EyeOff className="size-3.5" aria-hidden="true" />}
+                  {showOptions ? "Favoritas sin reservar: visibles" : "Favoritas sin reservar: ocultas"}
+                </Link>
+              )}
 
               {sorting ? (
-                <DaySorter tripId={trip.id} rows={dayRows.map(sortRow)} />
+                <DaySorter tripId={trip.id} rows={planRows.map(sortRow)} />
               ) : dayRows.length === 0 ? (
                 <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed bg-card px-6 py-8 text-center">
                   <p className="text-sm text-muted-foreground">Nada planeado este día.</p>
@@ -449,23 +504,31 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                       const { leg, end, at, time } = row.item;
                       const meta = transportMeta(leg.type);
                       const Icon = meta.icon;
+                      const option = isOption(leg);
                       const booking = isBookingStatus(leg.booking_status) ? BOOKING_META[leg.booking_status] : null;
-                      const overlaps = conflicts.get(leg.id) ?? [];
+                      const overlaps = option ? [] : (conflicts.get(leg.id) ?? []);
                       const service = [leg.carrier, leg.service_number].filter(Boolean).join(" ");
                       return (
                         <li key={`${leg.id}-${end}`} className="flex items-center gap-2.5">
                           <span
                             aria-hidden="true"
-                            className={"relative size-3 shrink-0 rounded-full border-2 border-card " + (overlaps.length > 0 ? "bg-warning" : "bg-primary")}
+                            className={
+                              "relative size-3 shrink-0 rounded-full border-2 " +
+                              (option ? "border-dashed border-primary bg-card" : overlaps.length > 0 ? "border-card bg-warning" : "border-card bg-primary")
+                            }
                           />
                           <time dateTime={at.toISOString()} className="w-11 shrink-0 font-mono text-xs font-semibold">
                             {time}
                           </time>
                           <Link
-                            href={`/viajes/${trip.id}/transporte${editable ? `/${leg.id}` : ""}`}
+                            href={`/viajes/${trip.id}/transporte${editable ? `/${leg.id}` : option ? `#option-${leg.id}` : ""}`}
                             className={
                               "flex min-w-0 flex-1 flex-col gap-2 rounded-[14px] border px-2.5 py-2 hover:border-primary/40 " +
-                              (overlaps.length > 0 ? "border-warning-border bg-warning-soft" : "bg-card")
+                              (option
+                                ? "border-dashed border-primary/40 bg-card/60"
+                                : overlaps.length > 0
+                                  ? "border-warning-border bg-warning-soft"
+                                  : "bg-card")
                             }
                           >
                             <span className="flex items-center gap-2.5">
@@ -485,10 +548,16 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                                   <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] font-semibold text-secondary-foreground">
                                     {meta.label}
                                   </span>
-                                  {booking?.badge && (
-                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${booking.className}`}>
-                                      {booking.badge}
+                                  {option ? (
+                                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${OPTION_BADGE.className}`}>
+                                      {OPTION_BADGE.label}
                                     </span>
+                                  ) : (
+                                    booking?.badge && (
+                                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${booking.className}`}>
+                                        {booking.badge}
+                                      </span>
+                                    )
                                   )}
                                 </span>
                               </span>
@@ -506,15 +575,25 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                     if (row.kind === "stay") {
                       const { event } = row;
                       const Icon = event.kind === "check_in" ? LogIn : LogOut;
+                      const option = isOption(event.stay);
+                      const stayHref = option
+                        ? `/viajes/${trip.id}/hospedajes${editable ? `/${event.stay.id}` : `#option-${event.stay.id}`}`
+                        : `/viajes/${trip.id}/hospedajes`;
                       return (
                         <li key={`${event.stay.id}-${event.kind}`} className="flex items-center gap-2.5">
-                          <span aria-hidden="true" className="relative size-3 shrink-0 rounded-full border-2 border-primary bg-card" />
+                          <span
+                            aria-hidden="true"
+                            className={"relative size-3 shrink-0 rounded-full border-2 border-primary bg-card " + (option ? "border-dashed" : "")}
+                          />
                           <time dateTime={event.at.toISOString()} className="w-11 shrink-0 font-mono text-xs font-semibold">
                             {event.time}
                           </time>
                           <Link
-                            href={`/viajes/${trip.id}/hospedajes`}
-                            className="flex min-w-0 flex-1 items-center gap-2.5 rounded-[14px] border border-dashed bg-secondary/40 px-2.5 py-2 hover:border-primary/40"
+                            href={stayHref}
+                            className={
+                              "flex min-w-0 flex-1 items-center gap-2.5 rounded-[14px] border border-dashed px-2.5 py-2 hover:border-primary/40 " +
+                              (option ? "border-primary/40 bg-card/60" : "bg-secondary/40")
+                            }
                           >
                             <span className="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-secondary text-primary">
                               <Icon className="size-5" aria-hidden="true" />
@@ -526,6 +605,13 @@ export default async function ItineraryPage({ params, searchParams }: PageProps<
                               <span className="truncate text-xs text-muted-foreground">
                                 {event.stay.address ?? "Hospedaje"}
                               </span>
+                              {option && (
+                                <span className="mt-1 flex">
+                                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${OPTION_BADGE.className}`}>
+                                    {OPTION_BADGE.label}
+                                  </span>
+                                </span>
+                              )}
                             </span>
                           </Link>
                         </li>

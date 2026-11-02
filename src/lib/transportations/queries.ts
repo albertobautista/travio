@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/uuid";
 
 const TRANSPORTATION_COLUMNS =
-  "id, type, origin_name, destination_name, departs_at, departs_timezone, arrives_at, arrives_timezone, carrier, service_number, booking_ref, booking_url, booking_status, departure_detail, arrival_detail, cost_amount, cost_currency, notes, transportation_participants (traveler_id, seat)";
+  "id, type, origin_name, destination_name, departs_at, departs_timezone, arrives_at, arrives_timezone, carrier, service_number, booking_ref, booking_url, booking_status, favorite, departure_detail, arrival_detail, cost_amount, cost_currency, notes, transportation_participants (traveler_id, seat)";
 
 /** A trip's transportation by departure, without options. Empty if the user can't see the trip. */
 export const getTransportations = cache(async (tripId: string) => {

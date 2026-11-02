@@ -9,6 +9,7 @@ import { FileRow } from "@/components/files/file-row";
 import { UploadForm } from "@/components/files/upload-form";
 import { ChooseOption } from "@/components/options/choose-option";
 import { DeleteOtherOptionsButton } from "@/components/options/delete-other-options-button";
+import { FavoriteButton } from "@/components/options/favorite-button";
 import { getAccommodation, getAccommodationOptions } from "@/lib/accommodations/queries";
 import { getAttachTargets, getTripFiles } from "@/lib/files/queries";
 import { listTimeZones } from "@/lib/time-zones";
@@ -19,6 +20,7 @@ import { instantToZonedTime } from "@/lib/zoned-time";
 import {
   chooseAccommodationOption,
   deleteOtherAccommodationOptions,
+  setAccommodationFavorite,
   updateAccommodation,
 } from "../actions";
 import { DeleteAccommodationButton } from "./delete-accommodation-button";
@@ -76,13 +78,16 @@ export default async function EditAccommodationPage({
 
       {isOption && (
         <section aria-labelledby="choose-option" className="flex flex-col gap-3 rounded-2xl border border-primary/30 bg-secondary/40 p-5">
-          <div>
-            <h2 id="choose-option" className="font-semibold">
-              ¿Se decidieron por esta?
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Al elegirla pasa al itinerario, a Hoy, al mapa y al presupuesto. Las otras opciones se quedan hasta que las borres.
-            </p>
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <h2 id="choose-option" className="font-semibold">
+                ¿Se decidieron por esta?
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Al elegirla pasa al itinerario, a Hoy, al mapa y al presupuesto. Las otras opciones se quedan hasta que las borres. Mientras deciden, la estrella la muestra en el itinerario y el mapa como “sin reservar”.
+              </p>
+            </div>
+            <FavoriteButton favorite={stay.favorite} setFavorite={setAccommodationFavorite.bind(null, trip.id, stay.id)} name={stay.name} />
           </div>
           <ChooseOption
             chooseBooked={chooseAccommodationOption.bind(null, trip.id, stay.id, "booked")}

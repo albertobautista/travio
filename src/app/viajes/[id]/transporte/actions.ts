@@ -1,5 +1,6 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { routeKey } from "@/lib/options/compare";
@@ -187,4 +188,58 @@ export async function deleteOtherTransportationOptions(tripId: string, transport
     }
   }
   redirect(listUrl(tripId));
+}
+
+/**
+ * The star: the option you lean towards for a route. Only the favorite is
+ * previewed in the itinerary and the map (dashed, "sin reservar"), so starring
+ * one takes the star off the other options for the same route (grouped like
+ * the Opciones list: ignoring case and accents).
+ */
+export async function setTransportationFavorite(
+  tripId: string,
+  transportationId: string,
+  favorite: boolean,
+): Promise<OptionActionState> {
+  if (!isUuid(tripId) || !isUuid(transportationId)) return { error: "Esta opción no existe." };
+
+  const supabase = await createClient();
+  if (favorite) {
+    const { data: options } = await supabase
+      .from("transportations")
+      .select("id, origin_name, destination_name, favorite")
+      .eq("trip_id", tripId)
+      .eq("booking_status", "option");
+    const option = options?.find((o) => o.id === transportationId);
+    if (!option) return { error: "Esta opción ya no existe o ya la eligieron." };
+    const ids = (options ?? [])
+      .filter((o) => o.id !== transportationId && o.favorite && routeKey(o) === routeKey(option))
+      .map((o) => o.id);
+    if (ids.length > 0) {
+      const { error } = await supabase
+        .from("transportations")
+        .update({ favorite: false })
+        .eq("trip_id", tripId)
+        .in("id", ids);
+      if (error) {
+        console.error("setTransportationFavorite (others) failed", error);
+        return { error: "No pudimos marcarla. Inténtalo de nuevo." };
+      }
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("transportations")
+    .update({ favorite })
+    .eq("id", transportationId)
+    .eq("trip_id", tripId)
+    .eq("booking_status", "option")
+    .select("id");
+  if (error) {
+    console.error("setTransportationFavorite failed", error);
+    return { error: "No pudimos marcarla. Inténtalo de nuevo." };
+  }
+  if (data.length === 0) return { error: "No tienes permiso para editar este viaje, o ya la eligieron." };
+  refresh();
+  return {};
 }

@@ -26,6 +26,8 @@ export type MapRow = {
   /** Id of the matching map point, when the row has coordinates. */
   pointId: string | null;
   href: string;
+  /** A favorite option (stay or leg) previewed before booking. */
+  option: boolean;
 };
 
 export type MapDay = {
@@ -66,7 +68,16 @@ export function buildMapDays({
     timezone: string;
     location_name: string | null;
   })[];
-  stays: (Located & { id: string; name: string; address: string | null; check_in_at: string; check_out_at: string; timezone: string })[];
+  /** Favorite options may come along ("option" status): shown, marked as not booked. */
+  stays: (Located & {
+    id: string;
+    name: string;
+    address: string | null;
+    check_in_at: string;
+    check_out_at: string;
+    timezone: string;
+    booking_status?: string;
+  })[];
   legs: {
     id: string;
     type: string;
@@ -78,6 +89,7 @@ export function buildMapDays({
     arrives_timezone: string;
     carrier: string | null;
     service_number: string | null;
+    booking_status?: string;
   }[];
 }): MapDay[] {
   const base = `/viajes/${trip.id}`;
@@ -102,11 +114,13 @@ export function buildMapDays({
         category: a.category,
         pointId: located(a) ? a.id : null,
         href: `${base}/actividades/${a.id}`,
+        option: false,
       }]);
     }
 
     for (const e of events) {
       if (e.date !== d.date) continue;
+      const option = e.stay.booking_status === "option";
       rows.push([e.at.getTime(), {
         id: `${e.stay.id}-${e.kind}`,
         kind: e.kind,
@@ -115,13 +129,15 @@ export function buildMapDays({
         meta: e.stay.address ?? "Hospedaje",
         category: e.kind,
         pointId: located(e.stay) ? e.stay.id : null,
-        href: `${base}/hospedajes`,
+        href: `${base}/hospedajes${option ? (editable ? `/${e.stay.id}` : `#option-${e.stay.id}`) : ""}`,
+        option,
       }]);
     }
 
     for (const l of legs) {
       const { departs, arrives } = legTimes(l);
       const service = [l.carrier, l.service_number].filter(Boolean).join(" ");
+      const option = l.booking_status === "option";
       const ends = [
         departs.date === d.date ? ("departs" as const) : null,
         arrives.date === d.date && arrives.date !== departs.date ? ("arrives" as const) : null,
@@ -136,16 +152,20 @@ export function buildMapDays({
           meta: [`${departs.time} → ${arrives.time}`, service || transportMeta(l.type).label].join(" · "),
           category: l.type,
           pointId: null,
-          href: `${base}/transporte${editable ? `/${l.id}` : ""}`,
+          href: `${base}/transporte${editable ? `/${l.id}` : option ? `#option-${l.id}` : ""}`,
+          option,
         }]);
       }
     }
 
-    const tonight = stays.find(
+    // A booked (or chosen) stay wins over a favorite option for the same night.
+    const sleeping = stays.filter(
       (s) =>
         instantToZonedTime(s.check_in_at, s.timezone).date <= d.date &&
         d.date < instantToZonedTime(s.check_out_at, s.timezone).date,
     );
+    const tonight = sleeping.find((s) => s.booking_status !== "option");
+    const tonightOption = tonight ? undefined : sleeping.find((s) => s.booking_status === "option");
 
     return {
       date: d.date,
@@ -153,7 +173,7 @@ export function buildMapDays({
       label: d.label,
       cities: stopsForDate(stops, d.date).map((s) => s.name),
       stopIds: stopsForDate(stops, d.date).map((s) => s.id),
-      tonight: tonight?.name ?? null,
+      tonight: tonight?.name ?? (tonightOption ? `${tonightOption.name} (sin reservar)` : null),
       rows: rows.sort((a, b) => a[0] - b[0]).map(([, row]) => row),
     };
   });

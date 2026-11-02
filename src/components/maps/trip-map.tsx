@@ -87,6 +87,11 @@ function markerElement(point: MapPoint, label: string | null, leaving: boolean, 
     n.className = "flex size-5 items-center justify-center rounded-full bg-primary font-mono text-[11px] text-primary-foreground";
     n.textContent = label ?? "";
     el.append(n, document.createTextNode(point.title));
+  } else if (point.kind === "stay" && point.option) {
+    // Favorite option, not booked yet: hollow and dashed, so it reads as tentative.
+    el.className =
+      "flex size-8 items-center justify-center rounded-full border-2 border-dashed border-primary bg-card text-primary shadow-md";
+    el.innerHTML = BED_SVG;
   } else if (point.kind === "stay") {
     el.className =
       "flex size-8 items-center justify-center rounded-full border-2 border-white bg-primary-hover text-primary-foreground shadow-md";
@@ -440,6 +445,7 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
           <div className="absolute inset-x-3 bottom-3 flex items-center gap-3 rounded-xl border bg-card p-3 shadow-lg">
             <div className="flex min-w-0 flex-1 flex-col">
               <span className="truncate font-semibold">
+                {current.option ? "Sin reservar · " : ""}
                 {current.kind === "saved" ? "Guardado · " : currentIsLeaving ? `Check-out ${current.checkOut?.time} · ` : current.time ? `${current.time} · ` : ""}
                 {current.title}
               </span>
@@ -479,7 +485,10 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-sm font-semibold">{row.title}</span>
-                    <span className="truncate text-xs text-muted-foreground">{row.meta}</span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {row.option && <span className="font-semibold text-primary-text">Sin reservar · </span>}
+                      {row.meta}
+                    </span>
                   </span>
                   {row.pointId ? (
                     <MapPin className="size-4 shrink-0 text-primary" aria-label="Ver en el mapa" />
@@ -490,7 +499,13 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
               );
               const cardClass =
                 "flex min-w-0 flex-1 items-center gap-2.5 rounded-[14px] border px-2.5 py-2 text-left hover:border-primary/40 " +
-                (isSelected ? "border-primary/40 bg-secondary" : row.kind === "activity" ? "bg-card" : "border-dashed bg-secondary/40");
+                (isSelected
+                  ? "border-primary/40 bg-secondary"
+                  : row.option
+                    ? "border-dashed border-primary/40 bg-card/60"
+                    : row.kind === "activity"
+                      ? "bg-card"
+                      : "border-dashed bg-secondary/40");
               return (
                 <li key={row.id} className="flex items-center gap-2.5">
                   <span
@@ -499,7 +514,7 @@ export function TripMap({ tripId, editable, points, days, cities, initialDay }: 
                       "relative flex shrink-0 items-center justify-center rounded-full font-mono font-bold " +
                       (number
                         ? "size-7 border-2 border-card bg-primary text-[11px] text-primary-foreground"
-                        : "mx-2 size-3 border-2 border-primary bg-card")
+                        : "mx-2 size-3 border-2 border-primary bg-card " + (row.option ? "border-dashed" : ""))
                     }
                   >
                     {number}

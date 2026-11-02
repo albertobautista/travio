@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { TripMap } from "@/components/maps/trip-map";
-import { getAccommodations } from "@/lib/accommodations/queries";
+import { getAccommodationOptions, getAccommodations } from "@/lib/accommodations/queries";
 import { getActivities } from "@/lib/activities/queries";
 import { buildMapCities, buildMapDays } from "@/lib/maps/days";
 import { buildMapPoints } from "@/lib/maps/points";
 import { getSavedPlaces } from "@/lib/saved-places/queries";
-import { getTransportations } from "@/lib/transportations/queries";
+import { getTransportationOptions, getTransportations } from "@/lib/transportations/queries";
 import { canEdit, getMyTripRole, getStops, getTrip } from "@/lib/trips/queries";
 import { isDestination } from "@/lib/trips/stops";
 import { resolveTripNow } from "@/lib/trips/today";
@@ -22,8 +22,8 @@ export async function generateMetadata({ params }: PageProps<"/viajes/[id]/mapa"
 
 export default async function TripMapPage({ params, searchParams }: PageProps<"/viajes/[id]/mapa">) {
   const { id } = await params;
-  const { dia } = await searchParams;
-  const [trip, role, stops, activities, stays, transportations, savedPlaces] = await Promise.all([
+  const { dia, opciones } = await searchParams;
+  const [trip, role, stops, activities, stays, transportations, savedPlaces, stayOptions, legOptions] = await Promise.all([
     getTrip(id),
     getMyTripRole(id),
     getStops(id),
@@ -31,13 +31,20 @@ export default async function TripMapPage({ params, searchParams }: PageProps<"/
     getAccommodations(id),
     getTransportations(id),
     getSavedPlaces(id),
+    getAccommodationOptions(id),
+    getTransportationOptions(id),
   ]);
   if (!trip) notFound();
 
   const editable = canEdit(role);
   const pending = savedPlaces.filter((p) => p.activities.length === 0);
-  const points = buildMapPoints({ tripId: trip.id, editable, activities, stays, stops, saved: pending });
-  const days = buildMapDays({ trip, editable, stops, activities, stays, legs: transportations });
+  // Favorite options (not booked yet) are previewed like in the itinerary,
+  // marked as such; ?opciones=0 hides them there and here.
+  const showOptions = opciones !== "0";
+  const previewStays = showOptions ? [...stays, ...stayOptions.filter((o) => o.favorite)] : stays;
+  const previewLegs = showOptions ? [...transportations, ...legOptions.filter((o) => o.favorite)] : transportations;
+  const points = buildMapPoints({ tripId: trip.id, editable, activities, stays: previewStays, stops, saved: pending });
+  const days = buildMapDays({ trip, editable, stops, activities, stays: previewStays, legs: previewLegs });
   const baseCities = buildMapCities({ stops, activities, stays, legs: transportations, days });
 
   // Weather per city over its stay (one cached request each), then per day

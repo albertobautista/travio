@@ -6,6 +6,7 @@ import { BedDouble, CheckCircle2, Plus, Scale } from "lucide-react";
 import { StayCard } from "@/components/accommodations/stay-card";
 import { StayOptionCard } from "@/components/options/option-cards";
 import { Button } from "@/components/ui/button";
+import { setAccommodationFavorite } from "./actions";
 import { getAccommodationOptions, getAccommodations } from "@/lib/accommodations/queries";
 import { getExchangeRates } from "@/lib/budget/queries";
 import { getTripFiles } from "@/lib/files/queries";
@@ -156,6 +157,11 @@ export default async function AccommodationsPage({ params, searchParams }: PageP
                 <h3 className="text-sm font-medium text-muted-foreground">
                   {group.options.length === 1 ? "1 opción" : `${group.options.length} opciones`} · sin reservar
                 </h3>
+                {editable && !group.options.some((o) => o.favorite) && (
+                  <p className="-mt-1 text-xs text-muted-foreground">
+                    Marca tu favorita con la estrella para verla en el itinerario y el mapa.
+                  </p>
+                )}
                 {group.options.map((option) => (
                   <StayOptionCard
                     key={option.id}
@@ -165,6 +171,7 @@ export default async function AccommodationsPage({ params, searchParams }: PageP
                     highlights={cheapestId(group.options, trip.currency, rates) === option.id ? ["Más barata"] : []}
                     fileCount={filesOf(option.id).length}
                     editable={editable}
+                    setFavorite={editable ? setAccommodationFavorite.bind(null, trip.id, option.id) : undefined}
                   />
                 ))}
               </div>
