@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BedDouble, ExternalLink, MapPin, Paperclip, Pencil } from "lucide-react";
 
+import { FavoriteButton, FavoriteMark } from "@/components/options/favorite-button";
 import { Button } from "@/components/ui/button";
 import { countNights } from "@/lib/accommodations/stays";
 import { formatDuration } from "@/lib/activities/schedule";
@@ -12,7 +13,14 @@ import { formatTripDates } from "@/lib/trips/dates";
 import { instantToZonedTime, formatLocalMoment } from "@/lib/zoned-time";
 
 type Money = { tripCurrency: string; rates: Map<string, number> };
-type Priced = { id: string; cost_amount: number | null; cost_currency: string | null };
+type Priced = { id: string; cost_amount: number | null; cost_currency: string | null; favorite: boolean };
+type SetFavorite = (favorite: boolean) => Promise<{ error?: string } | undefined>;
+
+/** Star to mark it (editors) or a "Favorita" tag (viewers, only when marked). */
+function Favorite({ option, name, setFavorite }: { option: Priced; name: string; setFavorite?: SetFavorite }) {
+  if (setFavorite) return <FavoriteButton favorite={option.favorite} setFavorite={setFavorite} name={name} />;
+  return option.favorite ? <FavoriteMark /> : null;
+}
 
 /** Total as entered, plus the trip-currency figure when it's a different currency. */
 function Price({ item, money, nights }: { item: Priced; money: Money; nights?: number }) {
@@ -89,6 +97,7 @@ export function StayOptionCard({
   highlights,
   fileCount,
   editable,
+  setFavorite,
 }: {
   tripId: string;
   option: StayOption;
@@ -96,6 +105,8 @@ export function StayOptionCard({
   highlights: string[];
   fileCount: number;
   editable: boolean;
+  /** Bound server action; only for those who can edit. */
+  setFavorite?: SetFavorite;
 }) {
   const nights = countNights(option);
   const checkIn = instantToZonedTime(option.check_in_at, option.timezone).date;
@@ -103,7 +114,7 @@ export function StayOptionCard({
   const titleId = `option-${option.id}`;
 
   return (
-    <article aria-labelledby={titleId} className="flex flex-col gap-2 rounded-2xl border border-dashed bg-card p-4">
+    <article aria-labelledby={titleId} className={"flex scroll-mt-4 flex-col gap-2 rounded-2xl border border-dashed bg-card p-4 " + (option.favorite ? "border-warning-border" : "")}>
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <BedDouble className="size-5" aria-hidden="true" />
@@ -122,6 +133,7 @@ export function StayOptionCard({
             </p>
           )}
         </div>
+        <Favorite option={option} name={option.name} setFavorite={setFavorite} />
       </div>
       <Highlights labels={highlights} />
       <Price item={option} money={money} nights={nights} />
@@ -157,6 +169,7 @@ export function LegOptionCard({
   highlights,
   fileCount,
   editable,
+  setFavorite,
 }: {
   tripId: string;
   option: LegOption;
@@ -164,6 +177,8 @@ export function LegOptionCard({
   highlights: string[];
   fileCount: number;
   editable: boolean;
+  /** Bound server action; only for those who can edit. */
+  setFavorite?: SetFavorite;
 }) {
   const meta = transportMeta(option.type);
   const Icon = meta.icon;
@@ -173,7 +188,7 @@ export function LegOptionCard({
   const titleId = `option-${option.id}`;
 
   return (
-    <article aria-labelledby={titleId} className="flex flex-col gap-2 rounded-2xl border border-dashed bg-card p-4">
+    <article aria-labelledby={titleId} className={"flex scroll-mt-4 flex-col gap-2 rounded-2xl border border-dashed bg-card p-4 " + (option.favorite ? "border-warning-border" : "")}>
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <Icon className="size-5" aria-hidden="true" />
@@ -191,6 +206,7 @@ export function LegOptionCard({
             {dayShift > 0 ? " · llega otro día" : ""}
           </p>
         </div>
+        <Favorite option={option} name={service || meta.label} setFavorite={setFavorite} />
       </div>
       <Highlights labels={highlights} />
       <Price item={option} money={money} />

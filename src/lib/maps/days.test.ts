@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMapCities } from "./days";
+import { buildMapCities, buildMapDays } from "./days";
 
 const MX = "America/Mexico_City";
 const LON = "Europe/London";
@@ -66,5 +66,44 @@ describe("buildMapCities with home and connections", () => {
     // On the way back: lands from London, leaves for Guadalajara.
     expect(cities[3].arriveBy?.text).toBe("Vuelo desde Londres");
     expect(cities[3].leaveBy?.text).toContain("a Guadalajara");
+  });
+});
+
+describe("buildMapDays with a favorite option", () => {
+  const trip = { id: "t", start_date: "2027-04-07", end_date: "2027-04-09" };
+  const stay = (id: string, name: string, booking_status: string, check_in_at: string, check_out_at: string) => ({
+    id,
+    name,
+    address: null,
+    check_in_at,
+    check_out_at,
+    timezone: LON,
+    booking_status,
+    lat: 51.5,
+    lng: -0.1,
+  });
+  const option = stay("opt", "Hotel A", "option", "2027-04-07T14:00:00Z", "2027-04-09T10:00:00Z");
+  const leg = { ...flight("f", "Londres", "Cracovia", "2027-04-09T07:00:00Z", "2027-04-09T09:30:00Z", LON, "Europe/Warsaw"), booking_status: "option" };
+
+  it("marks the option's rows and says the night isn't booked", () => {
+    const days = buildMapDays({ trip, editable: true, stops: [], activities: [], stays: [option], legs: [leg] });
+    const first = days.find((d) => d.date === "2027-04-07")!;
+    expect(first.rows.map((r) => [r.kind, r.option])).toEqual([["check_in", true]]);
+    expect(first.rows[0].href).toBe("/viajes/t/hospedajes/opt");
+    expect(first.tonight).toBe("Hotel A (sin reservar)");
+    const last = days.find((d) => d.date === "2027-04-09")!;
+    expect(last.rows.map((r) => [r.kind, r.option])).toEqual([
+      ["leg", true],
+      ["check_out", true],
+    ]);
+  });
+
+  it("a booked stay wins the night over an option", () => {
+    const booked = stay("b", "Hotel B", "booked", "2027-04-07T14:00:00Z", "2027-04-08T10:00:00Z");
+    const days = buildMapDays({ trip, editable: false, stops: [], activities: [], stays: [option, booked], legs: [] });
+    expect(days.find((d) => d.date === "2027-04-07")!.tonight).toBe("Hotel B");
+    expect(days.find((d) => d.date === "2027-04-08")!.tonight).toBe("Hotel A (sin reservar)");
+    // Viewers land on the option in the list.
+    expect(days[0].rows.find((r) => r.id === "opt-check_in")!.href).toBe("/viajes/t/hospedajes#option-opt");
   });
 });

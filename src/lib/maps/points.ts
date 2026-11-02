@@ -26,6 +26,8 @@ export type MapPoint = {
   placeId: string | null;
   /** The city (trip stop) it belongs to, for zooming into a city. */
   stopId: string | null;
+  /** A stay still being compared (the favorite option): previewed, not booked. */
+  option: boolean;
 };
 
 type Located = { lat: number | null; lng: number | null; google_place_id: string | null };
@@ -76,6 +78,8 @@ export function buildMapPoints({
     check_out_at: string;
     timezone: string;
     trip_stop_id: string | null;
+    /** "option" for a favorite option previewed before booking. */
+    booking_status?: string;
   })[];
   stops: (Located & { id: string; name: string; arrives_on: string | null; departs_on: string | null })[];
   /** Saved places not planned yet (planned ones already show as activities). */
@@ -98,6 +102,7 @@ export function buildMapPoints({
         href: editable ? `${base}/ciudades/${s.id}` : null,
         placeId: s.google_place_id,
         stopId: s.id,
+        option: false,
       }),
     ),
     ...stays.filter(hasCoords).map(
@@ -117,9 +122,10 @@ export function buildMapPoints({
         ),
         checkOut: instantToZonedTime(s.check_out_at, s.timezone),
         subtitle: s.address,
-        href: `${base}/hospedajes${editable ? `/${s.id}` : ""}`,
+        href: `${base}/hospedajes${editable ? `/${s.id}` : s.booking_status === "option" ? `#option-${s.id}` : ""}`,
         placeId: s.google_place_id,
         stopId: s.trip_stop_id,
+        option: s.booking_status === "option",
       }),
     ),
     ...activities.filter(hasCoords).map(
@@ -137,6 +143,7 @@ export function buildMapPoints({
         href: `${base}/actividades/${a.id}`,
         placeId: a.google_place_id,
         stopId: a.trip_stop_id,
+        option: false,
       }),
     ),
     ...saved.filter(hasCoords).map(
@@ -154,6 +161,7 @@ export function buildMapPoints({
         href: `${base}/guardados${editable ? `/${p.id}` : ""}`,
         placeId: p.google_place_id,
         stopId: p.trip_stop_id,
+        option: false,
       }),
     ),
   ];

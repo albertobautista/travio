@@ -1,5 +1,6 @@
 "use server";
 
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { parseAccommodationForm, type AccommodationFormState } from "@/lib/accommodations/accommodation-form";
@@ -184,4 +185,57 @@ export async function deleteOtherAccommodationOptions(tripId: string, accommodat
     return { error: "No pudimos borrar las otras opciones. Inténtalo de nuevo." };
   }
   redirect(listUrl(tripId));
+}
+
+/**
+ * The star: the option you lean towards for a city. Only the favorite is
+ * previewed in the itinerary and the map (dashed, "sin reservar"), so starring
+ * one takes the star off the other options for the same city.
+ */
+export async function setAccommodationFavorite(
+  tripId: string,
+  accommodationId: string,
+  favorite: boolean,
+): Promise<OptionActionState> {
+  if (!isUuid(tripId) || !isUuid(accommodationId)) return { error: "Esta opción no existe." };
+
+  const supabase = await createClient();
+  if (favorite) {
+    const { data: option } = await supabase
+      .from("accommodations")
+      .select("trip_stop_id")
+      .eq("id", accommodationId)
+      .eq("trip_id", tripId)
+      .eq("booking_status", "option")
+      .maybeSingle();
+    if (!option) return { error: "Esta opción ya no existe o ya la eligieron." };
+    let others = supabase
+      .from("accommodations")
+      .update({ favorite: false })
+      .eq("trip_id", tripId)
+      .eq("booking_status", "option")
+      .eq("favorite", true)
+      .neq("id", accommodationId);
+    others = option.trip_stop_id ? others.eq("trip_stop_id", option.trip_stop_id) : others.is("trip_stop_id", null);
+    const { error } = await others;
+    if (error) {
+      console.error("setAccommodationFavorite (others) failed", error);
+      return { error: "No pudimos marcarla. Inténtalo de nuevo." };
+    }
+  }
+
+  const { data, error } = await supabase
+    .from("accommodations")
+    .update({ favorite })
+    .eq("id", accommodationId)
+    .eq("trip_id", tripId)
+    .eq("booking_status", "option")
+    .select("id");
+  if (error) {
+    console.error("setAccommodationFavorite failed", error);
+    return { error: "No pudimos marcarla. Inténtalo de nuevo." };
+  }
+  if (data.length === 0) return { error: "No tienes permiso para editar este viaje, o ya la eligieron." };
+  refresh();
+  return {};
 }

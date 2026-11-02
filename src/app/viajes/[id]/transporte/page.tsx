@@ -6,6 +6,7 @@ import { CheckCircle2, Plane, Plus, Scale } from "lucide-react";
 import { LegOptionCard } from "@/components/options/option-cards";
 import { TransportCard } from "@/components/transportations/transport-card";
 import { Button } from "@/components/ui/button";
+import { setTransportationFavorite } from "./actions";
 import { formatDayLabel } from "@/lib/activities/itinerary";
 import { getExchangeRates } from "@/lib/budget/queries";
 import { getTripFiles } from "@/lib/files/queries";
@@ -127,7 +128,7 @@ export default async function TransportationPage({ params, searchParams }: PageP
                 Opciones
               </h2>
               <p className="text-sm text-muted-foreground">
-                Vuelos, trenes o autobuses que están comparando. No cuentan en el itinerario ni en el presupuesto hasta que elijan uno.
+                Vuelos, trenes o autobuses que están comparando. No cuentan en el presupuesto hasta que elijan uno; la favorita (★) de cada ruta se ve en el itinerario y el mapa como “sin reservar”.
               </p>
             </div>
             {editable && (
@@ -151,6 +152,11 @@ export default async function TransportationPage({ params, searchParams }: PageP
                     · {route.legs.length === 1 ? "1 opción" : `${route.legs.length} opciones`}
                   </span>
                 </h3>
+                {editable && !route.legs.some((o) => o.favorite) && (
+                  <p className="-mt-1 text-xs text-muted-foreground">
+                    Marca tu favorita con la estrella para verla en el itinerario y el mapa.
+                  </p>
+                )}
                 {route.legs.map((option) => (
                   <LegOptionCard
                     key={option.id}
@@ -160,6 +166,7 @@ export default async function TransportationPage({ params, searchParams }: PageP
                     highlights={[...(option.id === cheapest ? ["Más barata"] : []), ...(option.id === fastest ? ["Más rápida"] : [])]}
                     fileCount={files.filter((f) => f.transportation_id === option.id).length}
                     editable={editable}
+                    setFavorite={editable ? setTransportationFavorite.bind(null, trip.id, option.id) : undefined}
                   />
                 ))}
               </div>
