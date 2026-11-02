@@ -113,6 +113,30 @@ export async function moveStop(stopId: string, direction: -1 | 1) {
   refresh();
 }
 
+export type ReorderStopsResult = { error?: string };
+
+/**
+ * Saves the order after dragging a city. Gets every stop except the origin, in
+ * the new order; the database refuses a list that doesn't match the trip (a
+ * city added or removed meanwhile) and anyone who can't edit it.
+ */
+export async function reorderStops(tripId: string, stopIds: string[]): Promise<ReorderStopsResult> {
+  if (!isUuid(tripId) || !Array.isArray(stopIds) || stopIds.length === 0 || stopIds.length > 200 || !stopIds.every((id) => typeof id === "string" && isUuid(id))) {
+    return { error: "No pudimos guardar el orden." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("reorder_trip_stops", { p_trip_id: tripId, p_stop_ids: stopIds });
+  refresh();
+  if (error) {
+    console.error("reorderStops failed", error);
+    return {
+      error: error.code === "22023" ? "La ruta cambió mientras ordenabas. Inténtalo de nuevo." : "No pudimos guardar el orden. Inténtalo de nuevo.",
+    };
+  }
+  return {};
+}
+
 /**
  * Remembers the Google place a city resolved to (found by name the first time
  * its photo is shown), so later views skip the text search, the costly call.
