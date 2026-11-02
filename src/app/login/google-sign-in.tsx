@@ -112,6 +112,12 @@ export function GoogleSignIn({ next }: { next: string }) {
         <div
           ref={buttonRef}
           aria-busy={busy}
+          // Google's button is an iframe whose page is light. When the
+          // embedding element's color-scheme differs (dark mode sets
+          // `color-scheme: dark` on <html>), browsers paint an opaque white
+          // backdrop behind the iframe, which showed as a white box around
+          // the pill. Matching it to light keeps the iframe transparent.
+          style={{ colorScheme: "light" }}
           className={gisReady && !busy ? "flex min-h-11 w-full justify-center" : "hidden w-full"}
         />
       )}
