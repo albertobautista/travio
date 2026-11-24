@@ -6,6 +6,7 @@ import { formatTripDates } from "@/lib/trips/dates";
 import { isIsoDate } from "@/lib/trips/trip-form";
 import { zonedTimeToInstant } from "@/lib/zoned-time";
 
+import { isSeatLayout, type SeatLayout } from "./seat-map";
 import { isTransportType, TRANSPORT_META, type TransportType } from "./types";
 
 /**
@@ -36,6 +37,7 @@ export type TransportField =
   | "cost_amount"
   | "cost_currency"
   | "notes"
+  | "seat_layout"
   | "participants";
 
 export type TransportFormValues = Record<Exclude<TransportField, "participants">, string> & {
@@ -71,6 +73,8 @@ export type TransportData = {
   cost_amount: number | null;
   cost_currency: string | null;
   notes: string | null;
+  /** Only flights have a seat map. */
+  seat_layout: SeatLayout | null;
 };
 
 type Context = {
@@ -108,6 +112,7 @@ export function parseTransportForm(
     arrives_date: text(formData, "arrives_date"),
     arrives_time: text(formData, "arrives_time"),
     arrival_detail: text(formData, "arrival_detail"),
+    seat_layout: text(formData, "seat_layout"),
     carrier: text(formData, "carrier"),
     service_number: text(formData, "service_number"),
     booking_status: text(formData, "booking_status") || "planned",
@@ -187,6 +192,7 @@ export function parseTransportForm(
   } else if (participantIds.some((id) => (seats[id]?.length ?? 0) > MAX_SEAT)) {
     errors.participants = "Cada asiento: máximo 20 caracteres.";
   }
+  if (values.seat_layout && !isSeatLayout(values.seat_layout)) errors.seat_layout = "Elige un tipo de cabina de la lista.";
 
   if (Object.keys(errors).length > 0 || !departs || !arrives || !isTransportType(values.type)) {
     return { ok: false, fieldErrors: errors, values };
@@ -218,6 +224,7 @@ export function parseTransportForm(
       cost_amount: cost,
       cost_currency: cost !== null ? values.cost_currency : null,
       notes: values.notes || null,
+      seat_layout: values.type === "flight" && isSeatLayout(values.seat_layout) ? values.seat_layout : null,
     },
   };
 }

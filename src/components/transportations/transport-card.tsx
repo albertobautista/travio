@@ -4,9 +4,12 @@ import { ExternalLink, Pencil } from "lucide-react";
 import { FileRow } from "@/components/files/file-row";
 import { TravelerAvatar, TravelerStack } from "@/components/travelers/traveler-avatar";
 import { Button } from "@/components/ui/button";
+
+import { SeatMap } from "./seat-map";
 import { BOOKING_META, isBookingStatus } from "@/lib/activities/categories";
 import { formatDuration } from "@/lib/activities/schedule";
 import { legMinutes, legTimes } from "@/lib/transportations/legs";
+import { cabinRows, parseSeat, resolveSeatLayout, sameSeat, visibleRows } from "@/lib/transportations/seat-map";
 import { legRoute, transportMeta } from "@/lib/transportations/types";
 import { formatLocalMoment } from "@/lib/zoned-time";
 
@@ -31,6 +34,7 @@ type Props = {
     departure_detail: string | null;
     arrival_detail: string | null;
     notes: string | null;
+    seat_layout?: string | null;
     transportation_participants: { traveler_id: string; seat: string | null }[];
   };
   travelers: Traveler[];
@@ -49,6 +53,13 @@ export function TransportCard({ tripId, leg, travelers, files, editable, eyebrow
   const rows = leg.transportation_participants;
   const people = rows.length > 0 ? rows.flatMap((p) => travelers.find((t) => t.id === p.traveler_id) ?? []) : travelers;
   const seats = rows.filter((p) => p.seat);
+  // Flights draw the rows around everyone's seats, so you see who sits together.
+  const mapped = leg.type === "flight" ? seats.filter((p) => parseSeat(p.seat)) : [];
+  const layout = resolveSeatLayout(leg.seat_layout, mapped.map((p) => p.seat));
+  const cabin = visibleRows(
+    mapped.map((p) => parseSeat(p.seat)!.row),
+    cabinRows(layout, mapped.map((p) => p.seat)),
+  );
   const service = [leg.carrier, leg.service_number].filter(Boolean).join(" · ");
   const titleId = `leg-${leg.id}`;
 
@@ -109,6 +120,22 @@ export function TransportCard({ tripId, leg, travelers, files, editable, eyebrow
             );
           })}
         </ul>
+      )}
+
+      {mapped.length > 0 && (
+        // The chips above already say who sits where; the map is a picture of it.
+        <div aria-hidden="true" className="rounded-xl bg-muted/40 px-3 pt-2 pb-3">
+          <div className="mx-auto max-w-80">
+            <SeatMap
+              layout={layout}
+              rows={cabin}
+              occupant={(seat) => {
+                const row = mapped.find((p) => sameSeat(p.seat, seat));
+                return row ? travelers.find((t) => t.id === row.traveler_id) : undefined;
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {leg.booking_ref && (

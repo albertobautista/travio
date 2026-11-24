@@ -178,6 +178,7 @@ export default async function EditTransportationPage({
             cost_amount: leg.cost_amount === null ? "" : String(leg.cost_amount),
             cost_currency: leg.cost_currency ?? trip.currency,
             notes: leg.notes ?? "",
+            seat_layout: leg.seat_layout ?? "",
             // No rows means everyone: show every traveler checked.
             participants: rows.length > 0 ? rows.map((p) => p.traveler_id) : travelers.map((t) => t.id),
             seats: Object.fromEntries(rows.filter((p) => p.seat).map((p) => [p.traveler_id, p.seat!])),
