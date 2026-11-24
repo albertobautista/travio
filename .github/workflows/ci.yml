@@ -33,7 +33,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # Pinned: "latest" asks the GitHub API which release that is, and an
+          # anonymous rate limit there failed the job (2026-11-24).
+          version: 2.122.1
       # Only the database: applies every migration from scratch, which also
       # checks that they still run in order on an empty project.
       - run: supabase db start
