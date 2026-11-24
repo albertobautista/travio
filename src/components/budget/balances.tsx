@@ -1,6 +1,7 @@
 import { ArrowRight, Scale } from "lucide-react";
 
 import { SettleButton } from "@/components/budget/settle-button";
+import { TransferRow } from "@/components/budget/transfer-row";
 import { TravelerAvatar } from "@/components/travelers/traveler-avatar";
 import { formatDayLabel } from "@/lib/activities/itinerary";
 import { formatMoney, toCents } from "@/lib/budget/money";
@@ -40,6 +41,15 @@ export function Balances({
   const money = (cents: number) => formatMoney(cents, currency);
   const byId = new Map(travelers.map((t) => [t.id, t]));
   const first = (id: string) => byId.get(id)?.name.split(" ")[0] ?? "Alguien";
+  const summary = (t: Transfer) => (
+    <>
+      <span className="font-medium">{first(t.from)}</span>
+      <ArrowRight className="size-3.5 text-muted-foreground" aria-label="le paga a" />
+      <span className="font-medium">{first(t.to)}</span>
+      <span className="font-mono font-semibold">{money(t.amount)}</span>
+      {alsoIn(t.amount) && <span className="font-mono text-xs text-muted-foreground">({alsoIn(t.amount)})</span>}
+    </>
+  );
 
   return (
     <section aria-labelledby="balances" className="flex flex-col gap-3">
@@ -99,24 +109,24 @@ export function Balances({
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {transfers.map((t) => (
-              <li key={`${t.from}-${t.to}`} className="flex items-center gap-2">
-                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-sm">
-                  <span className="font-medium">{first(t.from)}</span>
-                  <ArrowRight className="size-3.5 text-muted-foreground" aria-label="le paga a" />
-                  <span className="font-medium">{first(t.to)}</span>
-                  <span className="font-mono font-semibold">{money(t.amount)}</span>
-                  {alsoIn(t.amount) && <span className="font-mono text-xs text-muted-foreground">({alsoIn(t.amount)})</span>}
-                </span>
-                {editable && (
-                  <SettleButton
-                    kind="settle"
-                    label={`Marcar que ${first(t.from)} le pagó ${money(t.amount)} a ${first(t.to)}`}
-                    action={addSettlement.bind(null, tripId, t.from, t.to, t.amount)}
-                  />
-                )}
-              </li>
-            ))}
+            {transfers.map((t) =>
+              editable ? (
+                <TransferRow
+                  key={`${t.from}-${t.to}`}
+                  amount={t.amount}
+                  currency={currency}
+                  from={first(t.from)}
+                  to={first(t.to)}
+                  settle={addSettlement.bind(null, tripId, t.from, t.to)}
+                >
+                  {summary(t)}
+                </TransferRow>
+              ) : (
+                <li key={`${t.from}-${t.to}`} className="flex flex-wrap items-center gap-x-1.5 text-sm">
+                  {summary(t)}
+                </li>
+              ),
+            )}
           </ul>
         )}
       </div>
@@ -135,7 +145,7 @@ export function Balances({
                   <span className="text-xs text-muted-foreground first-letter:uppercase">{formatDayLabel(s.paid_on)}</span>
                 </span>
                 {editable && (
-                  <SettleButton kind="undo" label="Deshacer este pago" action={deleteSettlement.bind(null, tripId, s.id)} />
+                  <SettleButton label="Deshacer este pago" action={deleteSettlement.bind(null, tripId, s.id)} />
                 )}
               </li>
             ))}
