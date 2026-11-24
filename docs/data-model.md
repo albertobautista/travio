@@ -237,6 +237,8 @@ Check-in/check-out appear in the itinerary as **derived events** (a query/view),
 
 **Implemented (2026-09-29)**: as above, plus a 90-day limit and `transportation_participants.seat`. `set_transportation_participants(id, [{traveler_id, seat}])` stores "everyone" as no rows only when nobody has a seat (seats need rows). Origin/destination stay free text; the form's city shortcuts fill in a stop's name and zone. Legs count in the itinerary's overlap check, and `files.transportation_id` completes `files_single_parent`.
 
+**Seat map (2026-11-24)**: flights get a generic cabin drawing to tap seats on (form) and to see who sits where (cards, Hoy). `transportations.seat_layout` is one of `2-2`, `3-3`, `2-4-2`, `3-3-3`, `3-4-3` (seats per row between aisles, no airline/aircraft data), null until chosen; then the app guesses from the saved seat letters (`src/lib/transportations/seat-map.ts`). Seats are still `transportation_participants.seat` text, so trains/buses keep typing them and a seat the layout doesn't draw is still listed.
+
 ### Participation
 
 `activity_participants`, `accommodation_participants`, `transportation_participants`: `(parent_id, traveler_id)` primary key, both same-trip FKs with cascade.

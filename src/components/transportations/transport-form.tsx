@@ -6,6 +6,7 @@ import { Clock } from "lucide-react";
 
 import { Field, selectClass } from "@/components/form-field";
 import { TimeZoneField } from "@/components/time-zone-field";
+import { SeatPicker } from "@/components/transportations/seat-picker";
 import { ParticipantsField } from "@/components/travelers/participants-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RESERVATION_LABELS, RESERVATION_STATUSES } from "@/lib/activities/categories";
 import { formatDuration } from "@/lib/activities/schedule";
 import { guessTimeZone, type TimeZoneOption } from "@/lib/time-zones";
+import { isSeatLayout, resolveSeatLayout, type SeatLayout } from "@/lib/transportations/seat-map";
 import type { TransportField, TransportFormState, TransportFormValues } from "@/lib/transportations/transport-form";
 import { TRANSPORT_META, TRANSPORT_TYPES, transportMeta } from "@/lib/transportations/types";
 import { CURRENCIES } from "@/lib/trips/currencies";
@@ -63,6 +65,11 @@ export function TransportForm({
   const [arrivesDate, setArrivesDate] = useState(values.arrives_date);
   const [arrivesTime, setArrivesTime] = useState(values.arrives_time);
   const [participants, setParticipants] = useState(() => new Set(values.participants));
+  const [seats, setSeats] = useState(values.seats);
+  // A layout is only saved once someone chose one or tapped a seat on the map;
+  // until then it is the guess from the letters already typed.
+  const [layout, setLayout] = useState<SeatLayout | null>(isSeatLayout(values.seat_layout) ? values.seat_layout : null);
+  const shownLayout = layout ?? resolveSeatLayout(null, Object.values(seats));
   const meta = transportMeta(type);
   const zones = new Set(timeZones.map((z) => z.id));
 
@@ -298,6 +305,22 @@ export function TransportForm({
           <legend className="mb-1 text-sm font-medium">
             Asientos <span className="font-normal text-muted-foreground">(opcional)</span>
           </legend>
+          {type === "flight" && (
+            <>
+              <p className="text-sm text-muted-foreground">Toca un asiento en el plano o escríbelo abajo.</p>
+              <SeatPicker
+                travelers={travelers.filter((t) => participants.has(t.id))}
+                seats={seats}
+                onSeatsChange={(next) => {
+                  setSeats(next);
+                  setLayout(shownLayout);
+                }}
+                layout={shownLayout}
+                onLayoutChange={setLayout}
+              />
+              <input type="hidden" name="seat_layout" value={layout ?? ""} />
+            </>
+          )}
           <div className="grid grid-cols-2 gap-3">
             {travelers
               .filter((t) => participants.has(t.id))
@@ -310,13 +333,15 @@ export function TransportForm({
                     id={`seat_${t.id}`}
                     name={`seat_${t.id}`}
                     maxLength={20}
-                    placeholder="14A"
-                    defaultValue={values.seats[t.id] ?? ""}
+                    placeholder={type === "train" ? "Coche 7, 42" : "14A"}
+                    value={seats[t.id] ?? ""}
+                    onChange={(e) => setSeats({ ...seats, [t.id]: e.target.value })}
                     className="h-11 font-mono"
                   />
                 </div>
               ))}
           </div>
+          {errors.seat_layout && <p className="text-sm text-destructive">{errors.seat_layout}</p>}
         </fieldset>
       )}
 

@@ -64,6 +64,7 @@ export default async function NewTransportationPage({ params, searchParams }: Pa
             cost_amount: "",
             cost_currency: trip.currency,
             notes: "",
+            seat_layout: "",
             // Everyone by default, no seats.
             participants: travelers.map((t) => t.id),
             seats: {},

@@ -232,6 +232,8 @@ Data: origin, destination, departure date/time, arrival date/time, carrier/opera
 
 Appears automatically in the itinerary.
 
+**Seat map (decided 2026-11-24):** flights show a generic cabin (2-2, 3-3, 2-4-2, 3-3-3, 3-4-3; no airline data) to tap each traveler's seat and to see who sits where. Layout in `transportations.seat_layout`; seats stay per traveler in `transportation_participants.seat`.
+
 ## 13. Saved places
 
 Save interesting places before deciding whether they belong in the itinerary: restaurants, cafés, attractions, museums, viewpoints, shops, recommendations.
